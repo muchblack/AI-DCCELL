@@ -99,5 +99,4 @@ AI-DCCELL/
 
 - [DG 細胞理論藍圖](docs/DG%20細胞理論%20—%20AI%20工作流自進化升級藍圖.md) — 設計文件
 - [DG 細胞理論實作紀錄](docs/DG%20細胞理論實作紀錄.md) — 三大模組開發過程
-- [MCP AI Bridge](https://github.com/muchblack/mcp-ai-bridge) — 多 AI Provider 橋接層
 - [Claude Code Bridge (CCB)](https://github.com/bfly123/claude_code_bridge) — 多 AI 協作通訊基礎設施
