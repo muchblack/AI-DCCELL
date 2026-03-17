@@ -1,0 +1,4 @@
+{"timestamp": "2026-03-17T09:29:53Z", "skill": "dev", "provider": "ollama", "duration_ms": 3500, "result": "ok", "fallback": false}
+{"timestamp": "2026-03-17T09:29:53Z", "skill": "mlx-code", "provider": "mlx", "duration_ms": 1200, "result": "passable", "fallback": true}
+{"timestamp": "2026-03-17T09:29:53Z", "skill": "ollama-code", "provider": "ollama", "duration_ms": 0, "result": "error", "fallback": false, "error": "unreachable"}
+{"timestamp": "2026-03-17T09:32:33Z", "skill": "dev", "provider": "mlx", "duration_ms": 2500, "result": "ok", "fallback": false}

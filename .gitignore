@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Claude Code 本地狀態
+.ccb/
+.claude/settings.local.json
+
+# Gemini 本地設定
+.gemini/
+
+# 執行時資料（不版控，每台機器不同）
+logs/
+data/
+
+# Telemetry / Corrections（運行時產生）
+skills/memory/telemetry.jsonl
+skills/memory/corrections.jsonl
