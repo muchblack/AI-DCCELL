@@ -99,3 +99,4 @@ AI-DCCELL/
 
 - [DG 細胞理論藍圖](docs/) — 設計文件
 - [MCP AI Bridge](https://github.com/muchblack/mcp-ai-bridge) — 多 AI Provider 橋接層
+- [Claude Code Bridge (CCB)](https://github.com/bfly123/claude_code_bridge) — 多 AI 協作通訊基礎設施
