@@ -36,6 +36,7 @@ $OBSIDIAN_VAULT/myWiki/20-領域/工作日誌/YYYY/<專案名稱>/YYYY-MM-DD.md
 
 ```markdown
 ## HH:MM — 手動記錄
+
 <內容>
 ```
 
@@ -50,7 +51,7 @@ $OBSIDIAN_VAULT/myWiki/20-領域/工作日誌/YYYY/<專案名稱>/YYYY-MM-DD.md
 
 ```markdown
 | 日期 | 專案 | commit 數 | 摘要 |
-|------|------|----------|------|
+| ---- | ---- | --------- | ---- |
 ```
 
 ## 日誌檔案格式
@@ -64,6 +65,7 @@ type: worklog
 # YYYY-MM-DD 工作日誌
 
 ## HH:MM — 手動記錄
+
 自由文字內容（由 /worklog add 寫入）
 ```
 

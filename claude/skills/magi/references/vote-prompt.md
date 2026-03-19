@@ -110,11 +110,13 @@ The orchestrator (Claude) parses responses in this order:
 ## Session Header Contract
 
 ### Request Header
+
 ```
 [MAGI_VOTE_REQ session_id=magi-20260318-112345]
 ```
 
 ### Response Header (injected by ccb-completion-hook)
+
 ```
 [MAGI_VOTE_RESULT session_id=magi-20260318-112345 provider=codex]
 ```

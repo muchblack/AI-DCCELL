@@ -24,7 +24,7 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
   2. **Simplify**：用淺顯易懂的語言解釋問題（假設使用者 20 分鐘沒看螢幕）
   3. **Recommend**：`建議選 [X]，因為 [原因]`
   4. **Options**：A) B) C) 明確選項，每個選項附一句說明
-  One question per decision — never batch multiple decisions into one question.
+     One question per decision — never batch multiple decisions into one question.
 - **Token Awareness**: Before starting development, assess remaining token budget and let the user decide whether to continue.
 - **PHP/Laravel**: When handling PHP-Laravel code, invoke the `laravel-simplifier` agent to assist.
 - **Delegation**: When facing the Emperor's questions, invoke relevant agents or skills so each performs their specialty.
@@ -83,6 +83,7 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 ## Podman Development Environment
 
 ### Architecture
+
 - **PHP-FPM container** (`php-fpm`): PHP 8.4 + Composer only. No AI tools, no Node.js.
 - **Nginx container** (`nginx`): Reverse proxy, connects to PHP-FPM via Unix socket.
 - **MariaDB container** (`mariadb`): Dev database, port 3306.
@@ -93,40 +94,46 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 ### PHP Command Execution (MANDATORY: via podman exec)
 
 Host does NOT have PHP/Composer installed. ALL PHP commands MUST use:
+
 ```
 podman exec -w /var/www/html/php/{project_path} php-fpm {command}
 ```
 
 **Path mapping**: Host `/Users/vincenttseng/code/php/` → Container `/var/www/html/php/`
 
-| Task | Command |
-|------|---------|
-| Artisan | `podman exec -w /var/www/html/php/{project} php-fpm php artisan {cmd}` |
-| Composer | `podman exec -w /var/www/html/php/{project} php-fpm composer {cmd}` |
-| Test | `podman exec -w /var/www/html/php/{project} php-fpm php artisan test` |
-| Tinker | `podman exec -it -w /var/www/html/php/{project} php-fpm php artisan tinker` |
+| Task     | Command                                                                     |
+| -------- | --------------------------------------------------------------------------- |
+| Artisan  | `podman exec -w /var/www/html/php/{project} php-fpm php artisan {cmd}`      |
+| Composer | `podman exec -w /var/www/html/php/{project} php-fpm composer {cmd}`         |
+| Test     | `podman exec -w /var/www/html/php/{project} php-fpm php artisan test`       |
+| Tinker   | `podman exec -it -w /var/www/html/php/{project} php-fpm php artisan tinker` |
 
 ### Node.js Commands (Host Direct)
 
 npm/yarn run directly on host. No podman exec needed:
+
 ```
 cd /Users/vincenttseng/code/php/{project} && npm {command}
 ```
 
 ### Container Management
+
 - Start: `cd ~/podman && podman-compose up -d`
 - Stop: `cd ~/podman && podman-compose down`
 - Rebuild: `cd ~/podman && podman-compose up -d --build`
 - Stats: `podman stats --no-stream`
 
 ### MariaDB
+
 - Host connection: 127.0.0.1:3306, root/1qaz@WSX
 - Container connection: mariadb:3306 (use DB_HOST=mariadb in Laravel .env)
 - DB_CONNECTION=mariadb (Laravel 11+, NOT mysql)
 - Backup: `podman exec mariadb mariadb-dump -u root -p'1qaz@WSX' --all-databases`
 
 <!-- CCB_CONFIG_START -->
+
 ## AI Collaboration
+
 Use `/ask <provider>` to consult other AI assistants (codex/gemini/opencode/droid).
 Use `/cping <provider>` to check connectivity.
 Use `/pend <provider>` to view latest replies.
@@ -136,6 +143,7 @@ Providers: `codex`, `gemini`, `opencode`, `droid`, `claude`
 ## Async Guardrail (MANDATORY)
 
 When you run `ask` (via `/ask` skill OR direct `Bash(ask ...)`) and the output contains `[CCB_ASYNC_SUBMITTED`:
+
 1. Reply with exactly one line: `<Provider> processing...` (use actual provider name, e.g. `Codex processing...`)
 2. **END YOUR TURN IMMEDIATELY** — do not call any more tools
 3. Do NOT poll, sleep, call `pend`, check logs, or add follow-up text
@@ -144,25 +152,29 @@ When you run `ask` (via `/ask` skill OR direct `Bash(ask ...)`) and the output c
 This rule applies unconditionally. Violating it causes duplicate requests and wasted resources.
 
 <!-- CCB_ROLES_START -->
+
 ## Role Assignment
 
 Abstract roles map to concrete AI providers. Skills reference roles, not providers directly.
 
-| Role | Provider | Description |
-|------|----------|-------------|
-| `designer` | `claude` | Primary planner and architect — owns plans and designs |
+| Role          | Provider | Description                                                                                  |
+| ------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `designer`    | `claude` | Primary planner and architect — owns plans and designs                                       |
 | `inspiration` | `gemini` | Creative brainstorming — provides ideas as reference only (unreliable, never blindly follow) |
-| `reviewer` | `codex` | Scored quality gate — evaluates plans/code using Rubrics |
-| `executor` | `claude` | Code implementation — writes and modifies code |
+| `reviewer`    | `codex`  | Scored quality gate — evaluates plans/code using Rubrics                                     |
+| `executor`    | `claude` | Code implementation — writes and modifies code                                               |
 
 To change a role assignment, edit the Provider column above.
 When a skill references a role (e.g. `reviewer`), resolve it to the provider listed here (e.g. `/ask codex`).
+
 <!-- CCB_ROLES_END -->
 
 <!-- CODEX_REVIEW_START -->
+
 ## Peer Review Framework
 
 The `designer` MUST send to `reviewer` (via `/ask`) at two checkpoints:
+
 1. **Plan Review** — after finalizing a plan, BEFORE writing code. Tag: `[PLAN REVIEW REQUEST]`.
 2. **Code Review** — after completing code changes, BEFORE reporting done. Tag: `[CODE REVIEW REQUEST]`.
 
@@ -172,13 +184,16 @@ The `reviewer` scores using Rubrics defined in `AGENTS.md` and returns JSON.
 **Pass criteria**: overall >= 7.0 AND no single dimension <= 3.
 **On fail**: fix issues from response, re-submit (max 3 rounds). After 3 failures, present results to user.
 **On pass**: display final scores as a summary table.
+
 <!-- CODEX_REVIEW_END -->
 
 <!-- GEMINI_INSPIRATION_START -->
+
 ## Inspiration Consultation
 
 For creative tasks (UI/UX design, copywriting, naming, brainstorming), the `designer` SHOULD consult `inspiration` (via `/ask`) for reference ideas.
 The `inspiration` provider is often unreliable — never blindly follow. Exercise independent judgment and present suggestions to the user for decision.
+
 <!-- GEMINI_INSPIRATION_END -->
 
 <!-- CCB_CONFIG_END -->

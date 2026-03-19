@@ -20,12 +20,12 @@ $ARGUMENTS = [database] [table] [--sql 'raw query']
 
 ### Step 1: 解析引數
 
-| 引數 | 行為 |
-|------|------|
-| 無引數 | 列出所有資料庫 |
-| `<database>` | 列出該 DB 所有表 |
+| 引數                 | 行為                      |
+| -------------------- | ------------------------- |
+| 無引數               | 列出所有資料庫            |
+| `<database>`         | 列出該 DB 所有表          |
 | `<database> <table>` | 顯示表結構（欄位 + 索引） |
-| `--sql '<query>'` | 執行唯讀 SQL |
+| `--sql '<query>'`    | 執行唯讀 SQL              |
 
 - 從 `$ARGUMENTS` 中先提取 `--sql '...'` 旗標（若存在）
 - 剩餘引數依序為 database、table
@@ -45,21 +45,25 @@ INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE, CREATE, RENAME, REPLACE, GRANT, R
 根據模式組合指令：
 
 **列出所有資料庫：**
+
 ```bash
 podman exec mariadb mariadb -h localhost -u root -p'1qaz@WSX' -e "SHOW DATABASES"
 ```
 
 **列出指定 DB 的表：**
+
 ```bash
 podman exec mariadb mariadb -h localhost -u root -p'1qaz@WSX' <database> -e "SHOW TABLES"
 ```
 
 **查看表結構：**
+
 ```bash
 podman exec mariadb mariadb -h localhost -u root -p'1qaz@WSX' <database> -e "DESCRIBE <table>; SHOW INDEX FROM <table>"
 ```
 
 **執行唯讀 SQL：**
+
 ```bash
 podman exec mariadb mariadb -h localhost -u root -p'1qaz@WSX' --safe-updates -e "<sql>"
 ```
@@ -84,10 +88,10 @@ podman exec mariadb mariadb -h localhost -u root -p'1qaz@WSX' --safe-updates -e 
 
 ## Error Handling
 
-| 錯誤情境 | 處理方式 |
-|----------|---------|
+| 錯誤情境          | 處理方式                     |
+| ----------------- | ---------------------------- |
 | Podman 容器未啟動 | 提示：`podman-compose up -d` |
-| 資料庫不存在 | 列出可用資料庫 |
-| 表不存在 | 列出該 DB 的可用表 |
-| SQL 語法錯誤 | 顯示 MariaDB 錯誤訊息 |
-| 含寫入操作的 SQL | 拒絕執行，顯示警告 |
+| 資料庫不存在      | 列出可用資料庫               |
+| 表不存在          | 列出該 DB 的可用表           |
+| SQL 語法錯誤      | 顯示 MariaDB 錯誤訊息        |
+| 含寫入操作的 SQL  | 拒絕執行，顯示警告           |

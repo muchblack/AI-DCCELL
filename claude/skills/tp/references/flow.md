@@ -18,6 +18,7 @@ Create executable plan artifacts: `.ccb/todo.md` + `.ccb/state.json` + `.ccb/pla
 ## Execution Flow
 
 ### 1. Initialize
+
 - Get requirement from `$ARGUMENTS`
 - Analyze project: tech stack, key files, background
 - If requirement involves unfamiliar technologies/APIs/libraries, use WebSearch/WebFetch to review official docs + best practices before finalizing the plan
@@ -31,12 +32,14 @@ Invoke the `/all-plan` skill with the requirement:
 ```
 
 The `/all-plan` skill provides a complete collaborative design flow including:
+
 1. Requirement clarification
 2. Inspiration consultation (if applicable)
 3. Designer planning
 4. Reviewer scoring
 
 Extract from the `/all-plan` output:
+
 - **goal**: the task objective
 - **nonGoals**: what NOT to do
 - **steps**: ordered list of step titles
@@ -81,6 +84,7 @@ Evaluate whether this plan is architecturally sound, risk-appropriate, and compl
 #### 2.5.2 Async Boundary
 
 /magi internally:
+
 1. Claude evaluates as MELCHIOR-1 (sync)
 2. Sends /ask codex (BALTHASAR-2) + /ask gemini (CASPER-3)
 3. **END TURN** - mandatory async guardrail
@@ -89,12 +93,12 @@ Wait for vote completion (hook-driven). Resume when all votes collected.
 
 #### 2.5.3 Handle MAGI Result
 
-| Result | Action |
-|--------|--------|
-| **SYNCHRONIZED** (all approve) | Proceed to Step 3 (User Confirmation) with consensus summary |
-| **PATTERN_BLUE** (any veto) | Show veto reasoning. Revise plan addressing veto concerns, then re-run /magi (max 1 retry). If still vetoed, escalate to user with full vote details. |
-| **DISSENT_DETECTED** (mixed, no veto) | Show all votes to user. User decides: adopt majority, choose specific system view, or revise. |
-| **INCONCLUSIVE** (abstains) | Show available votes. Proceed to Step 3 with reduced confidence note. |
+| Result                                | Action                                                                                                                                                |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **SYNCHRONIZED** (all approve)        | Proceed to Step 3 (User Confirmation) with consensus summary                                                                                          |
+| **PATTERN_BLUE** (any veto)           | Show veto reasoning. Revise plan addressing veto concerns, then re-run /magi (max 1 retry). If still vetoed, escalate to user with full vote details. |
+| **DISSENT_DETECTED** (mixed, no veto) | Show all votes to user. User decides: adopt majority, choose specific system view, or revise.                                                         |
+| **INCONCLUSIVE** (abstains)           | Show available votes. Proceed to Step 3 with reduced confidence note.                                                                                 |
 
 #### 2.5.4 Display Consensus Summary
 
@@ -148,16 +152,35 @@ Call:
       "op": "autoflow_plan_init",
       "plan": {
         "taskName": "<Task Name>",
-        "objective": { "goal": "<goal>", "nonGoals": "<non-goals>", "doneWhen": "<one-line summary>" },
-        "context": { "repoType": "<type>", "keyFiles": ["<path>"], "background": "<why>" },
+        "objective": {
+          "goal": "<goal>",
+          "nonGoals": "<non-goals>",
+          "doneWhen": "<one-line summary>"
+        },
+        "context": {
+          "repoType": "<type>",
+          "keyFiles": ["<path>"],
+          "background": "<why>"
+        },
         "constraints": ["<constraint>"],
-        "steps": [{"title": "S1 title", "critical": false}, {"title": "S2 title", "critical": true}],
+        "steps": [
+          { "title": "S1 title", "critical": false },
+          { "title": "S2 title", "critical": true }
+        ],
         "finalDone": ["criterion 1", "criterion 2"]
       }
     },
-    { "op": "run", "cmd": "bash ~/.claude/skills/tr/scripts/autoloop.sh start", "cwd": "." }
+    {
+      "op": "run",
+      "cmd": "bash ~/.claude/skills/tr/scripts/autoloop.sh start",
+      "cwd": "."
+    }
   ],
-  "report": { "changedFiles": true, "diffSummary": true, "commandOutputs": "never" }
+  "report": {
+    "changedFiles": true,
+    "diffSummary": true,
+    "commandOutputs": "never"
+  }
 }
 ```
 

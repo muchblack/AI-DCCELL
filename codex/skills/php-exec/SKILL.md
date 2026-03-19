@@ -14,7 +14,8 @@ via `podman exec`, bridging host Claude Code to containerized PHP runtime.
 ## When to Use
 
 Automatically trigger when the task requires:
-- `php artisan` commands (migrate, tinker, make:*, queue, schedule)
+
+- `php artisan` commands (migrate, tinker, make:\*, queue, schedule)
 - `composer` commands (install, require, update, dump-autoload)
 - `phpunit` / `php artisan test` / Pest
 - Any PHP script execution
@@ -30,11 +31,13 @@ Automatically trigger when the task requires:
 ## Execution Pattern
 
 PHP commands via container:
+
 ```bash
 podman exec -w /var/www/html/php/<path-to-project> php-fpm <command>
 ```
 
 Node.js commands directly on host:
+
 ```bash
 cd /Users/vincenttseng/code/php/<path-to-project> && npm <command>
 ```
@@ -43,22 +46,22 @@ cd /Users/vincenttseng/code/php/<path-to-project> && npm <command>
 
 ### PHP (Container via podman exec)
 
-| Task | Command |
-|------|---------|
-| Artisan | `podman exec -w /var/www/html/php/{project} php-fpm php artisan {cmd}` |
-| Composer Install | `podman exec -w /var/www/html/php/{project} php-fpm composer install` |
-| Composer Require | `podman exec -w /var/www/html/php/{project} php-fpm composer require {pkg}` |
-| Run Tests | `podman exec -w /var/www/html/php/{project} php-fpm php artisan test` |
-| Tinker | `podman exec -it -w /var/www/html/php/{project} php-fpm php artisan tinker` |
-| Fresh Migrate | `podman exec -w /var/www/html/php/{project} php-fpm php artisan migrate:fresh --seed` |
+| Task             | Command                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| Artisan          | `podman exec -w /var/www/html/php/{project} php-fpm php artisan {cmd}`                |
+| Composer Install | `podman exec -w /var/www/html/php/{project} php-fpm composer install`                 |
+| Composer Require | `podman exec -w /var/www/html/php/{project} php-fpm composer require {pkg}`           |
+| Run Tests        | `podman exec -w /var/www/html/php/{project} php-fpm php artisan test`                 |
+| Tinker           | `podman exec -it -w /var/www/html/php/{project} php-fpm php artisan tinker`           |
+| Fresh Migrate    | `podman exec -w /var/www/html/php/{project} php-fpm php artisan migrate:fresh --seed` |
 
 ### Node.js (Host Direct)
 
-| Task | Command |
-|------|---------|
-| NPM Install | `cd ~/code/php/{project} && npm install` |
-| Vite Dev | `cd ~/code/php/{project} && npm run dev` |
-| Vite Build | `cd ~/code/php/{project} && npm run build` |
+| Task        | Command                                    |
+| ----------- | ------------------------------------------ |
+| NPM Install | `cd ~/code/php/{project} && npm install`   |
+| Vite Dev    | `cd ~/code/php/{project} && npm run dev`   |
+| Vite Build  | `cd ~/code/php/{project} && npm run build` |
 
 ## Path Mapping
 

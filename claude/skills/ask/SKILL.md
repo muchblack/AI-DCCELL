@@ -12,6 +12,7 @@ Send the user's request to specified AI provider asynchronously.
 ## Usage
 
 The first argument must be the provider name, followed by the message:
+
 - `gemini` - Send to Gemini
 - `codex` - Send to Codex
 - `opencode` - Send to OpenCode
@@ -37,4 +38,3 @@ Bash(CCB_CALLER=claude ask $PROVIDER "$MESSAGE")
 - `/ask codex Refactor this code`
 - `/ask opencode Analyze this bug`
 - `/ask droid Execute this task`
-

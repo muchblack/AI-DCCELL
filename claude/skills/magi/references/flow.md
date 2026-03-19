@@ -3,6 +3,7 @@
 Three-system consensus voting with veto power. Inspired by Evangelion MAGI supercomputer.
 
 **Roles** (resolve via CLAUDE.md Role Assignment):
+
 - MELCHIOR-1 (Scientist) → `claude` — analytical, technical quality, logic
 - BALTHASAR-2 (Mother) → `codex` — protective, risk-averse, backward compatibility
 - CASPER-3 (Woman) → `gemini` — creative, user experience, intuitive
@@ -12,6 +13,7 @@ Three-system consensus voting with veto power. Inspired by Evangelion MAGI super
 ## Input Parameters
 
 From `$ARGUMENTS`:
+
 - `proposal`: The decision or artifact to evaluate (plan, code diff, design choice, etc.)
 - `context`: Optional background context
 
@@ -53,7 +55,13 @@ Write `.ccb/magi_state.json` with:
   "proposal_hash": "<sha256 first 8 chars>",
   "created_at": "<ISO timestamp>",
   "sync_window_seconds": 120,
-  "melchior_vote": { "system": "MELCHIOR-1", "vote": "APPROVE", "risk_mass": 0.3, "reasoning": "...", "conditions": [] },
+  "melchior_vote": {
+    "system": "MELCHIOR-1",
+    "vote": "APPROVE",
+    "risk_mass": 0.3,
+    "reasoning": "...",
+    "conditions": []
+  },
   "received_votes": [],
   "pending_tasks": {},
   "expected_providers": ["codex", "gemini"]
@@ -100,6 +108,7 @@ update `magi_state.json`:
 **2.3 Async Guardrail Compliance**
 
 After sending both /ask calls:
+
 1. Output: `MAGI 投票已送出。等待 BALTHASAR-2 和 CASPER-3 回覆...`
 2. **END TURN** — mandatory, do not poll or wait
 
@@ -111,6 +120,7 @@ The existing `ccb-completion-hook` automatically sends provider responses back t
 Claude's terminal pane when providers complete. **No hook modification needed.**
 
 The hook injects text in this format:
+
 ```
 CCB_REQ_ID: <task_id>
 
@@ -145,6 +155,7 @@ Parse the `Result:` content from the hook-injected message:
 **3.3 Completeness Check**
 
 After parsing each vote:
+
 - Update `magi_state.json`: add vote to `received_votes`, remove from `pending_tasks`
 - If all expected votes received → proceed to Phase 4
 - If partial votes received → inform user: `已收到 N/2 票。等待剩餘投票...`
@@ -230,9 +241,30 @@ Append to `.ccb/apocrypha.jsonl` (one JSON object per line):
   "proposal_hash": "<sha256 first 8 chars>",
   "proposal_summary": "<first 100 chars of proposal>",
   "votes": [
-    { "system": "MELCHIOR-1", "provider": "claude", "vote": "APPROVE", "risk_mass": 0.3, "reasoning": "...", "conditions": [] },
-    { "system": "BALTHASAR-2", "provider": "codex", "vote": "APPROVE", "risk_mass": 0.4, "reasoning": "...", "conditions": [] },
-    { "system": "CASPER-3", "provider": "gemini", "vote": "VETO", "risk_mass": 0.8, "reasoning": "...", "conditions": [] }
+    {
+      "system": "MELCHIOR-1",
+      "provider": "claude",
+      "vote": "APPROVE",
+      "risk_mass": 0.3,
+      "reasoning": "...",
+      "conditions": []
+    },
+    {
+      "system": "BALTHASAR-2",
+      "provider": "codex",
+      "vote": "APPROVE",
+      "risk_mass": 0.4,
+      "reasoning": "...",
+      "conditions": []
+    },
+    {
+      "system": "CASPER-3",
+      "provider": "gemini",
+      "vote": "VETO",
+      "risk_mass": 0.8,
+      "reasoning": "...",
+      "conditions": []
+    }
   ],
   "consensus_result": "PATTERN_BLUE",
   "degraded": false,

@@ -147,6 +147,7 @@ Claude reviews MLX's five-layer analysis using the following four-dimensional fr
 **Decision and action**:
 
 - **All four dimensions ✅** → Adopt MLX result directly, integrate into Step 3 decision output
+
   ```
   [TASTE REVIEW PASSED] Four-dimensional quality confirmed
   - Data Structure Instinct: ✅
@@ -157,6 +158,7 @@ Claude reviews MLX's five-layer analysis using the following four-dimensional fr
   ```
 
 - **Any dimension ⚠️** → Claude supplements directly (no MLX resend, efficiency first)
+
   ```
   [TASTE REVIEW PASSED (with corrections)]
   - [List each dimension's rating]
@@ -176,6 +178,7 @@ Claude reviews MLX's five-layer analysis using the following four-dimensional fr
 #### 2d. Gemini Spot-Check (Major Decisions Only)
 
 Trigger when ANY of these conditions are met:
+
 - MLX core verdict is "✅ Worth doing" AND involves complex features (expected to enter `/all-plan`)
 - Claude review has any dimension at ⚠️
 
@@ -186,6 +189,7 @@ Bash(CCB_CALLER=claude ask gemini "The following is a conclusion from a Linus-st
 Follow **Async Guardrail**: if output contains `[CCB_ASYNC_SUBMITTED`, end turn immediately. When Gemini result arrives (via hook or `/pend gemini`), continue with opinion handling below.
 
 **Gemini opinion handling rules**:
+
 - Gemini opinion is reference only, no veto power
 - If Gemini and Claude agree → Increased confidence, proceed to Step 3
 - If Gemini raises valuable new perspectives → Claude integrates into conclusion
@@ -238,13 +242,13 @@ If not worth doing:
 
 After analysis, guide to appropriate workflow based on verdict:
 
-| Verdict | Recommended Next | Description |
-|---------|------------------|-------------|
-| ✅ Worth doing + Complex feature | `/tp` or `/all-plan` | Enter collaborative task planning with inspiration + reviewer scoring |
-| ✅ Worth doing + Simple change | Direct implementation | No additional planning needed |
-| ✅ Worth doing + Laravel related | Invoke `laravel-simplifier` agent | PHP/Laravel code handled by specialist agent |
-| ✅ Worth doing + Frontend UI | Invoke `frontend-developer` or `pragmatic-ui-architect` agent | Visual iteration or component architecture |
-| ❌ Not worth doing | Report reasoning to user | Explain what the real problem is |
+| Verdict                          | Recommended Next                                              | Description                                                           |
+| -------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| ✅ Worth doing + Complex feature | `/tp` or `/all-plan`                                          | Enter collaborative task planning with inspiration + reviewer scoring |
+| ✅ Worth doing + Simple change   | Direct implementation                                         | No additional planning needed                                         |
+| ✅ Worth doing + Laravel related | Invoke `laravel-simplifier` agent                             | PHP/Laravel code handled by specialist agent                          |
+| ✅ Worth doing + Frontend UI     | Invoke `frontend-developer` or `pragmatic-ui-architect` agent | Visual iteration or component architecture                            |
+| ❌ Not worth doing               | Report reasoning to user                                      | Explain what the real problem is                                      |
 
 ### Related Skills Quick Reference
 

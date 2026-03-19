@@ -55,15 +55,16 @@ $ARGUMENTS = [ssh-host:repo-path] [target-path]
 2. **父目錄驗證**：確認最終路徑的父目錄存在
 3. **衝突檢查**：確認最終 clone 目標路徑不存在
 
-| 檢查項 | 失敗處理 |
-|--------|---------|
-| SSH host 不存在 | 列出所有可用 SSH hosts，中止 |
-| 父目錄不存在 | 報錯：「父目錄 `{parent}` 不存在」，中止 |
-| 目標路徑已存在 | 報錯：「`{target}` 已存在」，中止 |
+| 檢查項          | 失敗處理                                 |
+| --------------- | ---------------------------------------- |
+| SSH host 不存在 | 列出所有可用 SSH hosts，中止             |
+| 父目錄不存在    | 報錯：「父目錄 `{parent}` 不存在」，中止 |
+| 目標路徑已存在  | 報錯：「`{target}` 已存在」，中止        |
 
 ### Step 4: 確認並執行
 
 1. 組合完整 clone 命令：
+
    ```
    git clone <ssh-host>:<repo-path> <final-target-path>
    ```
@@ -75,6 +76,7 @@ $ARGUMENTS = [ssh-host:repo-path] [target-path]
 ### Step 5: 報告結果
 
 成功後報告：
+
 ```
 已將 <ssh-host>:<repo-path> clone 至 <final-target-path>
 ```
@@ -92,9 +94,9 @@ $ARGUMENTS = [ssh-host:repo-path] [target-path]
 
 ## Error Handling
 
-| 錯誤情境 | 處理方式 |
-|----------|---------|
+| 錯誤情境        | 處理方式             |
+| --------------- | -------------------- |
 | SSH host 不存在 | 列出可用 hosts，中止 |
-| 父目錄不存在 | 報錯中止 |
-| 目標路徑已存在 | 報錯中止 |
-| clone 失敗 | 顯示 git 錯誤訊息 |
+| 父目錄不存在    | 報錯中止             |
+| 目標路徑已存在  | 報錯中止             |
+| clone 失敗      | 顯示 git 錯誤訊息    |
