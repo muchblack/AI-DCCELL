@@ -180,10 +180,10 @@ Trigger when ANY of these conditions are met:
 - Claude review has any dimension at ⚠️
 
 ```
-mcp__mcp-ai-bridge__gemini_chat(
-  message: "The following is a conclusion from a Linus-style five-layer technical analysis. Please independently judge whether this conclusion is reasonable and point out anything you find problematic:\n\n{core verdict + key insights summary}"
-)
+Bash(CCB_CALLER=claude ask gemini "The following is a conclusion from a Linus-style five-layer technical analysis. Please independently judge whether this conclusion is reasonable and point out anything you find problematic:\n\n{core verdict + key insights summary}")
 ```
+
+Follow **Async Guardrail**: if output contains `[CCB_ASYNC_SUBMITTED`, end turn immediately. When Gemini result arrives (via hook or `/pend gemini`), continue with opinion handling below.
 
 **Gemini opinion handling rules**:
 - Gemini opinion is reference only, no veto power

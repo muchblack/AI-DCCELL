@@ -1,12 +1,11 @@
 # All Plan (Claude Version)
 
 Planning skill using abstract roles defined in CLAUDE.md Role Assignment table.
-Phase 3 (plan drafting) delegated to local MLX (Qwen3-14B), with Claude quality review before submission to `reviewer`.
 
 **Usage**: For complex features or architectural decisions requiring thorough planning.
 
 **Roles used by this skill** (resolve to providers via CLAUDE.md `CCB_ROLES`):
-- `designer` — Primary planner, owns the plan from start to finish. Orchestrates MLX and reviews its output.
+- `designer` — Primary planner, owns the plan from start to finish
 - `inspiration` — Creative brainstorming consultant (unreliable, use with judgment)
 - `reviewer` — Scored quality gate, evaluates the plan using Rubric A (must pass >= 7.0)
 
@@ -21,49 +20,6 @@ From `$ARGUMENTS`:
 ---
 
 ## Execution Flow
-
-### Phase 0: Scope Challenge
-
-Before any planning begins, challenge the scope. This prevents scope creep and ensures we build the right amount.
-
-**0.1 Scope Assessment**
-
-Analyze the requirement and present THREE scope options:
-
-```
-SCOPE CHALLENGE
-===============
-Requirement: [user's requirement]
-
-A) SCOPE EXPANSION — Build more than asked
-   [What additional value could be delivered]
-   Risk: Over-engineering, longer delivery
-
-B) HOLD SCOPE — Build exactly what's asked
-   [Restate the requirement clearly]
-   Risk: [any risks of this scope]
-
-C) SCOPE REDUCTION — Build less, ship faster
-   [What's the MVP that delivers core value]
-   Risk: May need follow-up work
-
-RECOMMENDATION: Choose [X] because [reason]
-```
-
-**0.2 Lock Scope**
-
-After user selects, lock the scope decision:
-
-```
-SCOPE LOCKED: [EXPANSION / HOLD / REDUCTION]
-Decision: [1-sentence summary of what we're building]
-```
-
-**Once locked, scope does not change for the remainder of this planning session.** If new information surfaces that challenges the scope, flag it but do not re-open the scope discussion without user approval.
-
-Proceed to Phase 1 with the locked scope.
-
----
 
 ### Phase 1: Requirement Clarification
 
@@ -211,7 +167,6 @@ Use available tools to understand:
 - Current architecture patterns
 - Dependencies and tech stack
 - Related existing implementations
-- **若任務涉及資料庫**：使用 `/db` 查詢相關表結構（欄位、型別、索引），納入 design brief context
 
 **1.3 Research (if needed)**
 
@@ -312,52 +267,29 @@ Save filtered result as `adopted_inspiration`.
 
 ---
 
-### Phase 3: MLX Drafts the Plan (Claude Reviews)
+### Phase 3: The `designer` Creates the Plan
 
-The `designer` orchestrates MLX to generate the plan draft, then reviews it before submission to `reviewer`.
+The `designer` is the sole planner. Use the design brief, project context, research findings, and adopted inspiration to create a complete implementation plan.
 
-**3.1 Send to MLX for Plan Drafting**
-
-Claude packages the design brief, adopted inspiration, and project context, then sends to MLX:
+**3.1 Draft the Plan**
 
 ```
-mcp__mcp-ai-bridge__mlx_chat(
-  systemPrompt: <see Plan Writer System Prompt below>,
-  message: "DESIGN BRIEF:\n{design_brief}\n\nADOPTED INSPIRATION:\n{adopted_inspiration}\n\nPROJECT CONTEXT:\n{project context from Phase 1.2}",
-  maxTokens: 8192
-)
-```
-
-**Plan Writer System Prompt**:
-
-```
-/think
-You are a senior software architect drafting an implementation plan. Write precisely, concisely, and actionably.
-
-Based on the provided design brief, inspiration ideas, and project context, create a complete implementation plan with this EXACT structure:
-
 IMPLEMENTATION PLAN (Draft v1)
 ==============================
 Goal: [1-sentence goal]
-Scope: [EXPANSION / HOLD / REDUCTION — locked from Phase 0]
 
 Architecture:
 - Approach: [chosen approach with rationale]
-- Key Components: [bulleted list with descriptions]
+- Key Components: [list]
 - Data Flow: [if applicable]
 
-Diagrams (MANDATORY — include at least 2 of the following):
-- Sequence Diagram: [Mermaid syntax — show key interactions between components]
-- State Machine: [Mermaid syntax — show state transitions if stateful logic exists]
-- Component Diagram: [Mermaid syntax — show system components and their relationships]
-- Data Flow Diagram: [Mermaid syntax — show how data moves through the system]
-
 Implementation Steps:
-For each step:
-### Step N: [Title]
-- **Actions**: [specific, concrete actions]
-- **Deliverables**: [what will be produced]
-- **Dependencies**: [what must come first]
+1. [Step title]
+   - Actions: [specific actions]
+   - Deliverables: [what will be produced]
+   - Dependencies: [what's needed first]
+2. [Step title]
+   ...
 
 Technical Considerations:
 - [consideration 1]
@@ -366,102 +298,17 @@ Technical Considerations:
 Risks & Mitigations:
 | Risk | Impact | Likelihood | Mitigation |
 |------|--------|------------|------------|
-[fill table with concrete entries]
+| [risk] | H/M/L | H/M/L | [strategy] |
 
 Acceptance Criteria:
-- [ ] [concrete, verifiable criterion]
+- [ ] [criterion 1]
+- [ ] [criterion 2]
 
-Inspiration Credits:
-| Idea | Status | How Integrated |
-[credit adopted/adapted ideas from the inspiration input]
-
-RULES:
-- Every step must be independently executable
-- No step should take more than 1 hour of focused work
-- Acceptance criteria must be testable (not vague)
-- Risks must have concrete mitigations (not "monitor carefully")
-- Use English for technical terms, structure in English
-- MANDATORY: Include at least 2 diagrams in Mermaid syntax (sequence, state, component, or data-flow). Diagrams force hidden assumptions to surface.
+Inspiration Credits (from `inspiration`):
+- [adopted idea and how it was integrated]
 ```
 
-**3.2 Display MLX Plan Draft**
-
-```
-## MLX (Qwen3-14B) Plan Draft
-
-**Model**: Qwen3-14B-4bit | **Inference time**: {durationMs}ms
-
-{MLX plan draft verbatim}
-```
-
-**3.3 Claude Plan Quality Review**
-
-Claude reviews the MLX-generated plan using this four-dimensional framework:
-
-```
-[PLAN QUALITY REVIEW]
-
-1. Step Completeness
-- Do steps cover the full path from current state to goal? Any gaps?
-- Are each step's Actions specific and executable? Or vague directives?
-- Rating: ✅ Complete / ⚠️ Gaps exist / ❌ Path broken
-
-2. Dependency Correctness
-- Does step ordering reflect real dependencies?
-- Any circular dependencies or contradictions?
-- Rating: ✅ Correct / ⚠️ Partially misordered / ❌ Dependencies confused
-
-3. Risk Coverage
-- Are major technical and integration risks identified?
-- Are mitigation strategies specific and actionable (not "monitor closely")?
-- Rating: ✅ Adequate / ⚠️ Gaps exist / ❌ Severely lacking
-
-4. Requirement Alignment
-- Does the plan actually solve the problem in the design_brief?
-- Are acceptance criteria testable and unambiguous?
-- Rating: ✅ Aligned / ⚠️ Off-target / ❌ Completely misaligned
-
-5. Diagram Coverage
-- Are at least 2 diagrams present (sequence, state, component, or data-flow)?
-- Do diagrams accurately reflect the architecture described in text?
-- Do diagrams expose any hidden assumptions or contradictions?
-- Rating: ✅ Adequate / ⚠️ Missing or superficial / ❌ No diagrams
-```
-
-**Decision and action**:
-
-- **All five dimensions ✅** → Adopt as `plan_draft_v1`, proceed to Phase 4
-  ```
-  [PLAN REVIEW PASSED] Five-dimensional quality confirmed
-  - Step Completeness: ✅
-  - Dependency Correctness: ✅
-  - Risk Coverage: ✅
-  - Requirement Alignment: ✅
-  - Diagram Coverage: ✅
-  This plan is ready for reviewer scoring.
-  ```
-
-- **Any dimension ⚠️** → Claude supplements directly (no MLX resend), corrected version becomes `plan_draft_v1`
-  ```
-  [PLAN REVIEW PASSED (with corrections)]
-  - [List each dimension's rating]
-  - ⚠️ Dimension correction: [specific correction content]
-  [Display corrected plan]
-  ```
-
-- **Any dimension ❌** → Resend to MLX with review feedback (max 1 time)
-  ```
-  mcp__mcp-ai-bridge__mlx_chat(
-    systemPrompt: <same Plan Writer System Prompt>,
-    message: "Previous plan draft had critical issues:\n1. [Dimension name]: [Specific error description]\n\nPlease revise the plan. Focus on:\n- [aspects needing redesign]\n\nOriginal inputs:\nDESIGN BRIEF:\n{design_brief}\n\nADOPTED INSPIRATION:\n{adopted_inspiration}",
-    maxTokens: 8192
-  )
-  ```
-  After resend, Claude reviews again. If still ❌, Claude writes the problematic parts directly.
-
-**3.4 Save as `plan_draft_v1`**
-
-Save the reviewed (and possibly corrected) plan as the standardized `plan_draft_v1`.
+Save as `plan_draft_v1`.
 
 ---
 
@@ -539,10 +386,7 @@ CHECK:
 WHILE result == FAIL AND iteration <= 3:
   1. Read each dimension's weaknesses and fix suggestions
   2. Read critical_issues list
-  3. Determine correction scale:
-     - MINOR (< 3 issues): Claude directly revises plan_draft
-     - MAJOR (>= 3 issues): Resend to MLX with reviewer feedback for revision,
-       then Claude reviews the new MLX output before resubmission
+  3. Revise plan_draft to address ALL issues
   4. Save as plan_draft_v{iteration+1}
   5. Re-submit to `reviewer` via /ask (same template)
   6. iteration += 1
@@ -552,18 +396,6 @@ IF iteration > 3 AND still FAIL:
   Present all review rounds to user
   Ask: "Review did not pass after 3 rounds. How would you like to proceed?"
 ```
-
-**MLX Resend for Major Corrections** (used in step 3 above when MAJOR):
-
-```
-mcp__mcp-ai-bridge__mlx_chat(
-  systemPrompt: <same Phase 3 Plan Writer System Prompt>,
-  message: "The reviewer found these issues with the plan:\n{reviewer weaknesses and critical_issues}\n\nPlease revise the plan to address ALL issues.\n\nOriginal design brief:\n{design_brief}\n\nPrevious plan:\n{plan_draft_v{iteration}}",
-  maxTokens: 8192
-)
-```
-
-Claude reviews MLX's revised output (same 4-dimension review as Phase 3.3) before resubmitting to `reviewer`.
 
 **4.4 Display Score Summary (on PASS)**
 
@@ -602,7 +434,7 @@ Use this template:
 ```markdown
 # {Feature Name} - Solution Design
 
-> Generated by all-plan (`designer` + `inspiration` + `reviewer`) | Plan drafted by MLX (Qwen3-14B)
+> Generated by all-plan (`designer` + `inspiration` + `reviewer`)
 
 ## Overview
 
@@ -651,9 +483,6 @@ Continue the plan document with:
 
 ### Data Flow
 [If applicable, describe data flow]
-
-### Diagrams
-[At least 2 Mermaid diagrams — sequence, state, component, or data-flow]
 ```
 
 Continue with implementation and risk sections:
@@ -756,47 +585,24 @@ Summary:
 - Readiness: [X]/100
 - Review Score: [X.XX]/10 (round [N])
 - Inspiration Ideas: [N] adopted, [N] adapted, [N] discarded
-- Plan drafted by: MLX (Qwen3-14B) + Claude review
 
 Next: Review the plan and proceed with implementation when ready.
 ```
 
 ---
 
-## Error Handling
-
-- **MLX unreachable** (localhost:8090 not responding):
-  Phase 3 falls back to Claude writing the plan directly (pre-migration behavior).
-  Inform user: "MLX unreachable, I will write the plan directly."
-
-- **MLX timeout** (> 3 minutes):
-  Fall back to Claude direct authoring.
-
-- **MLX output empty or garbled**:
-  Fall back to Claude direct authoring.
-
-- **`inspiration` provider unreachable**:
-  Skip Phase 2, proceed directly to Phase 3.
-
-- **`reviewer` provider unreachable**:
-  Skip Phase 4, present the plan directly to user.
-
----
-
 ## Principles
 
-1. **`designer` Owns the Design**: The `designer` orchestrates everything; MLX is a drafting tool, not the decision maker
+1. **`designer` Owns the Design**: The `designer` is the sole planner; `inspiration` and `reviewer` are consultants
 2. **Structured Clarification**: Use option-based questions to systematically capture requirements
 3. **Readiness Scoring**: Quantify requirement completeness before proceeding
-4. **MLX Drafts, Claude Reviews**: MLX generates the plan, Claude ensures quality before `reviewer` submission
-5. **`inspiration` for Ideas Only**: Leverage creativity but never blindly follow it
-6. **User Controls Inspiration**: User decides which ideas to adopt/discard
-7. **`reviewer` as Quality Gate**: Plan must pass Rubric A (>= 7.0) before proceeding
-8. **Dimension-Level Feedback**: The `reviewer` scores each dimension individually with actionable fixes
-9. **Auto-Correction with Limits**: Max 3 review rounds; major corrections re-invoke MLX
-10. **Concrete Deliverables**: Output actionable plan document, not just discussion notes
-11. **Research When Needed**: Use WebSearch for external knowledge when applicable
-12. **Graceful Degradation**: MLX failure triggers seamless fallback to Claude direct authoring
+4. **`inspiration` for Ideas Only**: Leverage creativity but never blindly follow it
+5. **User Controls Inspiration**: User decides which ideas to adopt/discard
+6. **`reviewer` as Quality Gate**: Plan must pass Rubric A (>= 7.0) before proceeding
+7. **Dimension-Level Feedback**: The `reviewer` scores each dimension individually with actionable fixes
+8. **Auto-Correction with Limits**: Max 3 review rounds; escalate to user if still failing
+9. **Concrete Deliverables**: Output actionable plan document, not just discussion notes
+10. **Research When Needed**: Use WebSearch for external knowledge when applicable
 
 ---
 

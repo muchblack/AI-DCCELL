@@ -37,8 +37,9 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 |---------------|---------|
 | `/linus-analyze` | Complex requirements → five-layer analysis + decision output |
 | `/all-plan` | Complex features → collaborative planning (designer + inspiration + reviewer) |
-| `/tp` | Create task plan (invokes `/all-plan` internally) |
-| `/tr` | Execute AutoFlow step |
+| `/tp` | Create task plan (invokes `/all-plan` + mandatory MAGI consensus gate) |
+| `/tr` | Execute AutoFlow step (conditional MAGI gate at review: critical steps or FIX verdict) |
+| `/magi` | Three-system consensus voting (MELCHIOR/BALTHASAR/CASPER) with veto power |
 | `/dev` | End-to-end dev: requirement → MLX plan → review → Ollama code → review → cross-review → commit |
 
 **Code Quality**:

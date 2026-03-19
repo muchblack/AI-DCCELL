@@ -11,24 +11,6 @@ Execute current step while Claude stays in plan mode and Codex performs all file
 
 **Auto-loop daemon**: started by `/tp` (`bash ~/.claude/skills/tr/scripts/autoloop.sh start`). `/tr` should assume it is running and only ensure the finalize request doesn't stop it.
 
-### 0.5 Resilience Pre-flight (Claude Direct)
-
-Before syncing state, run resilience checks locally (no Codex needed):
-
-```bash
-# 1. Validate state.json structure
-bash ~/.claude/skills/scripts/validate-state.sh .ccb/state.json
-# Exit 2 = unrecoverable → stop and report
-# Exit 1 = auto-repaired → continue (repairs logged)
-# Exit 0 = valid → continue
-
-# 2. Health-check providers needed for this step (optional, skip if step doesn't call providers)
-bash ~/.claude/skills/scripts/health-check.sh mlx ollama
-# Use result to decide fallback strategy before spending tokens
-```
-
-See `~/.claude/skills/docs/resilience-state.md` for full protocol.
-
 ### 1. Sync Current State (Codex)
 
 Claude does not read/modify repo files directly. Request Codex to:
@@ -37,6 +19,8 @@ Claude does not read/modify repo files directly. Request Codex to:
 3) enforce attempt limits
 4) (if proceeding) increment attempts and persist back to `.ccb/state.json`
 5) return a compact step context for design
+
+The step context MUST include the `critical` flag (default `false` if absent in state.json). This flag is consumed by Step 8.6 (Conditional MAGI Gate) to determine whether MAGI consensus is required.
 
 Call `/file-op` with `FileOpsREQ`:
 - Template: `../templates/preflight.json`
@@ -217,9 +201,62 @@ Execute relevant tests and report:
   - Block (Mark blocked)
 
 **Final Decision** (based on Review + Test):
-- Both PASS → Finalize
+- Both PASS → Check MAGI trigger conditions (Step 8.6) → Finalize
 - Either FIX → Merge fix items → Back to step 5 (max 1 retry)
 - Disagreement → Claude makes final call with explanation
+
+### 8.6 Conditional MAGI Gate
+
+After Review + Test complete with a PASS verdict, check whether MAGI consensus is required before finalizing.
+
+#### Trigger Conditions
+
+MAGI is invoked if **any** of the following are true:
+
+1. **Step is critical**: The step has `critical: true` in `state.json` (set during `/tp` planning)
+2. **Initial review was FIX**: The `/review` step (8) initially returned FIX before correction — even if the fix attempt succeeded, MAGI validates the corrected result
+
+If **no** trigger condition is met → skip directly to Step 9 (Finalize). Existing flow is fully preserved.
+
+#### 8.6.1 Prepare Proposal
+
+Package the step execution result as the MAGI proposal:
+
+```
+/magi Step execution review for: [step title]
+
+Changes: [changedFiles from FileOpsRES]
+Review verdict: [PASS (after FIX correction) | PASS (critical step)]
+Test result: [pass/skip summary]
+
+--- CHANGES START ---
+[git diff or summary of changes made in this step]
+--- CHANGES END ---
+```
+
+#### 8.6.2 Async Boundary
+
+/magi internally:
+1. Claude evaluates as MELCHIOR-1 (sync)
+2. Sends /ask codex (BALTHASAR-2) + /ask gemini (CASPER-3)
+3. **END TURN** — mandatory async guardrail
+
+**Auto-loop pauses** during MAGI voting. The auto-loop daemon will not trigger the next `/tr` until MAGI completes and the current step is finalized.
+
+Resume when all votes collected (hook-driven).
+
+#### 8.6.3 Handle MAGI Result
+
+| Result | Action |
+|--------|--------|
+| **SYNCHRONIZED** (all approve) | Proceed to Step 9 (Finalize) |
+| **PATTERN_BLUE** (any veto) | Show veto reasoning. Route back to Step 4 (rework). Counts as an attempt. If max attempts reached, mark step blocked. |
+| **DISSENT_DETECTED** (mixed, no veto) | Show all votes to user. User decides: proceed to Finalize or rework. |
+| **INCONCLUSIVE** (abstains) | Proceed to Step 9 with reduced-confidence note appended to plan_log. |
+
+After MAGI passes, auto-loop resumes normally from Step 9 onward.
+
+---
 
 ### 9. Finalize (Codex)
 
