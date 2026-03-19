@@ -1,6 +1,6 @@
 ---
 name: magi
-description: "MAGI consensus engine — three AI systems (MELCHIOR/BALTHASAR/CASPER) independently evaluate proposals with veto power. Use when critical decisions need multi-AI consensus voting."
+description: "MAGI consensus engine — three AI systems (MELCHIOR/BALTHASAR/CASPER) independently evaluate proposals with veto power. Use when critical decisions need multi-AI consensus voting. Triggers on: MAGI, 三賢人, 共識投票, consensus voting, multi-AI vote, 投票表決."
 metadata:
   short-description: Three-system consensus voting with veto power
 ---

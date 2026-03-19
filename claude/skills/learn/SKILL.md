@@ -3,6 +3,8 @@ name: learn
 description: >-
   Review and approve pending instincts extracted from development sessions.
   Manually trigger pattern extraction from current observations.
+  Triggers on: 學習模式, 萃取模式, extract patterns, review instincts,
+  學到了什麼, 複習直覺, pattern learning.
   Examples: "/learn", "/learn review", "/learn extract".
 metadata:
   short-description: 審查/萃取開發模式 instincts

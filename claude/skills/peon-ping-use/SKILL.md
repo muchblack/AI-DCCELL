@@ -1,6 +1,6 @@
 ---
 name: peon-ping-use
-description: Set which voice pack (character voice) plays for the current chat session. Automatically enables agentskill rotation mode if not already set. Use when user wants a specific character voice like GLaDOS, Peon, or Kerrigan for this conversation.
+description: Set which voice pack (character voice) plays for the current chat session. Automatically enables agentskill rotation mode if not already set. Use when user wants a specific character voice like GLaDOS, Peon, or Kerrigan for this conversation. Triggers on: 換語音, 用 GLaDOS, 用 Peon, 換角色聲音, change voice, use voice pack, 這場用, switch voice.
 user_invocable: true
 license: MIT
 metadata:

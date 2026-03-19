@@ -1,6 +1,6 @@
 ---
 name: peon-ping-config
-description: Update peon-ping configuration — volume, pack rotation, categories, active pack, and other settings. Use when user wants to change peon-ping settings like volume, enable round-robin, add packs to rotation, toggle sound categories, or adjust any config.
+description: Update peon-ping configuration — volume, pack rotation, categories, active pack, and other settings. Use when user wants to change peon-ping settings like volume, enable round-robin, add packs to rotation, toggle sound categories, or adjust any config. Triggers on: 調音量, 改音效設定, peon config, sound config, 輪播設定, rotation config, 音效分類, 改 peon 設定.
 user_invocable: false
 ---
 

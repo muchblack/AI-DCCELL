@@ -1,6 +1,6 @@
 ---
 name: all-plan
-description: Collaborative planning using abstract roles (designer + inspiration + reviewer).
+description: Collaborative planning using abstract roles (designer + inspiration + reviewer). Triggers on: 協作規劃, collaborative plan, 多角色規劃, 一起想, brainstorm and plan, 集思廣益, 設計方案, design approach, 架構規劃, architecture plan.
 metadata:
   short-description: designer plans + inspiration brainstorms + reviewer scores
 ---

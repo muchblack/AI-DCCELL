@@ -2,8 +2,10 @@
 name: ollama-code
 description: >-
   Delegate code writing to Ollama on LAN, then Claude reviews.
-  Use when user wants local AI to write code. Examples: "/ollama-code TypeScript
-  Express JWT middleware", "/ollama-code Python Redis cache decorator".
+  Use when user wants local AI to write code. Triggers on: ollama 寫, 用 ollama,
+  區網寫碼, LAN code, 叫 ollama 寫, delegate to ollama.
+  Examples: "/ollama-code TypeScript Express JWT middleware",
+  "/ollama-code Python Redis cache decorator".
 metadata:
   short-description: Ollama write + Claude review
 ---

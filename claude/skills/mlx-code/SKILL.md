@@ -2,8 +2,10 @@
 name: mlx-code
 description: >-
   Delegate code writing to local MLX, then Claude reviews.
-  Use when user wants local AI to write code. Examples: "/mlx-code TypeScript
-  Express JWT middleware", "/mlx-code Python Redis cache decorator".
+  Use when user wants local AI to write code. Triggers on: mlx 寫, 用 mlx,
+  本地寫碼, local code, 叫 mlx 寫, delegate to mlx.
+  Examples: "/mlx-code TypeScript Express JWT middleware",
+  "/mlx-code Python Redis cache decorator".
 metadata:
   short-description: MLX write + Claude review
 ---

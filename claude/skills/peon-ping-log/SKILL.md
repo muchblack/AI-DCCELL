@@ -1,6 +1,6 @@
 ---
 name: peon-ping-log
-description: Log exercise reps for the Peon Trainer. Use when user says they did pushups, squats, or wants to log reps. Examples - "/peon-ping-log 25 pushups", "/peon-ping-log 30 squats", "log 50 pushups".
+description: Log exercise reps for the Peon Trainer. Use when user says they did pushups, squats, or wants to log reps. Triggers on: 做了伏地挺身, 做了深蹲, pushups, squats, 記錄運動, log reps, 幾下, 做完了. Examples - "/peon-ping-log 25 pushups", "/peon-ping-log 30 squats", "log 50 pushups".
 user_invocable: true
 ---
 

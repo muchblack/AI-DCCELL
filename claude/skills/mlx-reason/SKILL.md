@@ -2,8 +2,10 @@
 name: mlx-reason
 description: >-
   Use local MLX (Qwen3-14B) for deep requirement analysis and reasoning,
-  then Claude reviews the reasoning quality. Examples:
-  "/mlx-reason design a user auth system", "/mlx-reason evaluate microservices vs monolith".
+  then Claude reviews the reasoning quality. Triggers on: 本地推理, 本地分析,
+  mlx 想一下, mlx 分析, local reasoning, 用 mlx 想, 深度推理.
+  Examples: "/mlx-reason design a user auth system",
+  "/mlx-reason evaluate microservices vs monolith".
 metadata:
   short-description: MLX reasoning analysis + Claude review
 ---

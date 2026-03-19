@@ -1,6 +1,6 @@
 ---
 name: peon-ping-toggle
-description: Toggle peon-ping sound notifications on/off. Use when user wants to mute, unmute, pause, or resume peon sounds during a Claude Code session. Also handles config changes like volume, pack rotation, categories — any peon-ping setting.
+description: Toggle peon-ping sound notifications on/off. Use when user wants to mute, unmute, pause, or resume peon sounds during a Claude Code session. Also handles config changes like volume, pack rotation, categories — any peon-ping setting. Triggers on: 靜音, 關聲音, mute, unmute, 暫停音效, 恢復音效, 開聲音, toggle sound, 安靜.
 user_invocable: true
 ---
 

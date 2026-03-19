@@ -1,6 +1,6 @@
 ---
 name: ask
-description: Async via ask, end turn immediately; use when user explicitly delegates to any AI provider (gemini/codex/opencode/droid); NOT for questions about the providers themselves.
+description: Async via ask, end turn immediately; use when user explicitly delegates to any AI provider (gemini/codex/opencode/droid); NOT for questions about the providers themselves. Triggers on: 問 gemini, 問 codex, 叫 gemini, 叫 codex, ask gemini, ask codex, 委派給, delegate to, 丟給 gemini, 丟給 codex, send to gemini, send to codex.
 metadata:
   short-description: Ask AI provider asynchronously
 ---

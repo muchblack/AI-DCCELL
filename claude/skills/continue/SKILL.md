@@ -1,6 +1,6 @@
 ---
 name: continue
-description: Attach the newest context-transfer Markdown from the current project's ./.ccb/history/ into Claude using @file. Use when the user types /continue or asks to resume with the latest transfer file in this project.
+description: Attach the newest context-transfer Markdown from the current project's ./.ccb/history/ into Claude using @file. Use when the user types /continue or asks to resume with the latest transfer file in this project. Triggers on: 接續上次, 繼續上次, resume, 載入歷史, load history, 上次做到哪, where was I, 接著上次的做.
 ---
 
 # Continue (Attach Latest History)

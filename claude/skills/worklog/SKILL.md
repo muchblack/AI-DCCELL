@@ -1,6 +1,6 @@
 ---
 name: worklog
-description: 手動寫入或查看 Obsidian 工作日誌（按專案分資料夾）。Use when user wants to manually add a work log entry or review today's log.
+description: 手動寫入或查看 Obsidian 工作日誌（按專案分資料夾）。Use when user wants to manually add a work log entry or review today's log. Triggers on: 工作日誌, 今天做了什麼, 日誌, worklog, work log, 記錄一下, 寫日誌, 看日誌, 本週摘要, weekly summary, 今日進度.
 argument-hint: "[view | add <內容> | week]"
 ---
 
