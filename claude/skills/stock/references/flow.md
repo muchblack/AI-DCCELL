@@ -2,7 +2,7 @@
 
 讀取 Obsidian stockDB 股市原始資料，同步 stockDB git 倉庫。
 
-**Vault 路徑**：`~/Obsidian/stockDB`
+**Vault 路徑**：`$OBSIDIAN_VAULT/stockDB`
 
 ---
 
@@ -20,11 +20,11 @@
 
 1. **Git fetch**：先確認遠端是否有更新
    ```bash
-   git -C ~/Obsidian/stockDB fetch origin 2>/dev/null
-   LOCAL=$(git -C ~/Obsidian/stockDB rev-parse HEAD 2>/dev/null)
-   REMOTE=$(git -C ~/Obsidian/stockDB rev-parse origin/main 2>/dev/null)
+   git -C $OBSIDIAN_VAULT/stockDB fetch origin 2>/dev/null
+   LOCAL=$(git -C $OBSIDIAN_VAULT/stockDB rev-parse HEAD 2>/dev/null)
+   REMOTE=$(git -C $OBSIDIAN_VAULT/stockDB rev-parse origin/main 2>/dev/null)
    ```
-   - 若 `LOCAL != REMOTE`：執行 `git -C ~/Obsidian/stockDB pull --rebase` 先同步
+   - 若 `LOCAL != REMOTE`：執行 `git -C $OBSIDIAN_VAULT/stockDB pull --rebase` 先同步
    - 若 stockDB 無 git：跳過此步驟
 
 2. **解析日期**：
@@ -34,7 +34,7 @@
 
 3. **定位檔案**：
    ```
-   ~/Obsidian/stockDB/原始資料/{feed}/{YYYY}/{MM-DD}.md
+   $OBSIDIAN_VAULT/stockDB/原始資料/{feed}/{YYYY}/{MM-DD}.md
    ```
    - 若指定 feed → 讀取該 feed 檔案
    - 若未指定 feed → 用 Glob 搜尋 `原始資料/*/{YYYY}/{MM-DD}.md`，讀取全部
@@ -73,7 +73,7 @@
 
 **執行流程**：
 
-呼叫 `/obs sync --vault ~/Obsidian/stockDB`
+呼叫 `/obs sync --vault $OBSIDIAN_VAULT/stockDB`
 
 **範例**：
 ```
@@ -85,6 +85,6 @@
 ## 規則
 
 1. 讀取前一律先 git fetch 檢查遠端更新
-2. stockDB vault 路徑固定為 `~/Obsidian/stockDB`，不可變更
+2. stockDB vault 路徑由環境變數 `$OBSIDIAN_VAULT/stockDB` 決定（`OBSIDIAN_VAULT` 定義於 `~/.zshrc`）
 3. 此 skill 為唯讀操作（read）+ git 同步（sync），不做寫入
 4. 使用繁體中文回覆
