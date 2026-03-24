@@ -5,8 +5,10 @@
 .ccb/
 .claude/settings.local.json
 
-# Gemini 本地設定
-.gemini/
+# Gemini 本地設定（GEMINI.md 人格檔需版控）
+.gemini/*
+!.gemini/GEMINI.md
+!.gemini/skills/
 
 # 執行時資料（不版控，每台機器不同）
 logs/

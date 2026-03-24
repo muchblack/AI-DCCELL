@@ -68,7 +68,8 @@ deploy_link() {
         fi
         rm "${dst}"
     elif [[ -e "${dst}" ]]; then
-        local backup="${TARGET_DIR}/backup-$(date +%Y%m%d-%H%M%S)"
+        local backup
+        backup="${TARGET_DIR}/backup-$(date +%Y%m%d-%H%M%S)"
         mkdir -p "${backup}"
         mv "${dst}" "${backup}/${name}"
         echo -e "  ${YELLOW}備份：${name} → ${backup}/${NC}"
@@ -81,6 +82,60 @@ deploy_link() {
 deploy_link "agents"
 deploy_link "skills"
 deploy_link "CLAUDE.md"
+echo ""
+
+# === Step 1b: Codex Symlink 部署 ===
+echo -e "${CYAN}[1b/4] Codex 部署${NC}"
+CODEX_DIR="${HOME}/.codex"
+CODEX_SRC="${SCRIPT_DIR}/codex/AGENTS.md"
+CODEX_DST="${CODEX_DIR}/AGENTS.md"
+mkdir -p "${CODEX_DIR}"
+
+if [[ -L "${CODEX_DST}" ]]; then
+    current="$(readlink "${CODEX_DST}")"
+    if [[ "${current}" == "${CODEX_SRC}" ]]; then
+        echo -e "  ${GREEN}✓ AGENTS.md（已正確）${NC}"
+    else
+        rm "${CODEX_DST}"
+        ln -s "${CODEX_SRC}" "${CODEX_DST}"
+        echo -e "  ${GREEN}✓ AGENTS.md → ${CODEX_SRC}${NC}"
+    fi
+elif [[ -e "${CODEX_DST}" ]]; then
+    mv "${CODEX_DST}" "${CODEX_DST}.bak.$(date +%Y%m%d-%H%M%S)"
+    echo -e "  ${YELLOW}備份：AGENTS.md${NC}"
+    ln -s "${CODEX_SRC}" "${CODEX_DST}"
+    echo -e "  ${GREEN}✓ AGENTS.md → ${CODEX_SRC}${NC}"
+else
+    ln -s "${CODEX_SRC}" "${CODEX_DST}"
+    echo -e "  ${GREEN}✓ AGENTS.md → ${CODEX_SRC}${NC}"
+fi
+echo ""
+
+# === Step 1c: Gemini Symlink 部署 ===
+echo -e "${CYAN}[1c/4] Gemini 部署${NC}"
+GEMINI_DIR="${HOME}/.gemini"
+GEMINI_SRC="${SCRIPT_DIR}/.gemini/GEMINI.md"
+GEMINI_DST="${GEMINI_DIR}/GEMINI.md"
+mkdir -p "${GEMINI_DIR}"
+
+if [[ -L "${GEMINI_DST}" ]]; then
+    current="$(readlink "${GEMINI_DST}")"
+    if [[ "${current}" == "${GEMINI_SRC}" ]]; then
+        echo -e "  ${GREEN}✓ GEMINI.md（已正確）${NC}"
+    else
+        rm "${GEMINI_DST}"
+        ln -s "${GEMINI_SRC}" "${GEMINI_DST}"
+        echo -e "  ${GREEN}✓ GEMINI.md → ${GEMINI_SRC}${NC}"
+    fi
+elif [[ -e "${GEMINI_DST}" ]]; then
+    mv "${GEMINI_DST}" "${GEMINI_DST}.bak.$(date +%Y%m%d-%H%M%S)"
+    echo -e "  ${YELLOW}備份：GEMINI.md${NC}"
+    ln -s "${GEMINI_SRC}" "${GEMINI_DST}"
+    echo -e "  ${GREEN}✓ GEMINI.md → ${GEMINI_SRC}${NC}"
+else
+    ln -s "${GEMINI_SRC}" "${GEMINI_DST}"
+    echo -e "  ${GREEN}✓ GEMINI.md → ${GEMINI_SRC}${NC}"
+fi
 echo ""
 
 # === Step 2: Scripts 執行權限 ===
@@ -124,6 +179,11 @@ AGENT_COUNT=$(find "${TARGET_DIR}/agents" -name "*.md" -type f 2>/dev/null | wc 
 SKILL_COUNT=$(find "${TARGET_DIR}/skills" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
 SCRIPT_COUNT=$(ls "${SCRIPTS_DIR}"/*.sh 2>/dev/null | wc -l | tr -d ' ')
 
+CODEX_OK="✗"
+[[ -L "${CODEX_DST}" ]] && CODEX_OK="✓"
+GEMINI_OK="✗"
+[[ -L "${GEMINI_DST}" ]] && GEMINI_OK="✓"
+
 echo -e "${CYAN}================================================${NC}"
 echo -e "${GREEN}  部署完成！${NC}"
 echo -e "${CYAN}================================================${NC}"
@@ -131,6 +191,8 @@ echo ""
 echo "  Agents:  ${AGENT_COUNT} 個"
 echo "  Skills:  ${SKILL_COUNT} 個"
 echo "  Scripts: ${SCRIPT_COUNT} 個"
+echo "  Codex:   ${CODEX_OK} AGENTS.md"
+echo "  Gemini:  ${GEMINI_OK} GEMINI.md"
 echo ""
 echo "  提示："
 echo "    - 修改 claude/ 下的內容，所有專案立即生效"
