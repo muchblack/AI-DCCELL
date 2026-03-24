@@ -1,8 +1,9 @@
 # Stock Skill
 
-讀取 Obsidian stockDB 股市原始資料，同步 stockDB git 倉庫。
+讀取 Obsidian stockDB 股市原始資料，同步 stockDB git 倉庫，執行 AIStock 情緒分析 pipeline。
 
 **Vault 路徑**：`$OBSIDIAN_VAULT/stockDB`
+**AIStock 專案**：`~/code/python/AIstock`
 
 ---
 
@@ -82,9 +83,80 @@
 
 ---
 
+### `/stock analyze [--prices] [--notify] [--migrate]`
+
+執行 AIStock 情緒分析 pipeline。
+
+**參數**：
+- `--prices`（可選）：僅抓取股價與計算技術指標，不做情緒分析
+- `--notify`（可選）：強制發送通知（忽略 quiet_hours）
+- `--migrate`（可選）：初始化/更新資料庫 schema
+
+**AIStock 路徑**：`~/code/python/AIstock`
+**Python venv**：`~/code/python/AIstock/.venv/bin/python`
+
+**執行流程**：
+
+1. **前置檢查**：
+   - 確認 venv 存在：`~/code/python/AIstock/.venv/bin/python`
+   - 確認 config.yaml 存在
+   - 若不存在，回報錯誤並提示設定方式
+
+2. **同步 stockDB**（自動）：
+   ```bash
+   git -C ~/Obsidian/stockDB pull --rebase 2>/dev/null || true
+   ```
+
+3. **執行 pipeline**：
+   ```bash
+   cd ~/code/python/AIstock && .venv/bin/python main.py 2>&1
+   ```
+   - `--prices` 模式：
+     ```bash
+     cd ~/code/python/AIstock && .venv/bin/python main.py --prices 2>&1
+     ```
+   - `--migrate` 模式：
+     ```bash
+     cd ~/code/python/AIstock && .venv/bin/python main.py --migrate 2>&1
+     ```
+
+4. **呈現結果**：
+   - 解析 stdout/stderr 輸出
+   - 擷取關鍵資訊：新增文章數、分析結果數、通知發送數
+   - 若有錯誤，顯示錯誤訊息並建議修復方式
+   - 格式：
+     ```
+     ## AIStock 分析結果
+
+     📥 抓取：{N} 篇新文章
+     🧠 分析：{N} 篇完成（MLX {n1} / MAGI {n2} / Claude {n3}）
+     📊 技術指標：{symbols}
+     📢 通知：{N} 則已發送
+
+     ### 詳細日誌
+     （最後 20 行 log）
+     ```
+
+5. **錯誤處理**：
+   - venv 不存在 → 提示 `cd ~/code/python/AIstock && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`
+   - config.yaml 不存在 → 提示 `cp config.example.yaml config.yaml`
+   - DB 未初始化 → 自動執行 `--migrate` 後重試
+   - MLX 不可用 → 提示檢查 MLX server（`localhost:8090`）
+   - Redis 不可用 → 告警但不阻塞（fail-open）
+
+**範例**：
+```
+/stock analyze            # 完整 pipeline：抓取 → 分析 → 通知
+/stock analyze --prices   # 僅抓股價和技術指標
+/stock analyze --migrate  # 初始化資料庫
+```
+
+---
+
 ## 規則
 
 1. 讀取前一律先 git fetch 檢查遠端更新
 2. stockDB vault 路徑由環境變數 `$OBSIDIAN_VAULT/stockDB` 決定（`OBSIDIAN_VAULT` 定義於 `~/.zshrc`）
-3. 此 skill 為唯讀操作（read）+ git 同步（sync），不做寫入
-4. 使用繁體中文回覆
+3. read 和 sync 為唯讀操作，analyze 會寫入 AIStock 的 SQLite DB
+4. analyze 執行前自動同步 stockDB
+5. 使用繁體中文回覆
