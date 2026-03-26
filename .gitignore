@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# Backup files
+*.bak
+
 # Claude Code 本地狀態
 .ccb/
 .claude/settings.local.json
