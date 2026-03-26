@@ -14,21 +14,16 @@ Execute current step while Claude stays in plan mode and Codex performs all file
 ### 1. Sync Current State (Codex)
 
 Claude does not read/modify repo files directly. Request Codex to:
-
-1. read `.ccb/state.json`
-2. validate `current`
-3. enforce attempt limits
-4. (if proceeding) increment attempts and persist back to `.ccb/state.json`
-5. return a compact step context for design
-
-The step context MUST include the `critical` flag (default `false` if absent in state.json). This flag is consumed by Step 8.6 (Conditional MAGI Gate) to determine whether MAGI consensus is required.
+1) read `.ccb/state.json`
+2) validate `current`
+3) enforce attempt limits
+4) (if proceeding) increment attempts and persist back to `.ccb/state.json`
+5) return a compact step context for design
 
 Call `/file-op` with `FileOpsREQ`:
-
 - Template: `../templates/preflight.json`
 
 Interpret `FileOpsRES`:
-
 - If no plan → show `No plan. Use /tp first.` → Stop
 - If `current.type == "none"` → All done → Show summary → Stop
 - If attempts exceeded → request `autoflow_state_mark_blocked` with a reason → Stop
@@ -44,7 +39,6 @@ Two-layer resolution:
 2. **`.autoflow/roles.json`** (override): If this file exists in the repo, and `enabled == true` and `schemaVersion == 1`, use its fields to override.
 
 Default roles:
-
 - `executor = "codex"`
 - `reviewer = "codex"`
 - `designer = ["claude", "codex"]`
@@ -60,7 +54,6 @@ Perform a lightweight dual design for the current step (not the full `/all-plan`
 Input: current step title + task objective + relevant files + dependencies from preflight
 
 Output JSON:
-
 ```json
 {
   "approach": "description of implementation approach",
@@ -84,14 +77,12 @@ Return JSON only: { approach, doneConditions, risks, needsSplit, splitReason, pr
 #### 2.3 Claude Merge (1-2 rounds, Claude leads)
 
 Compare both designs:
-
 - Take union of `doneConditions` (deduplicate, max 2)
 - Take union of `risks` (deduplicate)
 - Resolve `approach` conflicts — Claude has final decision
 - Resolve `needsSplit` — if either says true, evaluate carefully; Claude decides
 
 **Output contract** (merged JSON):
-
 ```json
 {
   "approach": "string",
@@ -111,13 +102,11 @@ After the design merge, decide whether this step must be split into substeps:
 - If `needsSplit=true` → validate and apply split, then skip execution and jump to Step 9 (Finalize output)
 
 Validation rules for `proposedSubsteps`:
-
 - Count: 3-7
 - Atomic: single action each
 - No overlap; correct order
 
 If valid, apply split via `/file-op` (use `data.state.current.stepIndex` from Preflight):
-
 - Template: `../templates/split.json`
 
 Then go to Step 9 (Finalize) and output the split result (no execution performed).
@@ -125,7 +114,6 @@ Then go to Step 9 (Finalize) and output the split result (no execution performed
 ### 4. Build Step FileOpsREQ (Execution)
 
 Based on merged approach:
-
 - Build `FileOpsREQ` JSON (see `~/.claude/skills/docs/protocol.md`)
 - Include agreed done conditions
 - Note identified risks
@@ -184,7 +172,6 @@ Output: Review result with verdict (PASS/FIX/BLOCKED).
 ### 8.5 Test (Optional)
 
 **Claude decides whether testing is needed** based on step nature:
-
 - Code changes → usually needs testing
 - Config/doc changes → usually not
 - Refactoring → needs regression testing
@@ -205,7 +192,6 @@ Execute relevant tests and report:
 ```
 
 **Claude reviews test results**:
-
 - All pass → Continue to Finalize
 - Failures → Analyze cause, decide:
   - Fix issue (Back to step 5 with fix)
@@ -213,92 +199,32 @@ Execute relevant tests and report:
   - Block (Mark blocked)
 
 **Final Decision** (based on Review + Test):
-
-- Both PASS → Check MAGI trigger conditions (Step 8.6) → Finalize
+- Both PASS → Finalize
 - Either FIX → Merge fix items → Back to step 5 (max 1 retry)
 - Disagreement → Claude makes final call with explanation
-
-### 8.6 Conditional MAGI Gate
-
-After Review + Test complete with a PASS verdict, check whether MAGI consensus is required before finalizing.
-
-#### Trigger Conditions
-
-MAGI is invoked if **any** of the following are true:
-
-1. **Step is critical**: The step has `critical: true` in `state.json` (set during `/tp` planning)
-2. **Initial review was FIX**: The `/review` step (8) initially returned FIX before correction — even if the fix attempt succeeded, MAGI validates the corrected result
-
-If **no** trigger condition is met → skip directly to Step 9 (Finalize). Existing flow is fully preserved.
-
-#### 8.6.1 Prepare Proposal
-
-Package the step execution result as the MAGI proposal:
-
-```
-/magi Step execution review for: [step title]
-
-Changes: [changedFiles from FileOpsRES]
-Review verdict: [PASS (after FIX correction) | PASS (critical step)]
-Test result: [pass/skip summary]
-
---- CHANGES START ---
-[git diff or summary of changes made in this step]
---- CHANGES END ---
-```
-
-#### 8.6.2 Async Boundary
-
-/magi internally:
-
-1. Claude evaluates as MELCHIOR-1 (sync)
-2. Sends /ask codex (BALTHASAR-2) + /ask gemini (CASPER-3)
-3. **END TURN** — mandatory async guardrail
-
-**Auto-loop pauses** during MAGI voting. The auto-loop daemon will not trigger the next `/tr` until MAGI completes and the current step is finalized.
-
-Resume when all votes collected (hook-driven).
-
-#### 8.6.3 Handle MAGI Result
-
-| Result                                | Action                                                                                                                |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **SYNCHRONIZED** (all approve)        | Proceed to Step 9 (Finalize)                                                                                          |
-| **PATTERN_BLUE** (any veto)           | Show veto reasoning. Route back to Step 4 (rework). Counts as an attempt. If max attempts reached, mark step blocked. |
-| **DISSENT_DETECTED** (mixed, no veto) | Show all votes to user. User decides: proceed to Finalize or rework.                                                  |
-| **INCONCLUSIVE** (abstains)           | Proceed to Step 9 with reduced-confidence note appended to plan_log.                                                  |
-
-After MAGI passes, auto-loop resumes normally from Step 9 onward.
-
----
 
 ### 9. Finalize (Codex)
 
 If Step 3 applied a split (`needsSplit=true`):
-
 - Output: `Split applied. Next: first substep. Use /tr (autoloop will trigger if running).`
 - Do not mark the step `done` (no execution happened yet).
 
 If PASS (execution path), ask Codex to:
-
-1. mark current step/substep `status: "done"` and advance `current`
-2. regenerate `.ccb/todo.md` from `.ccb/state.json`
-3. append completion entry to `.ccb/plan_log.md`
+1) mark current step/substep `status: "done"` and advance `current`
+2) regenerate `.ccb/todo.md` from `.ccb/state.json`
+3) append completion entry to `.ccb/plan_log.md`
 
 Send `FileOpsREQ` with `purpose: "finalize_step"` via `/file-op`. Codex returns `FileOpsRES` JSON only.
 
 Auto-loop requirement (reliable next-step trigger):
-
 - After finalizing, Codex must run the auto-loop trigger (see `autoflow_auto_loop` in `~/.claude/skills/docs/protocol.md`; implemented as an explicit `run` op).
 - If there are remaining steps, it must trigger the next `/tr` automatically.
 - It must be executed via the FileOpsREQ protocol (no manual copy/paste).
 
 Recommended: combine finalize + auto-loop in one request (ops execute in order):
-
 - Template: `../templates/finalize.json`
 
 Output result:
-
 - If more steps: `Step N complete. Next: [title]. Use /tr`
 - If all done: `Task complete!` + acceptance checklist → Continue to Step 10 (Final Review)
 
@@ -343,7 +269,6 @@ Based on review results:
 #### 10.3 Summary Report
 
 Claude plans report structure and generates `reportContent`:
-
 - `documenter = "codex"` (default): Claude generates `reportContent` directly
 - `documenter = "gemini"`: Claude calls `/ask gemini` to generate `reportContent` (markdown), then has Codex write the file
 
@@ -352,7 +277,6 @@ Codex writes `reportContent` to `final/` folder:
 - Template: `../templates/final-report.json`
 
 **Report structure**:
-
 - Task Overview
 - Implementation Summary
 - Steps Executed

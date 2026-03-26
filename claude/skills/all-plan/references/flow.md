@@ -5,7 +5,6 @@ Planning skill using abstract roles defined in CLAUDE.md Role Assignment table.
 **Usage**: For complex features or architectural decisions requiring thorough planning.
 
 **Roles used by this skill** (resolve to providers via CLAUDE.md `CCB_ROLES`):
-
 - `designer` — Primary planner, owns the plan from start to finish
 - `inspiration` — Creative brainstorming consultant (unreliable, use with judgment)
 - `reviewer` — Scored quality gate, evaluates the plan using Rubric A (must pass >= 7.0)
@@ -15,7 +14,6 @@ Planning skill using abstract roles defined in CLAUDE.md Role Assignment table.
 ## Input Parameters
 
 From `$ARGUMENTS`:
-
 - `requirement`: User's initial requirement or feature request
 - `context`: Optional project context or constraints
 
@@ -31,13 +29,13 @@ Use the **5-Dimension Planning Readiness Model** to ensure comprehensive require
 
 #### Readiness Dimensions (100 pts total)
 
-| Dimension        | Weight | Focus                          | Priority |
-| ---------------- | ------ | ------------------------------ | -------- |
-| Problem Clarity  | 30pts  | What problem? Why solve it?    | 1        |
-| Functional Scope | 25pts  | What does it DO? Key features  | 2        |
-| Success Criteria | 20pts  | How to verify done?            | 3        |
-| Constraints      | 15pts  | Time, resources, compatibility | 4        |
-| Priority/MVP     | 10pts  | What first? Phased delivery?   | 5        |
+| Dimension | Weight | Focus | Priority |
+|-----------|--------|-------|----------|
+| Problem Clarity | 30pts | What problem? Why solve it? | 1 |
+| Functional Scope | 25pts | What does it DO? Key features | 2 |
+| Success Criteria | 20pts | How to verify done? | 3 |
+| Constraints | 15pts | Time, resources, compatibility | 4 |
+| Priority/MVP | 10pts | What first? Phased delivery? | 5 |
 
 #### Clarification Flow
 
@@ -66,7 +64,6 @@ QUICK-START OVERRIDE:
 #### Option Bank Reference
 
 **Problem Clarity (30pts)**
-
 ```
 Question: "What type of problem are you solving?"
 Options:
@@ -79,7 +76,6 @@ Options:
 ```
 
 **Functional Scope (25pts)**
-
 ```
 Question: "What is the scope of functionality?"
 Options:
@@ -91,7 +87,6 @@ Options:
 ```
 
 **Success Criteria (20pts)**
-
 ```
 Question: "How will you verify success?"
 Options:
@@ -104,7 +99,6 @@ Options:
 ```
 
 **Constraints (15pts)**
-
 ```
 Question: "What are the primary constraints?"
 Options:
@@ -117,7 +111,6 @@ Options:
 ```
 
 **Priority/MVP (10pts)**
-
 ```
 Question: "What is the delivery approach?"
 Options:
@@ -130,14 +123,13 @@ Options:
 
 #### Gap Classification Rules
 
-| Dimension Score  | Classification | Handling                           |
-| ---------------- | -------------- | ---------------------------------- |
-| ≥70% of weight   | ✓ Defined      | Include in Design Brief            |
-| 50-69% of weight | ⚠️ Assumption  | Carry forward as risk              |
-| <50% of weight   | 🚫 Gap         | Flag in brief, may need validation |
+| Dimension Score | Classification | Handling |
+|-----------------|----------------|----------|
+| ≥70% of weight | ✓ Defined | Include in Design Brief |
+| 50-69% of weight | ⚠️ Assumption | Carry forward as risk |
+| <50% of weight | 🚫 Gap | Flag in brief, may need validation |
 
 Example thresholds:
-
 - Problem Clarity: ≥21 Defined, 15-20 Assumption, <15 Gap
 - Functional Scope: ≥18 Defined, 13-17 Assumption, <13 Gap
 - Success Criteria: ≥14 Defined, 10-13 Assumption, <10 Gap
@@ -171,7 +163,6 @@ Save as `clarification_summary`.
 **1.2 Analyze Project Context**
 
 Use available tools to understand:
-
 - Existing codebase structure (Glob, Grep, Read)
 - Current architecture patterns
 - Dependencies and tech stack
@@ -180,7 +171,6 @@ Use available tools to understand:
 **1.3 Research (if needed)**
 
 If the requirement involves:
-
 - New technologies or frameworks
 - Industry best practices
 - Performance benchmarks
@@ -463,24 +453,19 @@ The plan document should also include these sections (continue the markdown temp
 ## Requirements Summary
 
 ### Problem Statement
-
 [Clear problem description]
 
 ### Scope
-
 [What's in scope and out of scope]
 
 ### Success Criteria
-
 - [ ] [criterion 1]
 - [ ] [criterion 2]
 
 ### Constraints
-
 - [constraint 1]
 
 ### Assumptions
-
 - [assumption from clarification]
 ```
 
@@ -490,16 +475,13 @@ Continue the plan document with:
 ## Architecture
 
 ### Approach
-
 [Chosen architecture approach with rationale]
 
 ### Key Components
-
 - **[Component 1]**: [description]
 - **[Component 2]**: [description]
 
 ### Data Flow
-
 [If applicable, describe data flow]
 ```
 
@@ -509,13 +491,11 @@ Continue with implementation and risk sections:
 ## Implementation Plan
 
 ### Step 1: [Title]
-
 - **Actions**: [specific actions]
 - **Deliverables**: [what will be produced]
 - **Dependencies**: [what's needed first]
 
 ### Step 2: [Title]
-
 - **Actions**: [specific actions]
 - **Deliverables**: [what will be produced]
 - **Dependencies**: [what's needed first]
@@ -533,8 +513,8 @@ Continue with implementation and risk sections:
 
 ## Risk Management
 
-| Risk     | Impact       | Likelihood   | Mitigation |
-| -------- | ------------ | ------------ | ---------- |
+| Risk | Impact | Likelihood | Mitigation |
+|------|--------|------------|------------|
 | [risk 1] | High/Med/Low | High/Med/Low | [strategy] |
 | [risk 2] | High/Med/Low | High/Med/Low | [strategy] |
 
@@ -563,14 +543,14 @@ Finish the plan document with credits and appendix:
 
 ## Review Summary
 
-| Dimension             | Score       |
-| --------------------- | ----------- |
-| Clarity               | X/10        |
-| Completeness          | X/10        |
-| Feasibility           | X/10        |
-| Risk Assessment       | X/10        |
-| Requirement Alignment | X/10        |
-| **Overall**           | **X.XX/10** |
+| Dimension | Score |
+|-----------|-------|
+| Clarity | X/10 |
+| Completeness | X/10 |
+| Feasibility | X/10 |
+| Risk Assessment | X/10 |
+| Requirement Alignment | X/10 |
+| **Overall** | **X.XX/10** |
 
 Review rounds: [N]
 
@@ -579,15 +559,12 @@ Review rounds: [N]
 ## Appendix
 
 ### Clarification Summary
-
 [Include the clarification summary from Phase 1.1]
 
 ### Discarded Inspiration Ideas
-
 [Ideas considered but not adopted, with rationale]
 
 ### Alternative Approaches Considered
-
 [Brief notes on approaches evaluated but not chosen]
 ```
 

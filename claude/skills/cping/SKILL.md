@@ -1,6 +1,6 @@
 ---
 name: cping
-description: Test connectivity with AI provider (gemini/codex/opencode/droid/claude). Triggers on: 測試連線, 連得上嗎, ping provider, test connection, 通不通, 能連嗎, provider 活著嗎, is provider alive.
+description: Test connectivity with AI provider (gemini/codex/opencode/droid/claude).
 metadata:
   short-description: Test AI provider connectivity
 ---

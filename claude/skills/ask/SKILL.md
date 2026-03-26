@@ -1,6 +1,6 @@
 ---
 name: ask
-description: Async via ask, end turn immediately; use when user explicitly delegates to any AI provider (gemini/codex/opencode/droid); NOT for questions about the providers themselves. Triggers on: 問 gemini, 問 codex, 叫 gemini, 叫 codex, ask gemini, ask codex, 委派給, delegate to, 丟給 gemini, 丟給 codex, send to gemini, send to codex.
+description: Async via ask, end turn immediately; use when user explicitly delegates to any AI provider (gemini/codex/opencode/droid); NOT for questions about the providers themselves.
 metadata:
   short-description: Ask AI provider asynchronously
 ---
@@ -12,7 +12,6 @@ Send the user's request to specified AI provider asynchronously.
 ## Usage
 
 The first argument must be the provider name, followed by the message:
-
 - `gemini` - Send to Gemini
 - `codex` - Send to Codex
 - `opencode` - Send to OpenCode
@@ -38,3 +37,4 @@ Bash(CCB_CALLER=claude ask $PROVIDER "$MESSAGE")
 - `/ask codex Refactor this code`
 - `/ask opencode Analyze this bug`
 - `/ask droid Execute this task`
+

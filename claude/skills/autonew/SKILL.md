@@ -1,6 +1,6 @@
 ---
 name: autonew
-description: Send /new to a provider's pane to start a new session without context injection. Triggers on: 重開 session, 新 session, new session, reset session, 重啟對話, fresh start, 清空 provider.
+description: Send /new to a provider's pane to start a new session without context injection.
 metadata:
   short-description: Start new session in provider
 ---
