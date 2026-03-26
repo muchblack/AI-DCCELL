@@ -175,8 +175,8 @@ fi
 
 # === 驗證統計 ===
 echo ""
-AGENT_COUNT=$(find "${TARGET_DIR}/agents" -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
-SKILL_COUNT=$(find "${TARGET_DIR}/skills" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+AGENT_COUNT=$(find -L "${TARGET_DIR}/agents" -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+SKILL_COUNT=$(find -L "${TARGET_DIR}/skills" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
 SCRIPT_COUNT=$(ls "${SCRIPTS_DIR}"/*.sh 2>/dev/null | wc -l | tr -d ' ')
 
 CODEX_OK="✗"
