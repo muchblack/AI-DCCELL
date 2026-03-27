@@ -12,6 +12,7 @@ View the latest reply from specified AI provider.
 ## Usage
 
 The first argument must be the provider name:
+
 - `gemini` - View Gemini reply
 - `codex` - View Codex reply
 - `opencode` - View OpenCode reply

@@ -14,11 +14,20 @@ Execute current step while Claude stays in plan mode and Codex performs all file
 ### 1. Sync Current State (Codex)
 
 Claude does not read/modify repo files directly. Request Codex to:
+<<<<<<< HEAD
 1) read `.ccb/state.json`
 2) validate `current`
 3) enforce attempt limits
 4) (if proceeding) increment attempts and persist back to `.ccb/state.json`
 5) return a compact step context for design
+=======
+
+1. read `.ccb/state.json`
+2. validate `current`
+3. enforce attempt limits
+4. (if proceeding) increment attempts and persist back to `.ccb/state.json`
+5. return a compact step context for design
+>>>>>>> 92e81b1 (整合 PhpStorm MCP + /tr linus-review 審查門檻 + CCB 格式修正)
 
 Call `/file-op` with `FileOpsREQ`:
 - Template: `../templates/preflight.json`
@@ -153,25 +162,25 @@ Send the constructed FileOpsREQ via `/file-op`:
 
 Note: `status = split` should be handled by Step 3 (Split Check). Treat unexpected `split` here as `fail` and re-run design to decide `needsSplit`.
 
-### 7.5 Taste Pre-screen (Linus Review)
+### 7.5 Linus Quick Taste (Pre-Review Gate)
 
-Quick Claude-local taste check before investing in formal cross-review. Invoke `/linus-review` on the changed files from FileOpsRES:
+Before the formal review, Claude performs a quick Linus-style taste check on the changed files using the `/linus-review` rubric (`~/.claude/skills/linus-review/references/flow.md`).
 
-```
-/linus-review <changed files from FileOpsRES>
-```
+**Input**: Changed files from FileOpsRES.
 
-**Decision based on result:**
+**Dual-pass review** (Pass 1: fatal issues → Pass 2: taste score):
 
-- **🔴 Garbage or CRITICAL fatal issues** → Short-circuit: skip Step 8 formal review. Back to Step 4 with linus-review feedback as fix guidance (counts toward step attempt limit).
-- **🟡 Passable** → Proceed to Step 8 formal `/review`.
-- **🟢 Good taste** → Proceed to Step 8 formal `/review`.
+| Result               | Action                                                                                                     |
+| -------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 🔴 or CRITICAL found | → Back to Step 5 with fix items. Skip formal `/review` — no point reviewing garbage. (Counts as 1 attempt) |
+| 🟡 with HIGH issues  | → Attach findings to Step 8 review context. Formal review proceeds with Linus issues as known concerns.    |
+| 🟡 clean or 🟢       | → Proceed to Step 8. No additional action needed.                                                          |
 
-This step is Claude-local (no external provider calls) and acts as a fast-fail gate to avoid wasting Codex tokens on code that clearly needs rework.
+This gate saves cross-reviewer time by catching structural problems early.
 
 ### 8. Review (Claude + Cross-Review)
 
-Invoke `/review` skill:
+Invoke `/review` skill (include Linus findings from Step 7.5 if any):
 
 ```
 /review step
@@ -179,6 +188,7 @@ Invoke `/review` skill:
   doneConditions: [from design output]
   changedFiles: [from FileOpsRES]
   proof: [execution summary]
+  linusFindings: [from Step 7.5, if 🟡 with issues]
 ```
 
 See `../../review/references/flow.md` for full flow (Claude assessment → role-routed cross-review → Final decision).
@@ -215,6 +225,10 @@ Execute relevant tests and report:
   - Block (Mark blocked)
 
 **Final Decision** (based on Review + Test):
+<<<<<<< HEAD
+=======
+
+>>>>>>> 92e81b1 (整合 PhpStorm MCP + /tr linus-review 審查門檻 + CCB 格式修正)
 - Both PASS → Finalize
 - Either FIX → Merge fix items → Back to step 5 (max 1 retry)
 - Disagreement → Claude makes final call with explanation
@@ -248,9 +262,26 @@ Output result:
 
 Triggered when Step 9 Finalize detects all steps completed (`current.type == 'none'`).
 
+#### 10.0 Full-Task Linus Taste Audit
+
+Before the formal task review, perform a Linus-style taste audit on ALL changes across the entire task (equivalent to `git diff` from task start).
+
+Apply the full `/linus-review` flow (`~/.claude/skills/linus-review/references/flow.md`):
+
+- Pass 1: Fatal issues across all changed files
+- Pass 2: Taste score for the task as a whole
+
+| Result         | Action                                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------------- |
+| 🔴 or CRITICAL | → Append fix steps (Step 10.2 medium issue path). Do NOT proceed to formal review until resolved. |
+| 🟡             | → Record taste findings. Proceed to 10.1 with findings attached.                                  |
+| 🟢             | → Proceed to 10.1.                                                                                |
+
+This ensures the final deliverable meets taste standards before formal acceptance.
+
 #### 10.1 Full Task Review
 
-Invoke `/review` skill with task mode:
+Invoke `/review` skill with task mode (include Linus audit results from 10.0 if any):
 
 ```
 /review task
@@ -309,3 +340,4 @@ Codex writes `reportContent` to `final/` folder:
 2. **Binary review**: PASS or FIX, no scoring
 3. **Limited iterations**: Max 2 per step
 4. **Auto-advance**: State transitions via file updates
+5. **Taste gate**: Linus quick taste (Step 7.5) catches structural problems before formal review — 🔴 rejects early, saving cross-reviewer time

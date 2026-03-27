@@ -11,10 +11,24 @@ Quick, sharp three-tier taste judgment for daily code quality assessment.
 ### Step 1: Obtain Code
 
 Retrieve code based on input type:
+
 - File path: Use Read tool to read the file
 - `git diff`: Use Bash to execute `git diff` and get changes
 - No explicit input: Use `git diff HEAD` to get latest changes
 - Directly pasted code: Use as-is
+
+### Step 1.5: IDE Inspections (Optional)
+
+If PhpStorm MCP is available (`mcp__phpstorm__get_file_problems` tool exists), call `get_file_problems` on each changed file to collect IDE-level static analysis results.
+
+- **Available**: Collect inspection results → feed into Pass 1 as supplementary evidence
+- **Unavailable** (PhpStorm not running / MCP not connected): Skip silently, do not block or warn
+
+Inspection results enhance Pass 1 by surfacing issues Claude may miss from reading alone:
+
+- Type mismatches, undefined variables, unused imports
+- Potential null dereference, deprecated API usage
+- Framework-specific issues (Laravel route conflicts, missing views, etc.)
 
 ### Step 2: Dual-Pass Review
 
@@ -23,6 +37,7 @@ Review in **two separate passes** to prevent important issues from being buried 
 #### Pass 1: Fatal Issues (MUST complete before Pass 2)
 
 Focus exclusively on issues that could cause real damage. Do not mix in style or structural feedback.
+If IDE inspections were collected in Step 1.5, incorporate them here — promote genuine problems to fatal issues, discard noise.
 
 ```text
 [PASS 1: FATAL ISSUES]
@@ -35,6 +50,7 @@ Scope: Security, data integrity, backward compatibility, production defects only
 ```
 
 Definition of fatal issues:
+
 - Breaking userspace (backward incompatibility)
 - Fundamental data structure errors
 - Security vulnerabilities (SQL injection, XSS, sensitive data leaks, trust boundary violations)
@@ -60,6 +76,7 @@ Only after Pass 1 is clean (no CRITICAL), evaluate taste and structural quality.
 ```
 
 Scoring criteria (by weight):
+
 1. Data structure correctness (highest weight)
 2. Number of special cases
 3. Indentation depth (penalty above 3 levels)
@@ -78,6 +95,7 @@ Scoring criteria (by weight):
 Each improvement must be specific and actionable. Maximum 3 items, highest-impact first.
 
 Informational issues to flag (but not fatal):
+
 - Magic numbers or unnamed constants
 - Dead code or unreachable branches
 - Missing test coverage for changed code
@@ -91,10 +109,10 @@ If reviewing multiple units, provide an overall taste judgment and the highest-p
 
 ## Positioning vs Other Skills
 
-| Skill | Nature | When to Use | Output |
-|-------|--------|-------------|--------|
-| `/linus-review` | Quick taste feedback (single Linus perspective) | Daily development | 🟢🟡🔴 + fatal issues + improvements |
-| `/review` | Formal dual review (Claude + Cross-reviewer) | Step validation (`/tr` Step 7) or task acceptance (`/tr` Step 9.1) | JSON structured review result |
+| Skill           | Nature                                          | When to Use                                                        | Output                               |
+| --------------- | ----------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------ |
+| `/linus-review` | Quick taste feedback (single Linus perspective) | Daily development                                                  | 🟢🟡🔴 + fatal issues + improvements |
+| `/review`       | Formal dual review (Claude + Cross-reviewer)    | Step validation (`/tr` Step 7) or task acceptance (`/tr` Step 9.1) | JSON structured review result        |
 
 ### Upgrade Path
 

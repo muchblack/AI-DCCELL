@@ -45,7 +45,7 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 **Code Quality**:
 | Skill | Trigger |
 |-------|---------|
-| `/linus-review` | Daily taste check → 🟢🟡🔴 three-tier judgment |
+| `/linus-review` | Daily taste check → 🟢🟡🔴 three-tier judgment; also integrated in `/tr` as pre-review gate (Step 7.5) and final audit (Step 10.0) |
 | `/review` | Formal dual review → Claude + Cross-reviewer structured review |
 | `/react-best-practices` | React/Next.js performance optimization (40+ rules) |
 
