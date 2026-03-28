@@ -145,13 +145,29 @@ Send the constructed FileOpsREQ via `/file-op`:
 
 ### 7. Handle FileOpsRES (Codex or OpenCode)
 
-**status = ok** → Go to Review
+**status = ok** → Go to Taste Pre-screen (Step 7.5)
 
 **status = ask** → Show questions to user → Re-run
 
 **status = fail** → Request `autoflow_state_mark_blocked` with `fail.reason` → Stop
 
 Note: `status = split` should be handled by Step 3 (Split Check). Treat unexpected `split` here as `fail` and re-run design to decide `needsSplit`.
+
+### 7.5 Taste Pre-screen (Linus Review)
+
+Quick Claude-local taste check before investing in formal cross-review. Invoke `/linus-review` on the changed files from FileOpsRES:
+
+```
+/linus-review <changed files from FileOpsRES>
+```
+
+**Decision based on result:**
+
+- **🔴 Garbage or CRITICAL fatal issues** → Short-circuit: skip Step 8 formal review. Back to Step 4 with linus-review feedback as fix guidance (counts toward step attempt limit).
+- **🟡 Passable** → Proceed to Step 8 formal `/review`.
+- **🟢 Good taste** → Proceed to Step 8 formal `/review`.
+
+This step is Claude-local (no external provider calls) and acts as a fast-fail gate to avoid wasting Codex tokens on code that clearly needs rework.
 
 ### 8. Review (Claude + Cross-Review)
 
