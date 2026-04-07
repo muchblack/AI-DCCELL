@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Obsidian Knowledge Graph</title>
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; }
+  #controls { position: fixed; top: 0; left: 0; right: 0; z-index: 10; background: #16213e; padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid #333; }
+  #controls label { font-size: 13px; color: #aaa; }
+  #controls input, #controls select { background: #0f3460; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; font-size: 13px; }
+  #controls input[type="text"] { width: 200px; }
+  .para-filter { display: flex; gap: 8px; align-items: center; }
+  .para-filter label { display: flex; align-items: center; gap: 3px; font-size: 12px; }
+  .para-filter input[type="checkbox"] { accent-color: #e94560; }
+  #graph-container { width: 100vw; height: 100vh; padding-top: 50px; }
+  #tooltip { position: fixed; display: none; background: #16213e; border: 1px solid #555; border-radius: 6px; padding: 12px; font-size: 13px; max-width: 320px; z-index: 20; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+  #tooltip h3 { color: #e94560; margin-bottom: 6px; font-size: 14px; }
+  #tooltip .meta { color: #999; font-size: 12px; line-height: 1.6; }
+  #stats { position: fixed; bottom: 10px; right: 16px; background: #16213e99; padding: 8px 12px; border-radius: 4px; font-size: 11px; color: #777; }
+</style>
+</head>
+<body>
+
+<div id="controls">
+  <label>Search: <input type="text" id="search" placeholder="Filter by title..."></label>
+  <label>Community:
+    <select id="community-filter">
+      <option value="all">All</option>
+    </select>
+  </label>
+  <div class="para-filter">
+    <label><input type="checkbox" data-para="inbox" checked> <span style="color:#F44336">Inbox</span></label>
+    <label><input type="checkbox" data-para="project" checked> <span style="color:#4CAF50">Projects</span></label>
+    <label><input type="checkbox" data-para="area" checked> <span style="color:#2196F3">Areas</span></label>
+    <label><input type="checkbox" data-para="resource" checked> <span style="color:#FF9800">Resources</span></label>
+    <label><input type="checkbox" data-para="sop" checked> <span style="color:#9C27B0">SOPs</span></label>
+    <label><input type="checkbox" data-para="archive" checked> <span style="color:#9E9E9E">Archive</span></label>
+    <label><input type="checkbox" data-para="unresolved" checked> <span style="color:#BDBDBD">Unresolved</span></label>
+  </div>
+</div>
+
+<div id="graph-container"></div>
+<div id="tooltip"></div>
+<div id="stats"></div>
+
+<script>
+const PARA_COLORS = {
+  inbox: '#F44336', project: '#4CAF50', area: '#2196F3',
+  resource: '#FF9800', sop: '#9C27B0', archive: '#9E9E9E',
+  unresolved: '#BDBDBD', unknown: '#607D8B'
+};
+
+const COMMUNITY_BORDERS = [
+  '#e94560','#0f3460','#533483','#00b4d8','#06d6a0',
+  '#ffd166','#ef476f','#118ab2','#073b4c','#e76f51',
+  '#2a9d8f','#264653','#f4a261','#a8dadc','#457b9d'
+];
+
+const rawNodes = {{ nodes }};
+const rawEdges = {{ edges }};
+
+// Build vis.js datasets
+function buildNode(n) {
+  const color = PARA_COLORS[n.para] || PARA_COLORS.unknown;
+  const size = Math.max(8, Math.min(40, 8 + n.centrality * 300));
+  const borderColor = COMMUNITY_BORDERS[n.community % COMMUNITY_BORDERS.length];
+  return {
+    id: n.id, label: n.label,
+    color: { background: color, border: borderColor, highlight: { background: color, border: '#fff' } },
+    size: size,
+    borderWidth: n.exists ? 2 : 1,
+    borderWidthSelected: 3,
+    font: { color: '#ddd', size: Math.max(10, size * 0.6) },
+    shape: n.exists ? 'dot' : 'diamond',
+    _para: n.para, _community: n.community, _path: n.path,
+    _quality: n.quality, _degree: n.degree, _centrality: n.centrality, _exists: n.exists
+  };
+}
+
+function buildEdge(e) {
+  return {
+    from: e.from, to: e.to,
+    arrows: 'to',
+    color: { color: e.type === 'connection' ? '#555' : '#333', opacity: 0.6 },
+    dashes: e.type === 'connection',
+    width: e.type === 'connection' ? 1.5 : 1
+  };
+}
+
+const nodes = new vis.DataSet(rawNodes.map(buildNode));
+const edges = new vis.DataSet(rawEdges.map(buildEdge));
+
+// Network
+const container = document.getElementById('graph-container');
+const network = new vis.Network(container, { nodes, edges }, {
+  physics: {
+    solver: 'forceAtlas2Based',
+    forceAtlas2Based: { gravitationalConstant: -30, centralGravity: 0.005, springLength: 120 },
+    stabilization: { iterations: 150 }
+  },
+  interaction: { hover: true, tooltipDelay: 0, zoomView: true, dragView: true },
+  layout: { improvedLayout: true }
+});
+
+// Stats
+const meta = {{ meta }};
+document.getElementById('stats').textContent =
+  `Nodes: ${meta.stats.nodes} | Edges: ${meta.stats.edges} | Density: ${meta.stats.density.toFixed(4)} | Communities: ${meta.communities.length} | Generated: ${meta.generated_at.slice(0,10)}`;
+
+// Community filter dropdown
+const commSelect = document.getElementById('community-filter');
+const commSet = new Set(rawNodes.map(n => n.community));
+[...commSet].sort((a,b)=>a-b).forEach(c => {
+  const opt = document.createElement('option');
+  opt.value = c;
+  const members = rawNodes.filter(n => n.community === c);
+  opt.textContent = `#${c} (${members.length} notes)`;
+  commSelect.appendChild(opt);
+});
+
+// Tooltip
+const tooltip = document.getElementById('tooltip');
+network.on('hoverNode', function(e) {
+  const node = nodes.get(e.node);
+  if (!node) return;
+  tooltip.innerHTML = `<h3>${node.label}</h3><div class="meta">
+    PARA: ${node._para}<br>
+    Path: ${node._path || '(unresolved)'}<br>
+    Degree: ${node._degree} | Centrality: ${node._centrality}<br>
+    Quality: ${node._quality || 'N/A'}<br>
+    Community: #${node._community}<br>
+    ${node._exists ? '' : '<span style="color:#F44336">⚠ Unresolved link</span>'}
+  </div>`;
+  tooltip.style.display = 'block';
+  tooltip.style.left = (e.event.center.x + 15) + 'px';
+  tooltip.style.top = (e.event.center.y + 15) + 'px';
+});
+network.on('blurNode', () => { tooltip.style.display = 'none'; });
+
+// Filtering
+function applyFilters() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const commVal = commSelect.value;
+  const activePara = new Set();
+  document.querySelectorAll('.para-filter input[type="checkbox"]').forEach(cb => {
+    if (cb.checked) activePara.add(cb.dataset.para);
+  });
+
+  rawNodes.forEach(n => {
+    const matchSearch = !search || n.label.toLowerCase().includes(search);
+    const matchComm = commVal === 'all' || n.community === parseInt(commVal);
+    const matchPara = activePara.has(n.para);
+    const visible = matchSearch && matchComm && matchPara;
+    nodes.update({ id: n.id, hidden: !visible });
+  });
+}
+
+document.getElementById('search').addEventListener('input', applyFilters);
+commSelect.addEventListener('change', applyFilters);
+document.querySelectorAll('.para-filter input').forEach(cb => cb.addEventListener('change', applyFilters));
+</script>
+</body>
+</html>
