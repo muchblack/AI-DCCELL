@@ -39,8 +39,21 @@ The `/all-plan` skill provides a complete collaborative design flow including:
 Extract from the `/all-plan` output:
 - **goal**: the task objective
 - **nonGoals**: what NOT to do
-- **steps**: ordered list of step titles
+- **steps**: ordered list of step titles, each with **verifiable done conditions**
 - **acceptance criteria**: done conditions (finalDone)
+
+For each step, extract or generate **structured done conditions** that can be automatically verified (Step 8.6 Ralph verification gate in `/tr`). Each condition should specify a `type`:
+
+| Type             | Example                                                                   | Auto-verifiable |
+| ---------------- | ------------------------------------------------------------------------- | --------------- |
+| `file_exists`    | `{"type":"file_exists","path":"app/Models/Foo.php"}`                      | Yes (Glob)      |
+| `grep_match`     | `{"type":"grep_match","pattern":"class Foo","path":"app/Models/Foo.php"}` | Yes (Grep)      |
+| `test_passes`    | `{"type":"test_passes","command":"php artisan test --filter=FooTest"}`    | Yes (Bash)      |
+| `build_succeeds` | `{"type":"build_succeeds","command":"npm run build"}`                     | Yes (Bash)      |
+| `no_lint_errors` | `{"type":"no_lint_errors","command":"npm run lint"}`                      | Yes (Bash)      |
+| `manual`         | `{"type":"manual","description":"UI renders correctly"}`                  | No (skipped)    |
+
+If `/all-plan` output only has prose done conditions, Claude converts them to structured format before saving. Prefer auto-verifiable types; use `manual` only when no automation is possible.
 
 ### 3. User Confirmation
 
@@ -87,7 +100,21 @@ Call:
         "objective": { "goal": "<goal>", "nonGoals": "<non-goals>", "doneWhen": "<one-line summary>" },
         "context": { "repoType": "<type>", "keyFiles": ["<path>"], "background": "<why>" },
         "constraints": ["<constraint>"],
-        "steps": ["S1 title", "S2 title"],
+        "steps": [
+          {
+            "title": "S1 title",
+            "doneConditions": [
+              { "type": "file_exists", "path": "path/to/file" },
+              { "type": "test_passes", "command": "test command" }
+            ]
+          },
+          {
+            "title": "S2 title",
+            "doneConditions": [
+              { "type": "grep_match", "pattern": "pattern", "path": "path" }
+            ]
+          }
+        ],
         "finalDone": ["criterion 1", "criterion 2"]
       }
     },

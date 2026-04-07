@@ -1,0 +1,26 @@
+{
+  "proto": "autoflow.fileops.v1",
+  "id": "TR-VERIFY",
+  "purpose": "verify_step",
+  "summary": "Run verification checks against step done conditions",
+  "done": ["All verification checks executed and results returned"],
+  "ops": [
+    {
+      "op": "run",
+      "cmd": "{{verifyCommand}}",
+      "cwd": ".",
+      "timeoutMs": 120000
+    }
+  ],
+  "report": {
+    "changedFiles": false,
+    "diffSummary": false,
+    "commandOutputs": "always"
+  },
+  "_meta": {
+    "placeholders": {
+      "verifyCommand": "Shell command to verify done conditions (e.g. test runner, lint, build). Claude constructs this based on done condition type."
+    },
+    "notes": "This template is called per-check. For multiple checks, Claude sends multiple FileOpsREQ or chains commands."
+  }
+}

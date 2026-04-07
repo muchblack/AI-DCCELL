@@ -18,7 +18,7 @@ TIMEOUT_SEC=2
 TMPDIR_HC="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR_HC"' EXIT
 
-ALL_PROVIDERS=(mlx ollama gemini codex)
+ALL_PROVIDERS=(mlx ollama gemini codex hf)
 
 if [ $# -gt 0 ]; then
   PROVIDERS=("$@")
@@ -164,6 +164,32 @@ check_codex() {
   fi
 }
 
+check_hf() {
+  local start end status latency
+  start=$(ts_ms)
+
+  if [ -z "${HF_TOKEN:-}" ]; then
+    end=$(ts_ms)
+    latency=$(( end - start ))
+    printf '{"status":"no_token","models":[],"latency_ms":%d,"error":"HF_TOKEN not set"}' "$latency"
+    return
+  fi
+
+  local http_code
+  http_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time "$TIMEOUT_SEC" \
+    -H "Authorization: Bearer $HF_TOKEN" \
+    "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell" 2>/dev/null) || http_code="000"
+
+  end=$(ts_ms)
+  latency=$(( end - start ))
+
+  case "$http_code" in
+    200) printf '{"status":"ok","models":["FLUX.1-schnell"],"latency_ms":%d}' "$latency" ;;
+    401) printf '{"status":"bad_token","models":[],"latency_ms":%d,"error":"invalid HF_TOKEN"}' "$latency" ;;
+    *)   printf '{"status":"down","models":[],"latency_ms":%d,"error":"HTTP %s"}' "$latency" "$http_code" ;;
+  esac
+}
+
 # 並行執行所有 provider 檢查
 for p in "${PROVIDERS[@]}"; do
   case "$p" in
@@ -171,6 +197,7 @@ for p in "${PROVIDERS[@]}"; do
     ollama) check_ollama > "$TMPDIR_HC/ollama.json" 2>/dev/null & ;;
     gemini) check_gemini > "$TMPDIR_HC/gemini.json" 2>/dev/null & ;;
     codex)  check_codex  > "$TMPDIR_HC/codex.json"  2>/dev/null & ;;
+    hf)     check_hf     > "$TMPDIR_HC/hf.json"     2>/dev/null & ;;
     *) echo "Unknown provider: $p" >&2 ;;
   esac
 done

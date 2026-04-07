@@ -28,7 +28,16 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 - **Token Awareness**: Before starting development, assess remaining token budget and let the user decide whether to continue.
 - **PHP/Laravel**: When handling PHP-Laravel code, invoke the `laravel-simplifier` agent to assist.
 - **Delegation**: When facing the Emperor's questions, invoke relevant agents or skills so each performs their specialty.
-- **Default Coding Flow**: When the Emperor requests code writing, default to Ollama workflow — delegate to Ollama (LAN, model configured via `OLLAMA_MODEL`) for code generation, Claude performs Linus-style dual-pass review, then handle based on results (🟢 adopt directly / 🟡 Claude minor fix / 🔴 re-send to Ollama with review notes, max 2 rounds). Claude writes directly only when: (1) Emperor explicitly says no Ollama; (2) Ollama unreachable; (3) Complex architecture design (not concrete implementation); (4) Small edits to existing code (few lines).
+- **Default Coding Flow (Smart Router)**: When the Emperor requests code writing:
+  1. Assess task: `type` (reasoning/coding), `complexity` (simple/medium/complex), `estimated_lines`, `file_count`, `language`, `security_sensitive`
+  2. Run `bash ~/.claude/skills/scripts/route-task.sh --type <type> --complexity <complexity> --lines <lines> --files <files> --lang <lang> --security <bool>` to get routing decision
+  3. Execute per decision:
+     - `claude` → Write directly, self-review for non-trivial changes
+     - `ollama` → `/ollama-code` flow (Linus dual-pass review, 🟢/🟡/🔴 handling, max 2 rounds)
+     - `mlx` → `/mlx-code` or `/mlx-reason` flow
+  4. Report routing to Emperor: 「路由：Ollama（中等實作，~80 行 PHP）」
+     Override: (1) Emperor explicitly specifies provider → obey; (2) `--full-review` → force complex path
+     Routing script considers: provider health, historical takeover rate from corrections.jsonl, task size, security sensitivity.
 
 ### Workflow Skills Index
 
@@ -58,6 +67,7 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 **Collaboration & Delegation**:
 | Skill | Trigger |
 |-------|---------|
+| `/dispatch` | Multi-provider task dispatch — split requirement, route to best provider (CCB + local MLX/Ollama) |
 | `/ask <provider>` | Delegate tasks to AI (gemini/codex/opencode/droid) |
 | `/cping <provider>` | Test AI provider connectivity |
 | `/pend <provider>` | View AI provider latest reply |
@@ -75,10 +85,38 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 | `/php-exec` | PHP artisan, composer, phpunit, tinker, migrate — executes inside `php-fpm` container via `podman exec` |
 
 **Specialized Domains**:
-| Agent | Trigger |
-|-------|---------|
+| Agent / Skill | Trigger |
+|---------------|---------|
 | `laravel-simplifier` | PHP/Laravel code |
 | `backend-architect` | System architecture & API design |
+| `/hf-image` | HF Inference API 圖片生成（text-to-image, image-to-image） |
+
+## Notepad 持久化
+
+工作過程中，遇到以下情況時，用 Edit 工具追記到 `.ccb/notepad.md`（目錄不存在時先建立）：
+
+- 做出重要技術決策（選擇方案 A 而非 B，以及原因）
+- 踩坑並解決（問題 + 根因 + 解法）
+- 發現需要後續處理的事項
+- 使用者的重要指示或偏好
+
+格式：
+
+```
+## [HH:MM] 標題
+內容（1-3 行）
+```
+
+不要記錄：日常工具操作、已在 state.json 追蹤的步驟進度、可從程式碼推導的資訊。
+
+Context 壓縮後，若收到 `[COMPACT RECOVERY]` 提示，立即 `Read(".ccb/compact-briefing.md")` 恢復脈絡。
+
+`.ccb/notepad.md` 生命週期：
+
+- `/tp` 新任務 → 清空
+- 工作中 → 追記
+- PreCompact → 自動合併至 `compact-briefing.md`
+- 任務完成 → 歸檔至 `.ccb/history/`
 
 ## Podman Development Environment
 
