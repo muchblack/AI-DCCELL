@@ -17,16 +17,46 @@ The first argument must be the provider name, followed by the message:
 - `opencode` - Send to OpenCode
 - `droid` - Send to Droid
 
+## Headless Mode
+
+When `/tmp/.ccb-headless` exists, gemini and codex use CLI subprocess instead of tmux pane.
+Toggle with: `bash ~/.claude/skills/scripts/ccb-headless.sh`
+
+Headless uses `gemini -p` and `codex exec --full-auto` — no terminal pane needed.
+Other providers (opencode, droid) always use the daemon path.
+
 ## Execution (MANDATORY)
+
+**Step 1**: Check headless flag and provider:
+
+```
+if [ -f /tmp/.ccb-headless ] && { [ "$PROVIDER" = "gemini" ] || [ "$PROVIDER" = "codex" ]; }
+→ Headless path
+else
+→ Daemon path
+```
+
+**Headless path** (gemini/codex only):
+
+```
+Bash(bash ~/.claude/skills/scripts/ask-headless.sh $PROVIDER "$MESSAGE")
+```
+
+- This runs synchronously and returns the reply directly.
+- Do NOT follow the Async Guardrail — the reply is already in the output.
+- Present the reply to the user normally.
+
+**Daemon path** (default):
 
 ```
 Bash(CCB_CALLER=claude ask $PROVIDER "$MESSAGE")
 ```
 
+- Follow the **Async Guardrail** rule in CLAUDE.md (mandatory).
+- If output contains `CCB_ASYNC_SUBMITTED`, end your turn immediately.
+
 ## Rules
 
-- Follow the **Async Guardrail** rule in CLAUDE.md (mandatory).
-- Local fallback: if output contains `CCB_ASYNC_SUBMITTED`, end your turn immediately.
 - If submit fails (non-zero exit):
   - Reply with exactly one line: `[Provider] submit failed: <short error>`
   - End your turn immediately.
