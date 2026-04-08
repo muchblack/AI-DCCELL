@@ -53,14 +53,13 @@ Wait for user confirmation before proceeding. If understanding is wrong, clarify
 
 #### 2a. Send to MLX
 
-Call `mcp__mcp-ai-bridge__mlx_chat`, passing the five-layer analysis framework as systemPrompt:
+Call `~/.claude/skills/scripts/mlx-chat.sh`, passing the five-layer analysis framework as system prompt:
 
-```
-mcp__mcp-ai-bridge__mlx_chat(
-  systemPrompt: <see MLX System Prompt below>,
-  message: "Requirement: {confirmed requirement from Step 1}\n\nContext: {relevant code/files/project context}",
-  maxTokens: 6000
-)
+```bash
+bash ~/.claude/skills/scripts/mlx-chat.sh \
+  -s "<see MLX System Prompt below>" \
+  -t 0.3 -m 6000 -j \
+  "Requirement: {confirmed requirement from Step 1}\n\nContext: {relevant code/files/project context}"
 ```
 
 **MLX System Prompt**:
@@ -110,7 +109,7 @@ End with a VERDICT section:
 #### 2b. Display MLX Analysis Result
 
 ```
-## MLX (Qwen3-14B) Five-Layer Analysis
+## MLX (Gemma 4 26B-A4B) Five-Layer Analysis
 
 **Model**: Qwen3-14B-4bit | **Inference time**: {durationMs}ms
 

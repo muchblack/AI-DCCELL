@@ -23,19 +23,18 @@ This avoids wasting tokens on prompts that will fail. See `~/.claude/skills/docs
 
 ### Step 1: Prepare and Send to MLX
 
-Use MCP tool `mcp__mcp-ai-bridge__mlx_analyze` to send the analysis task.
+Use `~/.claude/skills/scripts/mlx-chat.sh` to send the analysis task to local Gemma 4.
 
-- Parse user input as `requirement` parameter
-- If user references existing project files, read them first with Read tool and pass as `context`
-- Enable thinking mode by default (`thinking: true`), unless user explicitly requests fast response
+- Compose a system prompt with the six-part analysis framework
+- If user references existing project files, read them first and include as context in the user message
+- Use low temperature (0.3) for analytical tasks
 
-Example tool call:
-```
-mcp__mcp-ai-bridge__mlx_analyze(
-  requirement="Design a user authentication system supporting OAuth2 + JWT",
-  context="Existing project uses Laravel 10, PostgreSQL",
-  thinking=true
-)
+Example:
+```bash
+bash ~/.claude/skills/scripts/mlx-chat.sh \
+  -s "You are a senior software architect. Analyze the following requirement using this framework: 1) Problem Definition 2) Technical Approach 3) Data Model 4) Risk Analysis 5) Feasibility 6) Recommendation" \
+  -t 0.3 -m 4096 -j \
+  "Design a user authentication system supporting OAuth2 + JWT. Context: existing project uses Laravel 10, PostgreSQL"
 ```
 
 ### Step 2: Display MLX Analysis Result
@@ -43,9 +42,9 @@ mcp__mcp-ai-bridge__mlx_analyze(
 Present in this format:
 
 ```
-## MLX (Qwen3-14B) Reasoning Analysis
+## MLX (Gemma 4 26B-A4B) Reasoning Analysis
 
-**Model**: mlx-community/Qwen3-14B-4bit | **Inference time**: {durationMs}ms | **Thinking mode**: {on/off}
+**Model**: gemma-4-26b-a4b-it-4bit | **Inference time**: {durationMs}ms
 
 {MLX analysis result verbatim}
 ```

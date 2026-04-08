@@ -118,6 +118,7 @@ Call:
         "finalDone": ["criterion 1", "criterion 2"]
       }
     },
+    { "op": "run", "cmd": ": > .ccb/notepad.md || true", "cwd": "." },
     { "op": "run", "cmd": "bash ~/.claude/skills/tr/scripts/autoloop.sh start", "cwd": "." }
   ],
   "report": { "changedFiles": true, "diffSummary": true, "commandOutputs": "never" }
@@ -131,6 +132,26 @@ Then run:
 ```
 
 Codex returns `FileOpsRES` JSON only (via `/file-op`).
+
+### 4.1 Structured doneConditions
+
+Step doneConditions should use the structured format documented in `~/.claude/skills/docs/done-conditions.md`.
+
+Example:
+```json
+[
+  { "type": "file_exists", "pattern": "src/components/Button.tsx" },
+  { "type": "grep_match", "pattern": "export function Button", "path": "src/components/" },
+  { "type": "test_passes", "cmd": "npm test -- --filter Button" },
+  { "type": "manual", "description": "Verify the button renders correctly in browser" }
+]
+```
+
+Rules:
+- Each step should include 1-2 structured doneConditions for machine verification when possible
+- Supported types: `file_exists`, `grep_match`, `test_passes`, `build_succeeds`, `no_lint_errors`, `manual`
+- Legacy plain-string doneConditions are converted to `{ type: "manual", description: <string> }` downstream and skipped by auto-verification — for new plans, prefer explicit `manual` objects instead
+- Use `manual` when the outcome depends on human judgment rather than a deterministic command or file/content check
 
 ### 5. Output
 

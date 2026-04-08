@@ -28,16 +28,24 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 - **Token Awareness**: Before starting development, assess remaining token budget and let the user decide whether to continue.
 - **PHP/Laravel**: When handling PHP-Laravel code, invoke the `laravel-simplifier` agent to assist.
 - **Delegation**: When facing the Emperor's questions, invoke relevant agents or skills so each performs their specialty.
-- **Default Coding Flow (Smart Router)**: When the Emperor requests code writing:
-  1. Assess task: `type` (reasoning/coding), `complexity` (simple/medium/complex), `estimated_lines`, `file_count`, `language`, `security_sensitive`
-  2. Run `bash ~/.claude/skills/scripts/route-task.sh --type <type> --complexity <complexity> --lines <lines> --files <files> --lang <lang> --security <bool>` to get routing decision
-  3. Execute per decision:
-     - `claude` → Write directly, self-review for non-trivial changes
-     - `ollama` → `/ollama-code` flow (Linus dual-pass review, 🟢/🟡/🔴 handling, max 2 rounds)
-     - `mlx` → `/mlx-code` or `/mlx-reason` flow
-  4. Report routing to Emperor: 「路由：Ollama（中等實作，~80 行 PHP）」
-     Override: (1) Emperor explicitly specifies provider → obey; (2) `--full-review` → force complex path
-     Routing script considers: provider health, historical takeover rate from corrections.jsonl, task size, security sensitivity.
+- **Default Coding Flow**: Claude writes code directly. After implementation, run `/linus-review` for taste check. If 🟡 or 🟢, proceed to `/review` for formal cross-review. If 🔴, fix and re-check. For completed code that passes review, optionally invoke `refactor-cleaner` agent for a de-sloppify pass (subtraction-only cleanup). For API endpoints, auth flows, or data handling changes, invoke `security-reviewer` agent before merge.
+- **De-Sloppify Principle**: Two focused agents outperform one constrained agent. Don't burden the implementation prompt with "don't add unnecessary code" — let the implementer write freely, then run a separate cleanup pass after review.
+
+### Notepad Persistence (.ccb/notepad.md)
+
+When working within an AutoFlow task (`.ccb/state.json` exists), Claude should append entries to `.ccb/notepad.md` at these moments:
+- **Important technical decisions**: approach chosen + reason (1-2 lines)
+- **Pitfall resolved**: problem + root cause + fix (max 3 lines)
+- **Linus-review 🔴**: auto-logged by `/tr` Step 7.5 flow
+- **Ralph BLOCKED**: auto-logged by `/tr` Step 8.6 with `pit_stop_needed: true`
+- **User critical instructions**: directives that must survive context compression
+
+Rules:
+- Each entry: max 3 lines, prefixed with `[YYYY-MM-DD HH:MM]`
+- Max 50 entries total (FIFO — oldest dropped when exceeded)
+- `/tp` clears notepad on new task init
+- PreCompact hook merges notepad into `.ccb/compact-briefing.md` automatically
+- After context compression, if `.ccb/compact-briefing.md` exists, read it during `/tr` preflight
 
 ### Workflow Skills Index
 
@@ -52,11 +60,13 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 | `/dev` | End-to-end dev: requirement → MLX plan → review → Ollama code → review → cross-review → commit |
 
 **Code Quality**:
-| Skill | Trigger |
-|-------|---------|
-| `/linus-review` | Daily taste check → 🟢🟡🔴 three-tier judgment; also integrated in `/tr` as pre-review gate (Step 7.5) and final audit (Step 10.0) |
+| Skill / Agent | Trigger |
+|---------------|---------|
+| `/linus-review` | Daily taste check → 🟢🟡🔴 three-tier judgment |
 | `/review` | Formal dual review → Claude + Cross-reviewer structured review |
 | `/react-best-practices` | React/Next.js performance optimization (40+ rules) |
+| `refactor-cleaner` | De-sloppify pass — post-review subtraction-only cleanup |
+| `security-reviewer` | OWASP Top 10 scan — run on API/auth/data changes before merge |
 
 **Frontend Development**:
 | Agent | Trigger |
@@ -67,7 +77,6 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 **Collaboration & Delegation**:
 | Skill | Trigger |
 |-------|---------|
-| `/dispatch` | Multi-provider task dispatch — split requirement, route to best provider (CCB + local MLX/Ollama) |
 | `/ask <provider>` | Delegate tasks to AI (gemini/codex/opencode/droid) |
 | `/cping <provider>` | Test AI provider connectivity |
 | `/pend <provider>` | View AI provider latest reply |
@@ -76,8 +85,7 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 **Local / LAN AI**:
 | Skill | Trigger |
 |-------|---------|
-| `/mlx-reason` | Requirement analysis, reasoning, architecture evaluation → local MLX (Qwen3-14B) + Claude 4D review |
-| `/ollama-code` | Delegate coding to LAN Ollama → auto Linus review |
+| `/mlx-reason` | Requirement analysis, reasoning, architecture evaluation → local MLX (Gemma 4 26B-A4B) + Claude 4D review |
 
 **Podman / Container Operations**:
 | Skill | Trigger |
@@ -85,38 +93,63 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 | `/php-exec` | PHP artisan, composer, phpunit, tinker, migrate — executes inside `php-fpm` container via `podman exec` |
 
 **Specialized Domains**:
-| Agent / Skill | Trigger |
-|---------------|---------|
+| Agent | Trigger |
+|-------|---------|
 | `laravel-simplifier` | PHP/Laravel code |
 | `backend-architect` | System architecture & API design |
-| `/hf-image` | HF Inference API 圖片生成（text-to-image, image-to-image） |
 
-## Notepad 持久化
+## Operational Patterns
 
-工作過程中，遇到以下情況時，用 Edit 工具追記到 `.ccb/notepad.md`（目錄不存在時先建立）：
+### Cost-Aware Model Routing
 
-- 做出重要技術決策（選擇方案 A 而非 B，以及原因）
-- 踩坑並解決（問題 + 根因 + 解法）
-- 發現需要後續處理的事項
-- 使用者的重要指示或偏好
+Use the cheapest model that can handle the task. Don't waste Opus tokens on simple work.
 
-格式：
+| Task Type | Recommended Model | Rationale |
+|-----------|-------------------|-----------|
+| Lint, format check, simple search | `haiku` subagent | Near-instant, low cost |
+| Code generation, bug fix | `sonnet` subagent or Claude direct | Good balance of speed/quality |
+| Architecture design, complex analysis | `opus` (main context) | Needs deep reasoning |
+| Security review, refactor-cleaner | `sonnet` subagent | Structured checklist, doesn't need opus |
 
-```
-## [HH:MM] 標題
-內容（1-3 行）
-```
+When spawning Agent tool, set `model: "haiku"` or `model: "sonnet"` explicitly for non-critical tasks. Reserve the main Opus context for decisions that need full conversation history.
 
-不要記錄：日常工具操作、已在 state.json 追蹤的步驟進度、可從程式碼推導的資訊。
+### Iterative Retrieval (Subagent Context Gathering)
 
-Context 壓縮後，若收到 `[COMPACT RECOVERY]` 提示，立即 `Read(".ccb/compact-briefing.md")` 恢復脈絡。
+When a subagent needs to explore unfamiliar code, use this 4-phase loop instead of one-shot broad search:
 
-`.ccb/notepad.md` 生命週期：
+1. **DISPATCH**: Broad queries — high-level keywords, file patterns (`**/*.php`, `*Controller*`)
+2. **EVALUATE**: Score each result 0-1 relevance. High (0.8+) = directly relevant. Low (<0.3) = exclude.
+3. **REFINE**: Extract patterns/terminology from high-scoring files. Target identified gaps.
+4. **LOOP**: Repeat up to 3 cycles. Stop when 3+ high-relevance files found.
 
-- `/tp` 新任務 → 清空
-- 工作中 → 追記
-- PreCompact → 自動合併至 `compact-briefing.md`
-- 任務完成 → 歸檔至 `.ccb/history/`
+Key insight: first cycle reveals project-specific terminology that dramatically improves subsequent searches. "Three high-relevance files beat ten mediocre ones."
+
+Apply this when using `Explore` agent for cross-module bug investigation or unfamiliar codebase areas.
+
+### Hooks over Prompts
+
+LLMs have ~20% forgetting rate on prompt instructions. For mandatory rules, enforce at the tool level via hooks rather than relying on CLAUDE.md compliance alone.
+
+**Currently enforced via hooks:**
+- `guard-podman.sh` (PreToolUse → Bash): Blocks bare `php`/`composer` commands, forces `podman exec`
+- `observe.sh` (PostToolUse): Logs tool usage for instinct extraction
+- `worklog.sh` (PostToolUse → Bash): Auto-logs git commits to Obsidian
+- `save-notepad.sh` (PreCompact): Persists notepad to compact-briefing
+
+**Candidate rules for future hook enforcement:**
+- Write/Edit on `README.md` → validate contains Traditional Chinese (language rule)
+- Bash `git commit` → validate message is in Traditional Chinese
+- PostToolUse on Write → check for `.env` or credential patterns in content
+
+### Cross-Session Bridge (.ccb/notepad.md)
+
+Notepad is not just for AutoFlow internal use — it bridges context across all CCB provider interactions:
+
+- When Codex/Gemini returns results that future steps depend on, summarize key findings to notepad
+- When a decision is made that affects multiple providers' work, log it to notepad
+- When a provider discovers something unexpected, log it so the next provider in the chain sees it
+
+Format: `[YYYY-MM-DD HH:MM] [PROVIDER] <content>` — max 3 lines per entry.
 
 ## Podman Development Environment
 
