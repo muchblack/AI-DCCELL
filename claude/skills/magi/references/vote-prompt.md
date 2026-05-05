@@ -1,6 +1,6 @@
 # MAGI Vote Prompt Template
 
-This template is used when sending vote requests to BALTHASAR-2 (Codex) and CASPER-3 (Gemini).
+This template is used when sending vote requests to BALTHASAR-2 (OpenCode) and CASPER-3 (Gemini).
 
 ---
 
@@ -47,9 +47,9 @@ CCB_DONE: <req_id>
 
 ## Role-Specific Preambles
 
-### BALTHASAR-2 (Codex, fallback MLX) — The Mother / Pragmatist
+### BALTHASAR-2 (OpenCode, fallback MLX) — The Mother / Pragmatist
 
-When `/ask codex` is unavailable (codex not mounted per `ccb-mounted`), deliver the same preamble + proposal + vote instructions to `/mlx-reason` synchronously; Claude then audits the returned JSON before injecting into `received_votes`. The preamble text itself does not change — only the transport does.
+codex retired 2026-05-05; primary transport is now `/ask opencode`. When `/ask opencode` is unavailable (opencode not mounted per `ccb-mounted`), deliver the same preamble + proposal + vote instructions to `/mlx-reason` synchronously; Claude then audits the returned JSON before injecting into `received_votes`. The preamble text itself does not change — only the transport does.
 
 
 ```
@@ -121,7 +121,7 @@ The orchestrator (Claude) parses responses in this order:
 ### Response Header (injected by ccb-completion-hook)
 
 ```
-[MAGI_VOTE_RESULT session_id=magi-20260318-112345 provider=codex]
+[MAGI_VOTE_RESULT session_id=magi-20260318-112345 provider=opencode]
 ```
 
 The session_id links request and response across the async boundary (END TURN).

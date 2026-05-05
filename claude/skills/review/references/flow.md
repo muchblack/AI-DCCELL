@@ -1,6 +1,6 @@
 # Review
 
-Dual review by Claude (initial assessment) and a configurable cross-review provider (Codex by default).
+Dual review by Claude (initial assessment) and a configurable cross-review provider (MLX by default; codex retired 2026-05-05).
 
 ## Modes
 
@@ -22,13 +22,13 @@ Dual review by Claude (initial assessment) and a configurable cross-review provi
 
 Resolve the `reviewer` role using a three-layer lookup:
 
-1. **CLAUDE.md Role Assignment table** (primary): Read the Role Assignment table in CLAUDE.md. The `reviewer` role maps to a provider (e.g., `codex`, `gemini`).
+1. **CLAUDE.md Role Assignment table** (primary): Read the Role Assignment table in CLAUDE.md. The `reviewer` role maps to a provider (e.g., `mlx`, `ollama`).
 2. **`.autoflow/roles.json`** (override): If this file exists in the repo, and `enabled == true` and `schemaVersion == 1`, use its `reviewer` field to override.
-3. **Availability fallback** (MANDATORY): if the resolved provider is `codex`, run `ccb-mounted` and parse JSON. If `"codex"` ∉ `mounted` → demote to `mlx` (local MLX via `/mlx-reason`), then apply the Claude audit gate in Step 2.5 before using the verdict.
+3. **Availability fallback** (MANDATORY): per the CLAUDE.md Reviewer Fallback Protocol, the chain is `mlx` → `ollama` → `claude-fallback`. Probe each in order: MLX server reachable at `localhost:8090`? else Ollama reachable at `192.168.1.206:11434`? else self-audit. The Claude audit gate in Step 2.5 applies whenever the cross-reviewer is `mlx` or `ollama` (always for non-Claude reviewers post-codex retirement).
 
-Default: `codex` → falls back to `mlx` when not mounted.
+Default: `mlx` (primary) → `ollama` (fallback) → `claude-fallback` (last resort).
 
-Implementation detail: Claude must not read repo files directly; request file reads via `/file-op` (`read_file`) and parse the JSON response. `ccb-mounted` runs via Bash and does not need `/file-op`.
+Implementation detail: Claude reads repo files directly via Read/Edit tools (no `/file-op` indirection). Server availability probes run via Bash.
 
 ### 1. Claude Initial Assessment
 
@@ -42,9 +42,10 @@ Preliminary verdict: **PASS** / **FIX** / **UNCERTAIN**
 ### 2. Cross-Review (Provider)
 
 If provider is:
-- `codex` → use `/ask codex`
-- `gemini` → use `/ask gemini`
-- `mlx` (codex fallback) → use `/mlx-reason` with the same Cross-review payload below; then go through Step 2.5 Claude audit gate before using the output.
+- `mlx` (default) → invoke `/mlx-reason` with the Cross-review payload below; then go through Step 2.5 Claude audit gate.
+- `ollama` (MLX fallback) → call `ollama_review` via MCP Bridge with the same payload; then go through Step 2.5 Claude audit gate.
+- `gemini` → use `/ask gemini` (only if explicitly configured in `.autoflow/roles.json`; not in default chain).
+- `claude-fallback` → Claude issues verdict directly with explicit `claudeAudit: "rejected"` rationale.
 
 ```
 /ask <provider> "Cross-review:
@@ -63,9 +64,9 @@ If FIX, list specific items (max 3).
 Return JSON only."
 ```
 
-### 2.5 Claude Audit Gate (MLX fallback only)
+### 2.5 Claude Audit Gate (MANDATORY for mlx / ollama)
 
-Triggered only when Step 2 ran `/mlx-reason`. Claude MUST audit the MLX output before the verdict is trusted:
+Triggered whenever Step 2 ran `/mlx-reason` or `ollama_review`. Claude MUST audit the cross-reviewer output before the verdict is trusted:
 
 - **Grounding check**: Do the reasoning / fix items reference real files, symbols, or plan sections from the submitted artifact? Reject hallucinations.
 - **Verdict defensibility**: Is PASS/FIX consistent with the evidence? No rubber-stamp PASS, no unjustified FIX.
@@ -75,9 +76,9 @@ Audit outcomes:
 
 | Audit result | Action |
 |--------------|--------|
-| Accept | Treat MLX output as the `crossAssessment`; set `crossReviewer: "mlx"`, add `claudeAudit: "accepted"` with one-line note. |
-| Accept with edits | Claude rewrites the fix items / verdict based on real evidence; set `crossReviewer: "mlx"`, `claudeAudit: "edited"` with rationale. |
-| Reject | Discard MLX output; Claude issues the verdict directly; set `crossReviewer: "claude-fallback"`, `claudeAudit: "rejected"` with reason. |
+| Accept | Treat cross-reviewer output as the `crossAssessment`; set `crossReviewer: "mlx"` or `"ollama"`, add `claudeAudit: "accepted"` with one-line note. |
+| Accept with edits | Claude rewrites the fix items / verdict based on real evidence; preserve `crossReviewer`, set `claudeAudit: "edited"` with rationale. |
+| Reject | Discard cross-reviewer output; Claude issues the verdict directly; set `crossReviewer: "claude-fallback"`, `claudeAudit: "rejected"` with reason. |
 
 ### 3. Final Decision
 
@@ -95,7 +96,7 @@ Audit outcomes:
 {
   "mode": "step|task",
   "target": "<step title or task name>",
-  "crossReviewer": "codex|gemini|mlx|claude-fallback",
+  "crossReviewer": "mlx|ollama|gemini|claude-fallback",
   "claudeAudit": "n/a|accepted|edited|rejected",
   "claudeAuditNote": "<one-line rationale when claudeAudit != n/a>",
   "verdict": "PASS|FIX|BLOCKED",
@@ -117,7 +118,7 @@ Audit outcomes:
 }
 ```
 
-`claudeAudit` is `n/a` when `crossReviewer` ∈ {`codex`, `gemini`}; mandatory when `crossReviewer` ∈ {`mlx`, `claude-fallback`}.
+`claudeAudit` is mandatory when `crossReviewer` ∈ {`mlx`, `ollama`, `claude-fallback`}; `n/a` only when explicitly using `gemini` via `.autoflow/roles.json` override.
 
 ## Mode-Specific Checklist
 

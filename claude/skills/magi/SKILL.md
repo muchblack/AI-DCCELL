@@ -10,7 +10,7 @@ metadata:
 Three-system consensus voting inspired by Evangelion MAGI supercomputer.
 
 - **MELCHIOR-1** (Scientist/Logic) → Claude — analytical, technical quality
-- **BALTHASAR-2** (Mother/Pragmatic) → Codex — protective, risk-averse
+- **BALTHASAR-2** (Mother/Pragmatic) → OpenCode — protective, risk-averse, second-opinion (codex retired 2026-05-05)
 - **CASPER-3** (Woman/Intuitive) → Gemini — creative, unconventional
 
 For full instructions, see `references/flow.md`
