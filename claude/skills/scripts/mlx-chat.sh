@@ -24,7 +24,7 @@ set -euo pipefail
 # ── 預設值 ──
 MLX_HOST="${MLX_HOST:-localhost}"
 MLX_PORT="${MLX_PORT:-8090}"
-MLX_MODEL="${MLX_MODEL:-}"
+MLX_MODEL="${MLX_MODEL:-/Users/vincenttseng/.local/share/mlx-models/gemma-4-26b-a4b-it-4bit}"
 SYSTEM_PROMPT=""
 TEMPERATURE=0.3
 MAX_TOKENS=4096
@@ -71,13 +71,10 @@ if [[ -z "$USER_MESSAGE" ]]; then
   exit 1
 fi
 
-# ── 自動偵測模型 ──
-if [[ -z "$MLX_MODEL" ]]; then
-  MLX_MODEL=$(curl -sf "http://${MLX_HOST}:${MLX_PORT}/v1/models" 2>/dev/null \
-    | python3 -c "import sys,json; models=json.load(sys.stdin)['data']; print(models[-1]['id'])" 2>/dev/null) || {
-    echo "Error: MLX server not reachable at ${MLX_HOST}:${MLX_PORT}" >&2
-    exit 2
-  }
+# ── Server 可達性檢查（model 已有預設絕對路徑，不再從 /v1/models 偵測）──
+if ! curl -sf -o /dev/null -m 3 "http://${MLX_HOST}:${MLX_PORT}/v1/models"; then
+  echo "Error: MLX server not reachable at ${MLX_HOST}:${MLX_PORT}" >&2
+  exit 2
 fi
 
 # ── 組裝 messages ──
