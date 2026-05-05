@@ -12,7 +12,6 @@ Test connectivity with specified AI provider.
 ## Usage
 
 The first argument must be the provider name:
-
 - `gemini` - Test Gemini
 - `codex` - Test Codex
 - `opencode` - Test OpenCode
@@ -22,7 +21,6 @@ The first argument must be the provider name:
 ## Execution (MANDATORY)
 
 Use `ccb-ping` wrapper to avoid conflict with system `ping`:
-
 ```
 Bash(ccb-ping $PROVIDER)
 ```

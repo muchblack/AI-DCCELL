@@ -20,3 +20,7 @@ data/
 # Telemetry / Corrections（運行時產生）
 skills/memory/telemetry.jsonl
 skills/memory/corrections.jsonl
+
+# Python virtualenv（每台機器自建，勿入庫）
+**/.venv/
+**/__pycache__/

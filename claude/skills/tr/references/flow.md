@@ -57,10 +57,7 @@ Output JSON:
 ```json
 {
   "approach": "description of implementation approach",
-  "doneConditions": [
-    { "type": "grep_match", "pattern": "export function Button", "path": "src/components/Button.tsx" },
-    { "type": "manual", "description": "Verify the button renders correctly in browser" }
-  ],
+  "doneConditions": ["condition 1", "condition 2"],
   "risks": ["risk 1"],
   "needsSplit": false,
   "splitReason": null,
@@ -74,7 +71,6 @@ Output JSON:
 /ask codex "Independent step design:
 Step: [title]
 Context: [objective, relevant files, dependencies]
-Use structured doneConditions from ~/.claude/skills/docs/done-conditions.md.
 Return JSON only: { approach, doneConditions, risks, needsSplit, splitReason, proposedSubsteps }"
 ```
 
@@ -86,16 +82,11 @@ Compare both designs:
 - Resolve `approach` conflicts — Claude has final decision
 - Resolve `needsSplit` — if either says true, evaluate carefully; Claude decides
 
-`doneConditions` should prefer machine-verifiable structured objects. Legacy string entries are allowed only for backward compatibility and are treated as `manual` downstream.
-
 **Output contract** (merged JSON):
 ```json
 {
   "approach": "string",
-  "doneConditions": [
-    { "type": "file_exists", "pattern": "path/to/file" },
-    { "type": "manual", "description": "human verification note" }
-  ],
+  "doneConditions": ["string", "max 2"],
   "risks": ["string"],
   "needsSplit": true|false,
   "splitReason": "string (optional, if needsSplit=true)",
@@ -154,54 +145,13 @@ Send the constructed FileOpsREQ via `/file-op`:
 
 ### 7. Handle FileOpsRES (Codex or OpenCode)
 
-**status = ok** → Go to Taste Pre-screen (Step 7.5)
+**status = ok** → Go to Review
 
 **status = ask** → Show questions to user → Re-run
 
 **status = fail** → Request `autoflow_state_mark_blocked` with `fail.reason` → Stop
 
 Note: `status = split` should be handled by Step 3 (Split Check). Treat unexpected `split` here as `fail` and re-run design to decide `needsSplit`.
-
-### 7.5 Taste Pre-screen (Linus Review)
-
-Quick Claude-local taste check before investing in formal cross-review. Invoke `/linus-review` on the changed files from FileOpsRES:
-
-```
-/linus-review <changed files from FileOpsRES>
-```
-
-**Decision based on result:**
-
-- **🔴 Garbage or CRITICAL fatal issues** → Short-circuit: skip Step 8 formal review. Back to Step 4 with linus-review feedback as fix guidance (counts toward step attempt limit). **Auto-log to `.ccb/notepad.md`** (if exists): append `[LINUS 🔴] <step title>: <fatal issue summary>` (max 3 lines).
-- **🟡 Passable** → Proceed to Step 8 formal `/review`.
-- **🟢 Good taste** → Proceed to Step 8 formal `/review`.
-
-This step is Claude-local (no external provider calls) and acts as a fast-fail gate to avoid wasting Codex tokens on code that clearly needs rework.
-
-**Notepad integration**: When result is 🔴, the failure summary is persisted to `.ccb/notepad.md` so it survives context compression. This is especially valuable for recurring quality issues that inform future sessions.
-
-### 7.6 Security Scan (Conditional)
-
-**Trigger condition**: Run when changed files include any of:
-- API route definitions or controllers
-- Authentication/authorization logic (middleware, guards, policies)
-- Database queries (especially raw/custom)
-- File upload handling
-- User input processing
-
-If triggered, invoke `security-reviewer` agent (model: sonnet) on the changed files:
-
-```
-Agent(subagent_type: "general-purpose", model: "sonnet")
-  "You are security-reviewer. Review these files for OWASP Top 10 issues: [changed files]"
-```
-
-**Decision:**
-- 🔴 CRITICAL found → Back to Step 4 with security fix guidance (counts toward attempt limit). Auto-log to `.ccb/notepad.md`: `[SEC 🔴] <step title>: <vulnerability summary>`.
-- 🟡 WARNING only → Proceed to Step 8. Log warnings to notepad for tracking.
-- 🟢 Clean → Proceed to Step 8.
-
-This step uses a sonnet subagent (cost-aware: security checklists don't need opus reasoning depth).
 
 ### 8. Review (Claude + Cross-Review)
 
@@ -242,74 +192,16 @@ Execute relevant tests and report:
 ```
 
 **Claude reviews test results**:
-- All pass → Continue to Verification Gate (Step 8.6)
+- All pass → Continue to Finalize
 - Failures → Analyze cause, decide:
   - Fix issue (Back to step 5 with fix)
   - Mark as known issue (Continue with note)
   - Block (Mark blocked)
 
 **Final Decision** (based on Review + Test):
-- Both PASS → Verification Gate
+- Both PASS → Finalize
 - Either FIX → Merge fix items → Back to step 5 (max 1 retry)
 - Disagreement → Claude makes final call with explanation
-
-### 8.6 Verification Gate (Ralph)
-
-Mandatory auto-verification of structured doneConditions before finalize. Reference: `~/.claude/skills/docs/done-conditions.md`.
-
-**8.6.1 Iterate doneConditions**
-
-For each doneCondition from the Step 2 design output:
-
-1. **String (legacy)** → convert to `{ type: "manual", description: <string> }` → skip auto-verify
-2. **Object with type** → execute type-specific verification:
-
-| Type | Verification | Tool |
-|------|-------------|------|
-| `file_exists` | Glob(pattern) returns >= 1 match | Glob |
-| `grep_match` | Grep(pattern, path) returns >= 1 match | Grep |
-| `test_passes` | Bash(cmd) exit code == 0 | Bash |
-| `build_succeeds` | Bash(cmd) exit code == 0 | Bash |
-| `no_lint_errors` | Bash(cmd) exit code == 0 | Bash |
-| `manual` | Skip — flag for human confirmation | — |
-
-**8.6.2 Design-Execution Consistency Check**
-
-Compare the Step 2 design `approach` description against actual `changedFiles` from FileOpsRES:
-- If design mentions files/modules that were NOT changed → flag as warning
-- If changed files were NOT mentioned in design → flag as warning
-- Warnings are informational, not blocking — but logged to notepad if notepad exists
-
-**8.6.3 Result Handling**
-
-- **All auto-verifiable PASS** + manual skipped → proceed to Step 9 (Finalize)
-- **Any auto-verifiable FAIL** → enter auto-fix loop:
-  1. Send fix request back to Step 5 (FileOpsREQ with failure details)
-  2. After fix, run **linus-review re-check** on changed files:
-     - If taste stays 🟡 or improves to 🟢 → re-verify doneConditions
-     - If taste degrades to 🔴 → force BLOCKED (do not retry further)
-  3. Max 2 auto-fix attempts total (shared with step attempt limit)
-  4. If retries exhausted → mark step BLOCKED with failure summary
-- **BLOCKED** → write failure summary + `pit_stop_needed: true` to `.ccb/notepad.md` (if notepad mechanism is active)
-
-### 8.7 De-Sloppify Pass (Optional)
-
-**Trigger condition**: Run when the step involved substantial code generation (new files, large diffs). Skip for config changes, docs, or small edits.
-
-Invoke `refactor-cleaner` agent (model: sonnet) on changed files:
-
-```
-Agent(subagent_type: "general-purpose", model: "sonnet")
-  "You are refactor-cleaner. De-sloppify these files (subtraction-only, no behavior changes): [changed files]
-   Remove: defensive bloat, dead code, over-abstraction, AI noise, test bloat.
-   Keep: boundary error handling, audit logging, public API types."
-```
-
-**Rules:**
-- This is subtraction-only — never adds code or changes behavior
-- Applied AFTER review passes, not before (don't clean code that might get rejected)
-- If the pass removes > 20% of lines, flag for human review before applying
-- Uses sonnet subagent (cost-aware: checklist-based work)
 
 ### 9. Finalize (Codex)
 
@@ -391,7 +283,6 @@ Codex writes `reportContent` to `final/` folder:
 - Key Decisions
 - Issues Encountered & Resolutions
 - Final Verification Results
-- Notepad Archive (if `.ccb/notepad.md` exists and is non-empty, include its contents)
 - Recommendations (if any)
 
 ---
