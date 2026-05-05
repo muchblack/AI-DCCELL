@@ -5,8 +5,10 @@ Three-system consensus voting with veto power. Inspired by Evangelion MAGI super
 **Roles** (resolve via CLAUDE.md Role Assignment):
 
 - MELCHIOR-1 (Scientist) → `claude` — analytical, technical quality, logic
-- BALTHASAR-2 (Mother) → `codex` — protective, risk-averse, backward compatibility
+- BALTHASAR-2 (Mother) → `codex` (primary) → `mlx` (fallback via `/mlx-reason` + Claude audit) — protective, risk-averse, backward compatibility
 - CASPER-3 (Woman) → `gemini` — creative, user experience, intuitive
+
+**BALTHASAR-2 provider resolution**: before Phase 2 delegation, run `ccb-mounted`. If `"codex"` ∉ `mounted`, demote BALTHASAR-2 to MLX: send the vote prompt to `/mlx-reason` (synchronous) instead of `/ask codex`. Claude MUST audit the MLX vote (grounding, JSON validity, defensibility of `risk_mass`) before injecting it into `received_votes`. If audit rejects, record BALTHASAR-2 as `ABSTAIN` with `reasoning: "MLX fallback output rejected by Claude audit"` and `provider: "mlx-rejected"`.
 
 ---
 
@@ -70,6 +72,18 @@ Write `.ccb/magi_state.json` with:
 
 ### Phase 2: Delegate to BALTHASAR-2 and CASPER-3 (Async)
 
+**2.0 BALTHASAR-2 Availability Probe**
+
+Run `ccb-mounted` once before dispatch:
+
+- `"codex"` ∈ `mounted` → proceed normally (async via `/ask codex`).
+- `"codex"` ∉ `mounted` → **switch BALTHASAR-2 to MLX fallback** (handled synchronously in the same turn, NOT via /ask):
+  1. Invoke `/mlx-reason` with the vote prompt (BALTHASAR-2 preamble + proposal).
+  2. Claude audit gate: verify JSON shape, grounding, and whether the `risk_mass` is defensible given the proposal. Accept / edit / reject per the Reviewer Fallback Protocol in CLAUDE.md.
+  3. Inject the audited vote directly into `received_votes` with `provider: "mlx"` (or `"mlx-rejected"` → ABSTAIN if rejected).
+  4. Set `expected_providers = ["gemini"]` — do NOT add codex to `pending_tasks`.
+  5. Continue Phase 2 with only the CASPER-3 (`/ask gemini`) dispatch.
+
 **2.1 Send Vote Requests**
 
 Send to both providers via `/ask`. Each `/ask` returns a `[CCB_ASYNC_SUBMITTED]` line
@@ -82,6 +96,8 @@ containing a task ID. Save these task IDs to `magi_state.json` for later correla
 Proposal:
 <proposal text>
 ```
+
+(Skip the `/ask codex` block entirely when BALTHASAR-2 is routed to MLX in Phase 2.0.)
 
 ```
 /ask gemini [MAGI_VOTE_REQ session_id=<session_id>]

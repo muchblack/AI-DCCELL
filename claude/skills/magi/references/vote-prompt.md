@@ -47,7 +47,10 @@ CCB_DONE: <req_id>
 
 ## Role-Specific Preambles
 
-### BALTHASAR-2 (Codex) — The Mother / Pragmatist
+### BALTHASAR-2 (Codex, fallback MLX) — The Mother / Pragmatist
+
+When `/ask codex` is unavailable (codex not mounted per `ccb-mounted`), deliver the same preamble + proposal + vote instructions to `/mlx-reason` synchronously; Claude then audits the returned JSON before injecting into `received_votes`. The preamble text itself does not change — only the transport does.
+
 
 ```
 You are BALTHASAR-2, the Mother aspect of the MAGI system.

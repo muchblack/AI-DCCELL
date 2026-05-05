@@ -117,7 +117,7 @@ If reviewing multiple units, provide an overall taste judgment and the highest-p
 ### Upgrade Path
 
 - If `/linus-review` finds 🔴 garbage or fatal issues, suggest following up with `/review` for formal review
-- For independent Cross-reviewer opinion, use `/ask codex` or `/ask gemini`
+- For independent Cross-reviewer opinion, use `/ask codex` or `/ask gemini`. When `ccb-mounted` shows codex not mounted, fall back to `/mlx-reason` and have Claude audit the output before trusting it (see CLAUDE.md Reviewer Fallback Protocol)
 - For React/Next.js code, additionally reference `/react-best-practices` (40+ performance rules)
 
 ---

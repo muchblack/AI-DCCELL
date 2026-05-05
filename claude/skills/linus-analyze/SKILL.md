@@ -8,6 +8,6 @@ metadata:
 # Linus-Style Requirement Analysis
 
 Structured five-layer analysis framework — from requirement understanding to actionable decisions.
-Analysis powered by local MLX (Qwen3-14B), reviewed by Claude.
+Analysis powered by local MLX (Gemma4-26B), reviewed by Claude.
 
 For full instructions, see `references/flow.md`

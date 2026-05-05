@@ -45,7 +45,7 @@ git log --oneline -5
 git commit -m "$(cat <<'EOF'
 commit 訊息
 
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
 EOF
 )"
 

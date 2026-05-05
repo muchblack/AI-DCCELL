@@ -43,9 +43,9 @@ mcp__mcp-ai-bridge__mlx_analyze(
 Present in this format:
 
 ```
-## MLX (Qwen3-14B) Reasoning Analysis
+## MLX (Gemma4-26B) Reasoning Analysis
 
-**Model**: mlx-community/Qwen3-14B-4bit | **Inference time**: {durationMs}ms | **Thinking mode**: {on/off}
+**Model**: mlx-community/gemma-4-26b-a4b-it-4bit | **Inference time**: {durationMs}ms | **Thinking mode**: {on/off}
 
 {MLX analysis result verbatim}
 ```

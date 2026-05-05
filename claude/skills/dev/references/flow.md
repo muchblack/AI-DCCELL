@@ -11,7 +11,7 @@ For platform-specific tool syntax and role mappings, see `adapters/`.
 
 - **Primary Reviewer (主審)**: The platform's own AI. Performs plan and code review.
 - **Final Reviewer (終審)**: A different AI (cross-review). Provides second opinion.
-- **MLX**: Local reasoning model (Qwen3-14B on localhost:8090). Drafts plans.
+- **MLX**: Local reasoning model (Gemma4-26B on localhost:8090). Drafts plans.
 - **Ollama**: LAN code generation model (192.168.1.206:11434, model configured via `OLLAMA_MODEL` env var). Writes code.
 
 Role assignments are defined in each platform's adapter file.
@@ -93,9 +93,9 @@ mlx_analyze(
 ### Step 1.3: Display Result
 
 ```
-## MLX (Qwen3-14B) Plan Draft
+## MLX (Gemma4-26B) Plan Draft
 
-**Model**: mlx-community/Qwen3-14B-4bit | **Inference time**: {durationMs}ms
+**Model**: mlx-community/gemma-4-26b-a4b-it-4bit | **Inference time**: {durationMs}ms
 
 {MLX plan draft verbatim}
 ```

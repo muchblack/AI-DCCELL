@@ -2,16 +2,14 @@
 
 Create executable plan artifacts: `.ccb/todo.md` + `.ccb/state.json` + `.ccb/plan_log.md`
 
-**File formats**: See `~/.claude/skills/docs/formats.md`
-**Protocol**: See `~/.claude/skills/docs/protocol.md`
-
 ---
 
 ## Architecture Note
 
 - Plan mode is optional (recommended for structured planning + review).
-- **All file I/O (create/modify)** is executed by **Codex** via `FileOpsREQ` / `FileOpsRES`.
-- This command must never directly write files; it only prepares the plan content and delegates writes to Codex.
+- **All file I/O is performed by Claude directly** using Read/Edit/Write tools.
+- All reasoning subtasks (e.g. independent design second opinion) route to local MLX via `/mlx-reason`.
+- Codex is NOT used in this flow.
 
 ---
 
@@ -34,7 +32,7 @@ The `/all-plan` skill provides a complete collaborative design flow including:
 1. Requirement clarification
 2. Inspiration consultation (if applicable)
 3. Designer planning
-4. Reviewer scoring
+4. Reviewer scoring (codex if mounted, otherwise `/mlx-reason` per Reviewer Fallback Protocol)
 
 Extract from the `/all-plan` output:
 - **goal**: the task objective
@@ -79,58 +77,92 @@ Show final plan from `/all-plan` output:
 Confirm? (Y/adjust)
 ```
 
-### 4. Save Files
+### 4. Save Files (Claude Direct)
 
-After user confirms, delegate file creation to `/file-op` using `FileOpsREQ`:
+After user confirms, Claude writes the three plan artifacts directly using Write/Edit. No external delegation.
 
-Call:
+#### 4.1 Build the in-memory plan object
 
 ```json
 {
-  "proto": "autoflow.fileops.v1",
-  "id": "TP",
-  "purpose": "write_plan_files",
-  "summary": "Initialize .ccb/todo.md/.ccb/state.json/.ccb/plan_log.md from confirmed plan",
-  "done": ["Plan files exist and match formats"],
-  "ops": [
+  "taskName": "<Task Name>",
+  "objective": { "goal": "<goal>", "nonGoals": "<non-goals>", "doneWhen": "<one-line summary>" },
+  "context": { "repoType": "<type>", "keyFiles": ["<path>"], "background": "<why>" },
+  "constraints": ["<constraint>"],
+  "current": { "type": "step", "stepIndex": 1 },
+  "steps": [
     {
-      "op": "autoflow_plan_init",
-      "plan": {
-        "taskName": "<Task Name>",
-        "objective": { "goal": "<goal>", "nonGoals": "<non-goals>", "doneWhen": "<one-line summary>" },
-        "context": { "repoType": "<type>", "keyFiles": ["<path>"], "background": "<why>" },
-        "constraints": ["<constraint>"],
-        "steps": [
-          {
-            "title": "S1 title",
-            "doneConditions": [
-              { "type": "file_exists", "path": "path/to/file" },
-              { "type": "test_passes", "command": "test command" }
-            ]
-          },
-          {
-            "title": "S2 title",
-            "doneConditions": [
-              { "type": "grep_match", "pattern": "pattern", "path": "path" }
-            ]
-          }
-        ],
-        "finalDone": ["criterion 1", "criterion 2"]
-      }
+      "index": 1,
+      "title": "S1 title",
+      "status": "pending",
+      "attempts": 0,
+      "substeps": [],
+      "doneConditions": [
+        { "type": "file_exists", "path": "path/to/file" },
+        { "type": "test_passes", "command": "test command" }
+      ]
     },
-    { "op": "run", "cmd": "bash ~/.claude/skills/tr/scripts/autoloop.sh start", "cwd": "." }
+    {
+      "index": 2,
+      "title": "S2 title",
+      "status": "pending",
+      "attempts": 0,
+      "substeps": [],
+      "doneConditions": [
+        { "type": "grep_match", "pattern": "pattern", "path": "path" }
+      ]
+    }
   ],
-  "report": { "changedFiles": true, "diffSummary": true, "commandOutputs": "never" }
+  "finalDone": ["criterion 1", "criterion 2"]
 }
 ```
 
-Then run:
+#### 4.2 Write `.ccb/state.json`
+
+Use `Write` to create `.ccb/state.json` with the JSON above (formatted with 2-space indent, UTF-8, trailing newline).
+
+#### 4.3 Write `.ccb/todo.md`
+
+Render the plan as Markdown checklist:
+
+```markdown
+# <Task Name>
+
+**Goal**: <goal>
+**Done when**: <doneWhen>
+
+## Steps
+- [ ] S1: <title>
+- [ ] S2: <title>
+...
+
+## Acceptance
+- [ ] <criterion 1>
+- [ ] <criterion 2>
+```
+
+Mark a step `- [x]` only when its `status == "done"` in `state.json`. On initial write all are unchecked.
+
+#### 4.4 Write `.ccb/plan_log.md`
+
+Append-only log. Initial entry:
+
+```markdown
+# Plan Log — <Task Name>
+
+## <ISO timestamp> — Plan created
+- Steps: N
+- Reviewer: <codex|mlx|claude-fallback>  (from /all-plan output)
+- Notes: <any key decisions>
+```
+
+#### 4.5 Start the auto-loop daemon
 
 ```
-/file-op <the JSON above>
+Bash: bash ~/.claude/skills/tr/scripts/autoloop.sh start
 ```
 
-Codex returns `FileOpsRES` JSON only (via `/file-op`).
+Run this from the project root (where `.ccb/` lives). The script is idempotent — if already running it's a no-op.
 
 ### 5. Output
 
@@ -139,6 +171,8 @@ Plan saved:
 - .ccb/todo.md
 - .ccb/state.json
 - .ccb/plan_log.md
+
+Auto-loop daemon: started
 
 Next: Use /tr to start execution
 ```
@@ -151,3 +185,4 @@ Next: Use /tr to start execution
 2. **Coarse-grained**: Titles only, details in /tr
 3. **Recoverable**: Context enables continuity after /clear
 4. **Research-driven**: Use WebSearch and WebFetch to gather info on unfamiliar tech/APIs/best practices before finalizing the plan
+5. **Local-first**: All file I/O by Claude; reasoning second-opinions by local MLX. No codex dependency.

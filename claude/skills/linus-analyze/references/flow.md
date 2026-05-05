@@ -1,7 +1,7 @@
 # Linus-Style Requirement Analysis
 
 Structured five-layer analysis framework — from requirement understanding to actionable decisions.
-Analysis powered by local MLX (Qwen3-14B), reviewed by Claude with Linus taste review.
+Analysis powered by local MLX (Gemma4-26B), reviewed by Claude with Linus taste review.
 
 ## Input
 
@@ -110,9 +110,9 @@ End with a VERDICT section:
 #### 2b. Display MLX Analysis Result
 
 ```
-## MLX (Qwen3-14B) Five-Layer Analysis
+## MLX (Gemma4-26B) Five-Layer Analysis
 
-**Model**: Qwen3-14B-4bit | **Inference time**: {durationMs}ms
+**Model**: gemma-4-26b-a4b-it-4bit | **Inference time**: {durationMs}ms
 
 {MLX analysis result verbatim}
 ```

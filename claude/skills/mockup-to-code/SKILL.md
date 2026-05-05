@@ -35,6 +35,8 @@ Includes automated Playwright visual verification and iterative refinement.
 | `--tech html\|react`   | Tech stack                               | `html` (pure HTML/CSS/JS) |
 | `--mobile-mockup PATH` | Mobile version mockup                    | optional                  |
 | `--max-rounds N`       | Max visual verification rounds           | `3`                       |
+| `--page-name NAME`     | Output HTML filename (without `.html`)   | `index`                   |
+| `--mandi`              | Enable Mandi layout format (switch)      | off                       |
 
 ## Execution Flow (follow strictly)
 
@@ -146,9 +148,9 @@ Wait for confirmation before proceeding. Adjust if user requests changes.
 
 ```
 <output>/
-├── index.html
-├── style.css
-├── main.js
+├── <page-name>.html        # e.g. index.html, light.html, goods.html
+├── style.css               # SHARED across all pages
+├── main.js                 # SHARED across all pages
 └── assets/
     ├── fonts/
     ├── images/
@@ -162,6 +164,13 @@ Wait for confirmation before proceeding. Adjust if user requests changes.
 
 Organize asset subdirectories based on the section analysis.
 Use English filenames — rename CJK filenames to descriptive English names during copy.
+
+**Multi-page mode (shared CSS/JS)**:
+- Each run produces `<page-name>.html` (default `index.html`).
+- `style.css` and `main.js` are shared across pages.
+- When `style.css` / `main.js` already exist from a previous run, APPEND new section styles — do NOT overwrite.
+- Namespace page-specific styles with the page's section IDs (e.g. `#light-hero { ... }`) to avoid cross-page leakage.
+- Assets are merged into the shared `assets/` tree; skip copying if the target file already exists with identical content.
 
 #### Step 3.2: Copy & Rename Assets
 
@@ -179,17 +188,19 @@ Log the mapping for reference.
 
 #### Step 4.1: HTML Structure
 
-Generate `index.html` with:
+Generate `<page-name>.html` (default `index.html`) with:
 
 - Semantic HTML5 structure
 - One `<section>` per decomposed section
-- Proper `id` attributes for anchor navigation
+- Proper `id` attributes for anchor navigation — prefix with page name when multi-page
+  (e.g. `#light-hero` on `light.html`) to avoid CSS collision with other pages' sections
 - Asset references using the renamed paths
 - Text content from extracted requirements
+- `<link rel="stylesheet" href="style.css">` and `<script src="main.js"></script>` — both shared
 
 #### Step 4.2: CSS Styling
 
-Generate `style.css` with:
+Generate or update `style.css` with:
 
 - `@font-face` for custom fonts
 - CSS reset/base styles
@@ -197,6 +208,20 @@ Generate `style.css` with:
   (sections have dynamic height; a fixed BG image will misalign)
 - Section-specific styles matching mockup colors, spacing, typography
 - Responsive breakpoints (basic mobile support)
+
+**Append mode when `style.css` already exists**:
+
+- Read existing `style.css` first.
+- Keep shared tokens (`@font-face`, CSS reset, `:root` variables, shared utility classes) — do NOT duplicate them.
+- Append a new block delimited by a marker comment, scoped to this page's section IDs:
+  ```css
+  /* === <page-name> page — START === */
+  #<page-name>-hero { ... }
+  #<page-name>-about { ... }
+  /* === <page-name> page — END === */
+  ```
+- If the same marker block already exists (re-running the same page), replace it in-place.
+- Same append-pattern applies to `main.js` (wrap page-specific init in an IIFE guarded by `document.querySelector('#<page-name>-hero')` so it no-ops on other pages).
 
 Key CSS patterns to include:
 
@@ -231,8 +256,8 @@ Use a random port between 8800-8899 to avoid conflicts.
 
 Use Playwright MCP tools:
 
-1. `browser_navigate` to `http://localhost:<port>`
-2. `browser_take_screenshot` with `fullPage: true` for overview
+1. `browser_navigate` to `http://localhost:<port>/<page-name>.html`
+2. `browser_take_screenshot` with `fullPage: true` for overview (save as `<page-name>-full.jpeg`)
 3. `browser_run_code` to screenshot individual sections:
 
 ```javascript
@@ -307,6 +332,85 @@ After all rounds, present final report:
    - Additional pages (if multi-page site)
    - Animation enhancement
    - Deployment
+
+## Mandi Layout Format (`--mandi`)
+
+Pure switch flag. When enabled, the generated HTML/CSS/JS adopts a constrained, centered,
+adjustable layout tailored for "Mandi"-style projects. All tuning knobs are exposed as CSS
+custom properties on `:root` so the Emperor can adjust post-generation without re-running.
+
+### HTML structure (when `--mandi` is on)
+
+Every `<section>` gets a wrapper and opt-in `data-offset` attributes:
+
+```html
+<body class="mandi">
+  <section id="<page-name>-hero" data-offset-x="0" data-offset-y="0">
+    <div class="section-inner">
+      <!-- actual content -->
+    </div>
+  </section>
+  <section id="<page-name>-about" data-offset-x="0" data-offset-y="0">
+    <div class="section-inner">...</div>
+  </section>
+</body>
+```
+
+### CSS tokens (injected at top of `style.css`, guarded by `body.mandi`)
+
+```css
+:root {
+  --mandi-max-width: 80%;          /* page content max-width, adjustable */
+  --mandi-content-scale: 1;        /* text/content scale via font-size base */
+  --mandi-visual-scale: 1;         /* wrapper transform scale (visual zoom) */
+  --mandi-bp-tablet: 768px;
+  --mandi-bp-pc: 1024px;
+  --mandi-bp-ultra: 2000px;
+}
+
+body.mandi { font-size: calc(16px * var(--mandi-content-scale)); }
+
+body.mandi section {
+  max-width: var(--mandi-max-width);
+  margin-inline: auto;
+  transform: translate(
+    calc(attr(data-offset-x px, 0px)),
+    calc(attr(data-offset-y px, 0px))
+  ) scale(var(--mandi-visual-scale));
+  transform-origin: top center;
+}
+
+body.mandi section > .section-inner { width: 100%; }
+```
+
+> `attr()` with type support is still not universal — if targeting older browsers,
+> fall back to per-section rules: `#<page-name>-hero { transform: translate(Xpx, Ypx); }`
+> generated from the `data-offset-*` values at build time.
+
+### RWD breakpoints (four tiers)
+
+```css
+/* mobile: <768px — default (mobile-first) */
+
+@media (min-width: 768px)  { /* tablet: 768-1023 */ }
+@media (min-width: 1024px) { /* pc:     1024-1999 */ }
+@media (min-width: 2000px) { /* ultra-pc: 2000+ */
+  :root { --mandi-max-width: 80%; /* or override for ultra-wide */ }
+}
+```
+
+Each tier SHOULD override `--mandi-max-width`, spacing, and typography as needed.
+The `sp_*.jpg` mobile mockup drives the mobile tier; `pc_*.jpg` drives pc/ultra-pc.
+
+### Emperor adjustment cheatsheet
+
+| Goal                       | Edit                                                |
+| -------------------------- | --------------------------------------------------- |
+| 改版心寬度                 | `:root { --mandi-max-width: 70%; }`                 |
+| 整體文字放大               | `:root { --mandi-content-scale: 1.1; }`             |
+| 整頁視覺縮放               | `:root { --mandi-visual-scale: 0.95; }`             |
+| 移動某個 section           | 改 `<section data-offset-x="20" data-offset-y="0">` |
+| 調整 ultra-pc 門檻         | `:root { --mandi-bp-ultra: 2200px; }`               |
 
 ## Design Principles
 
