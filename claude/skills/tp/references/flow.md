@@ -9,7 +9,7 @@ Create executable plan artifacts: `.ccb/todo.md` + `.ccb/state.json` + `.ccb/pla
 - Plan mode is optional (recommended for structured planning + review).
 - **All file I/O is performed by Claude directly** using Read/Edit/Write tools.
 - All reasoning subtasks (e.g. independent design second opinion) route to local MLX via `/mlx-reason`.
-- Codex is NOT used in this flow.
+- codex retired 2026-05-05; reviewer chain is now mlx → ollama → claude self-audit.
 
 ---
 
@@ -32,7 +32,7 @@ The `/all-plan` skill provides a complete collaborative design flow including:
 1. Requirement clarification
 2. Inspiration consultation (if applicable)
 3. Designer planning
-4. Reviewer scoring (codex if mounted, otherwise `/mlx-reason` per Reviewer Fallback Protocol)
+4. Reviewer scoring (mlx primary → ollama fallback → claude self-audit, per Reviewer Fallback Protocol)
 
 Extract from the `/all-plan` output:
 - **goal**: the task objective
@@ -152,7 +152,7 @@ Append-only log. Initial entry:
 
 ## <ISO timestamp> — Plan created
 - Steps: N
-- Reviewer: <codex|mlx|claude-fallback>  (from /all-plan output)
+- Reviewer: <mlx|ollama|claude-fallback>  (from /all-plan output)
 - Notes: <any key decisions>
 ```
 

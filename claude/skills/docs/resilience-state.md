@@ -6,7 +6,7 @@
 
 | 腳本 | 路徑 | 用途 |
 |------|------|------|
-| `health-check.sh` | `~/.claude/skills/scripts/health-check.sh` | Provider 健康檢查（MLX/Ollama/Gemini/Codex） |
+| `health-check.sh` | `~/.claude/skills/scripts/health-check.sh` | Provider 健康檢查（MLX/Ollama/Gemini） |
 | `retry.sh` | `~/.claude/skills/scripts/retry.sh` | 指數退避重試（含 jitter） |
 | `watchdog.sh` | `~/.claude/skills/scripts/watchdog.sh` | 超時殺進程 |
 | `validate-state.sh` | `~/.claude/skills/scripts/validate-state.sh` | state.json 結構驗證 + 自動修復 |
@@ -17,7 +17,7 @@
 |----------|---------|------|
 | MLX | 180s | inference, analyze |
 | Ollama | 300s | code generation |
-| CrossReview | 120s | ask codex/gemini review |
+| CrossReview | 120s | mlx/ollama review (Claude audit gate) |
 | HealthCheck | 2s per provider | pre-flight |
 
 ## health-check.sh

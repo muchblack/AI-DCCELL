@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: "Split a requirement into subtasks and route each to the best AI provider (codex/gemini/opencode/droid/mlx/ollama). Auto-checks provider health and presents a routing plan for confirmation before dispatching."
+description: "Split a requirement into subtasks and route each to the best AI provider (gemini/opencode/droid/mlx/ollama). Auto-checks provider health and presents a routing plan for confirmation before dispatching."
 metadata:
   short-description: "Multi-provider task dispatch with auto-routing"
 ---

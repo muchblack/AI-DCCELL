@@ -1,6 +1,6 @@
 ---
 name: pend
-description: View latest reply from AI provider (gemini/codex/opencode/droid/claude).
+description: View latest reply from AI provider (gemini/opencode/droid/claude).
 metadata:
   short-description: View latest AI provider reply
 ---
@@ -14,10 +14,11 @@ View the latest reply from specified AI provider.
 The first argument must be the provider name:
 
 - `gemini` - View Gemini reply
-- `codex` - View Codex reply
 - `opencode` - View OpenCode reply
 - `droid` - View Droid reply
 - `claude` - View Claude reply
+
+(codex retired 2026-05-05)
 
 Optional: Add a number N to show the latest N conversations.
 
@@ -30,5 +31,5 @@ pend $ARGUMENTS
 ## Examples
 
 - `/pend gemini`
-- `/pend codex 3`
+- `/pend opencode 3`
 - `/pend claude`

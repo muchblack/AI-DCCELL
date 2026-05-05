@@ -134,7 +134,7 @@ cat > "${SKILL_DIR}/adapters/claude-code.md" << EOF
 | Role | Provider |
 |------|----------|
 | designer | claude |
-| reviewer | codex |
+| reviewer | mlx → ollama → claude |
 | executor | claude |
 
 ## Platform-Specific Notes

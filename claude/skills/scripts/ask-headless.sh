@@ -4,7 +4,7 @@
 #
 # Usage: ask-headless.sh <provider> <message> [--timeout <seconds>]
 #
-# Supported providers: gemini, codex
+# Supported providers: gemini  (codex retired 2026-05-05)
 
 set -euo pipefail
 
@@ -42,17 +42,9 @@ case "$PROVIDER" in
         fi
         timeout "$TIMEOUT_SEC" gemini -p "$MESSAGE" 2>/dev/null
         ;;
-    codex)
-        if ! command -v codex &>/dev/null; then
-            echo "[ERROR] codex CLI not found in PATH" >&2
-            exit 1
-        fi
-        WORK_DIR="${CCB_WORK_DIR:-$(pwd)}"
-        timeout "$TIMEOUT_SEC" codex exec --full-auto -C "$WORK_DIR" "$MESSAGE" 2>/dev/null
-        ;;
     *)
         echo "[ERROR] Headless mode not supported for provider: $PROVIDER" >&2
-        echo "[INFO] Supported: gemini, codex" >&2
+        echo "[INFO] Supported: gemini  (codex retired 2026-05-05)" >&2
         exit 1
         ;;
 esac

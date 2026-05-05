@@ -2,14 +2,6 @@
 
 ## Cloud Providers (via CCB /ask)
 
-### codex (reviewer)
-
-- **Strengths**: Code review, structured scoring (Rubric), file operations, deterministic evaluation, diff analysis
-- **Weaknesses**: Not creative, slower turnaround, no web access
-- **Best for**: `review`, `score`, `audit`, `file-op`
-- **Cost**: Medium (async, API)
-- **Availability**: CCB session required
-
 ### gemini (inspiration)
 
 - **Strengths**: Creative brainstorming, long-context analysis (1M tokens), web search/research, multi-modal, divergent thinking
@@ -70,17 +62,19 @@
 
 | Task Type                   | Primary  | Fallback 1         | Fallback 2 |
 | --------------------------- | -------- | ------------------ | ---------- |
-| `review` (code/plan)        | codex    | ollama             | claude     |
+| `review` (code/plan)        | mlx      | ollama             | claude     |
 | `brainstorm` / `creative`   | gemini   | claude             | —          |
 | `research` / `explore`      | gemini   | claude (WebSearch) | —          |
 | `reason` / `analyze`        | mlx      | claude             | —          |
 | `draft-code` (non-critical) | ollama   | claude             | —          |
 | `draft-code` (security)     | claude   | —                  | —          |
-| `score` / `evaluate`        | codex    | claude             | —          |
+| `score` / `evaluate`        | mlx      | ollama             | claude     |
 | `summarize` (large doc)     | gemini   | mlx                | claude     |
 | `classify` / `tag`          | mlx      | claude             | —          |
 | `refactor`                  | ollama   | claude             | —          |
 | `architect` / `design`      | claude   | —                  | —          |
-| `file-op`                   | codex    | claude             | —          |
+| `file-op`                   | claude   | —                  | —          |
 | `second-opinion`            | opencode | gemini             | —          |
 | `prototype`                 | opencode | ollama             | —          |
+
+(codex retired 2026-05-05: review/score/file-op moved to mlx/claude direct)

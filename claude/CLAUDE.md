@@ -68,10 +68,9 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 | Skill | Trigger |
 |-------|---------|
 | `/dispatch` | Multi-provider task dispatch — split requirement, route to best provider (CCB + local MLX/Ollama) |
-| `/ask <provider>` | Delegate tasks to AI (gemini/codex/opencode/droid) |
+| `/ask <provider>` | Delegate tasks to AI (gemini/opencode/droid) |
 | `/cping <provider>` | Test AI provider connectivity |
 | `/pend <provider>` | View AI provider latest reply |
-| `/file-op` | Delegate file operations to Codex |
 
 **Local / LAN AI**:
 | Skill | Trigger |
@@ -170,16 +169,16 @@ cd /Users/vincenttseng/code/php/{project} && npm {command}
 
 <!-- CCB_CONFIG_START -->
 ## AI Collaboration
-Use `/ask <provider>` to consult other AI assistants (codex/gemini/opencode/droid).
+Use `/ask <provider>` to consult other AI assistants (gemini/opencode/droid).
 Use `/cping <provider>` to check connectivity.
 Use `/pend <provider>` to view latest replies.
 
-Providers: `codex`, `gemini`, `opencode`, `droid`, `claude`
+Providers: `gemini`, `opencode`, `droid`, `claude` (codex retired 2026-05-05)
 
 ## Async Guardrail (MANDATORY)
 
 When you run `ask` (via `/ask` skill OR direct `Bash(ask ...)`) and the output contains `[CCB_ASYNC_SUBMITTED`:
-1. Reply with exactly one line: `<Provider> processing...` (use actual provider name, e.g. `Codex processing...`)
+1. Reply with exactly one line: `<Provider> processing...` (use actual provider name, e.g. `Gemini processing...`)
 2. **END YOUR TURN IMMEDIATELY** — do not call any more tools
 3. Do NOT poll, sleep, call `pend`, check logs, or add follow-up text
 4. Wait for the user or completion hook to deliver results in a later turn

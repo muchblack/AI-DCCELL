@@ -2,7 +2,7 @@
 # health-check.sh — Provider health pre-flight
 # 3 秒內返回所有 provider 狀態 JSON（含 model loaded 偵測）
 # 用法: health-check.sh [provider...]
-#   無參數 = 檢查全部 (mlx, ollama, gemini, codex)
+#   無參數 = 檢查全部 (mlx, ollama, gemini, hf)  # codex retired 2026-05-05
 #   指定 = 只檢查指定 provider
 # 輸出: JSON { provider: { status, models[], latency_ms, error? } }
 # Exit: 0=全部正常, 1=部分失敗, 2=全部失敗
@@ -18,7 +18,7 @@ TIMEOUT_SEC=2
 TMPDIR_HC="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR_HC"' EXIT
 
-ALL_PROVIDERS=(mlx ollama gemini codex hf)
+ALL_PROVIDERS=(mlx ollama gemini hf)
 
 if [ $# -gt 0 ]; then
   PROVIDERS=("$@")
@@ -147,23 +147,6 @@ check_gemini() {
   fi
 }
 
-check_codex() {
-  local start end output status latency
-  start=$(ts_ms)
-  output=$(_run_with_timeout "$TIMEOUT_SEC" cping 2>&1) || output="fail: $output"
-  end=$(ts_ms)
-  latency=$(( end - start ))
-
-  if echo "$output" | grep -qi "ok\|success\|healthy"; then
-    status="ok"
-    printf '{"status":"ok","models":["codex"],"latency_ms":%d}' "$latency"
-  else
-    local err
-    err=$(echo "$output" | tr '"' "'" | tr '\n' ' ' | head -c 200)
-    printf '{"status":"down","models":[],"latency_ms":%d,"error":"%s"}' "$latency" "$err"
-  fi
-}
-
 check_hf() {
   local start end status latency
   start=$(ts_ms)
@@ -196,7 +179,6 @@ for p in "${PROVIDERS[@]}"; do
     mlx)    check_mlx    > "$TMPDIR_HC/mlx.json"    2>/dev/null & ;;
     ollama) check_ollama > "$TMPDIR_HC/ollama.json" 2>/dev/null & ;;
     gemini) check_gemini > "$TMPDIR_HC/gemini.json" 2>/dev/null & ;;
-    codex)  check_codex  > "$TMPDIR_HC/codex.json"  2>/dev/null & ;;
     hf)     check_hf     > "$TMPDIR_HC/hf.json"     2>/dev/null & ;;
     *) echo "Unknown provider: $p" >&2 ;;
   esac

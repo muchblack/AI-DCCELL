@@ -256,7 +256,7 @@ After analysis, guide to appropriate workflow based on verdict:
 - `/tp` — Quick task plan creation (internally calls `/all-plan`)
 - `/tr` — Execute AutoFlow steps
 - `/review` — Formal dual review (Claude initial + Cross-reviewer re-evaluation)
-- `/ask <provider>` — Delegate tasks to other AI (gemini/codex/opencode/droid)
+- `/ask <provider>` — Delegate tasks to other AI (gemini/opencode/droid)
 
 ---
 
