@@ -38,15 +38,18 @@ This avoids wasting tokens on prompts that will fail. See `~/.claude/skills/docs
 
 ### Step 1: Call MLX to generate code
 
-Use the MCP tool `mcp__mcp-ai-bridge__mlx_code` to send the task to MLX.
+Use `~/.claude/skills/scripts/mlx-chat.sh` to send the code generation task to local Gemma 4.
 
 - Parse user input: first word may be a language (TypeScript, Python, PHP, etc.), rest is the task
-- If user referenced existing project files, read them first with Read tool and pass as `context`
-- If language is specified, pass it as `language` parameter
+- If user referenced existing project files, read them first with Read tool and include as context in the user message
+- Use low temperature (0.3) for code generation
 
-Example tool call:
-```
-mcp__mcp-ai-bridge__mlx_code(task="Build an Express middleware for JWT auth", language="TypeScript")
+Example:
+```bash
+bash ~/.claude/skills/scripts/mlx-chat.sh \
+  -s "You are an expert programmer. Write clean, production-ready code. Include necessary imports. No explanations unless asked." \
+  -t 0.3 -m 4096 -j \
+  "Write a TypeScript Express middleware for JWT auth"
 ```
 
 ### Step 2: Display generated code
@@ -82,7 +85,7 @@ Based on the review tier, take the appropriate action:
 - This saves a round-trip to MLX and produces higher quality fixes
 
 **Garbage (needs rewrite)** -> Re-send to MLX with refined prompt.
-- Call `mcp__mcp-ai-bridge__mlx_code` again with an improved prompt that includes:
+- Call `mlx-chat.sh` again with an improved prompt that includes:
   - The original task requirements
   - Specific issues found in the review (as `context` parameter)
   - Clear instructions on what to avoid and what to do differently
