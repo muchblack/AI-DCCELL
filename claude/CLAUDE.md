@@ -68,9 +68,10 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 | Skill | Trigger |
 |-------|---------|
 | `/dispatch` | Multi-provider task dispatch — split requirement, route to best provider (CCB + local MLX/Ollama) |
-| `/ask <provider>` | Delegate tasks to AI (gemini/opencode/droid) |
+| `/ask <provider>` | Delegate tasks to AI (gemini/codex/opencode/droid) |
 | `/cping <provider>` | Test AI provider connectivity |
 | `/pend <provider>` | View AI provider latest reply |
+| `/file-op` | Delegate file operations to Codex |
 
 **Local / LAN AI**:
 | Skill | Trigger |
@@ -169,16 +170,16 @@ cd /Users/vincenttseng/code/php/{project} && npm {command}
 
 <!-- CCB_CONFIG_START -->
 ## AI Collaboration
-Use `/ask <provider>` to consult other AI assistants (gemini/opencode/droid).
+Use `/ask <provider>` to consult other AI assistants (codex/gemini/opencode/droid).
 Use `/cping <provider>` to check connectivity.
 Use `/pend <provider>` to view latest replies.
 
-Providers: `gemini`, `opencode`, `droid`, `claude` (codex retired 2026-05-05)
+Providers: `codex`, `gemini`, `opencode`, `droid`, `claude`
 
 ## Async Guardrail (MANDATORY)
 
 When you run `ask` (via `/ask` skill OR direct `Bash(ask ...)`) and the output contains `[CCB_ASYNC_SUBMITTED`:
-1. Reply with exactly one line: `<Provider> processing...` (use actual provider name, e.g. `Gemini processing...`)
+1. Reply with exactly one line: `<Provider> processing...` (use actual provider name, e.g. `Codex processing...`)
 2. **END YOUR TURN IMMEDIATELY** — do not call any more tools
 3. Do NOT poll, sleep, call `pend`, check logs, or add follow-up text
 4. Wait for the user or completion hook to deliver results in a later turn
@@ -194,27 +195,26 @@ Abstract roles map to concrete AI providers. Skills reference roles, not provide
 |------|----------|-------------|
 | `designer` | `claude` | Primary planner and architect — owns plans and designs |
 | `inspiration` | `gemini` | Creative brainstorming — provides ideas as reference only (unreliable, never blindly follow) |
-| `reviewer` | `mlx` (primary) → `ollama` (fallback) → `claude` (self-audit) | Scored quality gate — evaluates plans/code using Rubrics. Local MLX (Gemma-4-26b VLM) is primary; LAN Ollama as fallback; Claude MUST re-audit reviewer output before adopting. **codex retired 2026-05-05.** |
+| `reviewer` | `codex` (primary) → `mlx` (fallback) | Scored quality gate — evaluates plans/code using Rubrics. When codex unavailable, fall back to local MLX via `/mlx-reason`; Claude MUST re-audit MLX output before adopting. |
 | `executor` | `claude` | Code implementation — writes and modifies code |
 
 To change a role assignment, edit the Provider column above.
-When a skill references a role (e.g. `reviewer`), resolve it to the provider listed here (e.g. invoke `/mlx-reason` for primary path).
+When a skill references a role (e.g. `reviewer`), resolve it to the provider listed here (e.g. `/ask codex`).
 
 ### Reviewer Fallback Protocol (MANDATORY)
 
-When resolving `reviewer` at any checkpoint (Peer Review, `/review`, `/tr` Step 8, `/magi` BALTHASAR-2 — see MAGI for its own provider mapping):
+When resolving `reviewer` at any checkpoint (Peer Review, `/review`, `/tr` Step 8, `/magi` BALTHASAR-2):
 
-1. **Primary — local MLX**: invoke `/mlx-reason` with the review payload (plan / diff / proposal). Model: Gemma-4-26b-a4b-it-4bit at `localhost:8090`. Pass full absolute path as `model` field.
-2. **Fallback — LAN Ollama**: if MLX unreachable (server down, OOM on long prompt) → call `ollama_review` via MCP Bridge (LAN host `192.168.1.206:11434`).
-3. **Last resort — Claude self-audit**: if both MLX and Ollama unavailable → Claude issues verdict directly, tagged `reviewer=claude-fallback`.
-4. **Claude audit gate (MANDATORY)**: regardless of provider, Claude MUST re-audit the reviewer output before the verdict is adopted. Audit checks:
+1. **Availability probe**: run `ccb-mounted` and parse JSON. If `"codex"` ∈ `mounted` → use codex (normal path).
+2. **Fallback to local MLX**: if codex not mounted → invoke `/mlx-reason` with the same review payload (plan / diff / proposal).
+3. **Claude audit gate (MANDATORY)**: Claude MUST re-audit the MLX reviewer output before the verdict is adopted. Audit checks:
    - Reasoning is on-topic and grounded in the submitted artifact (no hallucinated files/APIs).
    - Verdict is defensible given the evidence (no rubber-stamp PASS, no unjustified FIX).
    - Specific fix items (if any) reference real code/plan locations.
-   - If output is unusable → Claude overrides with `reviewer=claude-fallback`.
-5. **Record provenance**: every review artifact MUST carry `reviewer: "mlx" | "ollama" | "claude-fallback"` so downstream skills know the audit chain.
+   - If MLX output is unusable → Claude issues the verdict directly, tagging `reviewer=claude-fallback`.
+4. **Record provenance**: every review artifact MUST carry `reviewer: "codex" | "mlx" | "claude-fallback"` so downstream skills know the audit chain.
 
-Rule of thumb: external reviewers are advisory; Claude's audit is the insurance.
+Rule of thumb: MLX is never a silent substitute for codex — Claude's audit is the insurance.
 <!-- CCB_ROLES_END -->
 
 <!-- CODEX_REVIEW_START -->
@@ -231,7 +231,7 @@ The `reviewer` scores using Rubrics defined in `AGENTS.md` and returns JSON.
 **On fail**: fix issues from response, re-submit (max 3 rounds). After 3 failures, present results to user.
 **On pass**: display final scores as a summary table.
 
-**Reviewer resolution at each checkpoint**: follow the Reviewer Fallback Protocol above (MLX → Ollama → Claude self-audit). The review request goes to `/mlx-reason` first; Claude MUST audit the scoring before treating it as authoritative. The summary table must show `reviewer=<provider>` and a one-line Claude audit note (e.g. `Claude audit: scores consistent with diff, PASS adopted`).
+**Reviewer resolution at each checkpoint**: follow the Reviewer Fallback Protocol above. If codex is down, the review request goes to `/mlx-reason`, and Claude MUST audit the MLX scoring before treating it as authoritative. The summary table must show `reviewer=<provider>` and, when MLX was used, a one-line Claude audit note (e.g. `Claude audit: scores consistent with diff, PASS adopted`).
 <!-- CODEX_REVIEW_END -->
 
 ## Post-Completion Audit

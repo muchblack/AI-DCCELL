@@ -1,6 +1,6 @@
 #!/bin/bash
 # ccb-headless.sh — Toggle CCB headless mode.
-# When active, /ask gemini uses CLI subprocess instead of tmux pane (codex retired 2026-05-05).
+# When active, /ask gemini and /ask codex use CLI subprocess instead of tmux pane.
 FLAG="/tmp/.ccb-headless"
 
 if [ -f "$FLAG" ]; then

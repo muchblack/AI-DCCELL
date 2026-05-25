@@ -1,6 +1,6 @@
 ---
 name: cping
-description: Test connectivity with AI provider (gemini/opencode/droid/claude).
+description: Test connectivity with AI provider (gemini/codex/opencode/droid/claude).
 metadata:
   short-description: Test AI provider connectivity
 ---
@@ -13,11 +13,10 @@ Test connectivity with specified AI provider.
 
 The first argument must be the provider name:
 - `gemini` - Test Gemini
+- `codex` - Test Codex
 - `opencode` - Test OpenCode
 - `droid` - Test Droid
 - `claude` - Test Claude
-
-(codex retired 2026-05-05)
 
 ## Execution (MANDATORY)
 
@@ -29,5 +28,5 @@ Bash(ccb-ping $PROVIDER)
 ## Examples
 
 - `/cping gemini`
-- `/cping opencode`
+- `/cping codex`
 - `/cping claude`

@@ -32,12 +32,11 @@ Build `available_providers` map:
 
 - `mlx`: health-check status
 - `ollama`: health-check status
+- `codex`: ccb-mounted status
 - `gemini`: ccb-mounted status
 - `opencode`: ccb-mounted status
 - `droid`: ccb-mounted status
 - `claude`: always available
-
-(codex retired 2026-05-05)
 
 ### Step 2: Analyze & Decompose
 
@@ -75,12 +74,12 @@ Display the routing plan to the user:
 ```markdown
 ## Dispatch Plan — [requirement summary]
 
-**Available providers**: claude, gemini, opencode, mlx, ollama
+**Available providers**: claude, codex, gemini, mlx, ollama
 **Unavailable**: [list, or "none"]
 
 | #   | Subtask               | Type       | Provider | Reason                      |
 | --- | --------------------- | ---------- | -------- | --------------------------- |
-| 1   | [subtask description] | review     | mlx      | Local reasoning + Claude audit |
+| 1   | [subtask description] | review     | codex    | Code review specialist      |
 | 2   | [subtask description] | brainstorm | gemini   | Creative exploration        |
 | 3   | [subtask description] | reason     | mlx      | Local reasoning, free       |
 | 4   | [subtask description] | architect  | claude   | Complex, needs full context |
@@ -152,7 +151,7 @@ After dispatching:
 | #   | Subtask | Provider | Status                     |
 | --- | ------- | -------- | -------------------------- |
 | 1   | [desc]  | mlx      | Done (inline result below) |
-| 2   | [desc]  | opencode | Submitted                  |
+| 2   | [desc]  | codex    | Submitted                  |
 | 3   | [desc]  | gemini   | Submitted                  |
 
 ### Local Results
@@ -163,7 +162,7 @@ After dispatching:
 
 ### Pending
 
-Use `/pend opencode` and `/pend gemini` to retrieve async results.
+Use `/pend codex` and `/pend gemini` to retrieve async results.
 ```
 
 ---
@@ -189,5 +188,5 @@ After adjustment, re-display the updated plan.
 3. **Parallel when possible** — different providers can work simultaneously
 4. **Async guardrail** — respect CCB async rules, end turn after submission
 5. **Focused prompts** — each provider gets only the context it needs, not the entire conversation
-6. **Batch same-provider** — don't send 3 separate messages to one provider when 1 will do
+6. **Batch same-provider** — don't send 3 separate messages to codex when 1 will do
 7. **Fallback gracefully** — provider down → next in chain → claude as last resort

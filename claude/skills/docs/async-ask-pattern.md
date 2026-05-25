@@ -1,14 +1,13 @@
 # Async Ask Pattern (cask/gask/oask)
 
-Use this pattern only when the user explicitly delegates to Gemini/OpenCode.
+Use this pattern only when the user explicitly delegates to Codex/Gemini/OpenCode.
 Do not use it for questions about the tools themselves.
 
 ## Command Map
 
+- Codex -> `cask` (health: `cping`)
 - Gemini -> `gask` (health: `gping`)
 - OpenCode -> `oask` (health: `oping`)
-
-(codex retired 2026-05-05; cask removed)
 
 ## Execution (MANDATORY)
 
