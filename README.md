@@ -1,10 +1,12 @@
 # AI-DCCELL
 
-> DG 細胞理論 — AI 工作流自進化升級體系
+> **多 AI 協作工作流的自進化基礎設施** — 會自我再生、自我增殖、自我進化的 Claude Code + CCB 體系。
 
-基於《機動武鬥傳G 鋼彈》惡魔鋼彈 DG 細胞的三大理論，為 Claude Code + CCB 多 AI 協作工作流建立的自我再生、自我增殖、自我進化基礎設施。
+以《機動武鬥傳G 鋼彈》惡魔鋼彈 **DG 細胞**的三大理論為隱喻框架，把 Claude Code + CCB 多 AI 協作工作流，打造成一套容錯可恢復、改進可擴散、行為可演化的工程基礎設施。
 
-## 快速開始
+---
+
+## 30 秒上手
 
 ```bash
 git clone <repo-url> AI-DCCELL
@@ -13,90 +15,133 @@ chmod +x bootstrap.sh
 ./bootstrap.sh
 ```
 
-Bootstrap 會自動：
-1. 建立 `~/.claude/` 下的 symlink（agents, skills, CLAUDE.md）
-2. 設定腳本執行權限
-3. 初始化 memory 目錄
-4. 驗證 MLX / Ollama 環境
+`bootstrap.sh` 會依序完成（共 4 個階段）：
+
+1. **[1/4]** 建立 `~/.claude/` 下的 symlink（`CLAUDE.md`、`agents/`、`skills/`）
+2. **[1b/4]** 部署 Codex 設定（`~/.codex/AGENTS.md`、`~/.codex/skills/`）
+3. **[1c/4]** 部署 Gemini 設定（`~/.gemini/GEMINI.md`、`~/.gemini/skills/`）
+4. **[2/4]** 設定 scripts 執行權限
+5. **[3/4]** 初始化 memory 目錄（corrections / telemetry）
+6. **[4/4]** 執行 health check，驗證 MLX / Ollama / provider 連線
+
+部署後可隨時用健康檢查確認 provider 狀態：
+
+```bash
+claude/skills/scripts/health-check.sh
+```
+
+---
+
+## DG 細胞理論：神話與工程的對照
+
+這套體系的核心是把鋼彈設定中的三大「生存本能」，落地成具體的腳本與工作流。**不是 vibe，是可執行的檔案。**
+
+| DG 細胞理論 | 原始設定 | 工程實作 |
+|------------|---------|---------|
+| **自我再生** Regeneration | 核心未毀即可瞬間復原 | 健康檢查、指數退避重試、超時殺進程、狀態快照與修復 |
+| **自我增殖** Multiplication | 感染後幾何級數擴散 | Skill 骨架生成、統一 corrections pool、評分 rubric 單一來源 |
+| **自我進化** Evolution | 依環境/對手自動進化 | 呼叫遙測、效能報告、智慧路由依歷史表現選 provider |
+
+### 自我再生（Regeneration）— 容錯與自動恢復
+
+| 腳本 | 功能 |
+|------|------|
+| `scripts/health-check.sh` | Provider 健康檢查（秒級回傳 JSON 狀態） |
+| `scripts/retry.sh` | 指數退避重試 + jitter |
+| `scripts/watchdog.sh` | 超時殺進程（exit 124） |
+| `scripts/validate-state.sh` | `state.json` 驗證 + 自動修復 + checkpoint |
+
+搭配 `/dev --resume`、`/continue` 與 provider 降級鏈（MLX/Ollama → Claude），中斷可從斷點續接。
+
+### 自我增殖（Multiplication）— 知識共享與擴散
+
+| 項目 | 功能 |
+|------|------|
+| `scripts/scaffold.sh` | Skill 骨架生成器（simple / intermediate / complex） |
+| `linus-review/rubric.md` | 三級評分（🟢🟡🔴）的唯一定義來源 |
+| `memory/corrections.jsonl` | 統一 corrections pool（含 metadata 篩選） |
+| `scripts/prune-corrections.sh` | 剪枝（FIFO 100 + critical 永久 + 90 天 minor 過期） |
+
+### 自我進化（Evolution）— 效能追蹤與智慧路由
+
+| 項目 | 功能 |
+|------|------|
+| `scripts/telemetry.sh` | Skill 呼叫記錄（provider、耗時、結果、是否降級） |
+| `scripts/telemetry-report.sh` | 效能報告（成功率、耗時、降級頻率） |
+| `scripts/route-task.sh` | 智慧路由：依任務特徵 + provider 可用性 + 歷史表現，輸出 `{provider, reason, fallback}` |
+| `docs/smart-router.md` | 路由決策邏輯文件 |
+
+---
+
+## 角色體系：軍機處與 Human-in-the-Loop
+
+體系雖高度自動化，**最終否決權永遠在使用者（朕）手上**。各 AI 對應一個抽象角色，skill 只引用角色、不綁死 provider：
+
+| 角色 | Provider | 職責 |
+|------|----------|------|
+| `designer` / `executor` | Claude | 規劃、架構、寫碼（軍機處大臣） |
+| `inspiration` | Gemini | 創意發想（僅供參考，不盲從） |
+| `reviewer` | Codex（主）→ MLX（備援） | 評分品質閘門；Codex 不可用時降級本地 MLX，Claude 必再稽核 |
+
+**Peer Review 鐵律**：`designer` 在「寫碼前（Plan Review）」與「回報前（Code Review）」兩個檢查點，必須送 `reviewer` 評分（overall ≥ 7.0 且無單項 ≤ 3 才算通過）。
+
+---
 
 ## 目錄結構
 
 ```
 AI-DCCELL/
-├── bootstrap.sh          # 一鍵部署腳本
-├── setup.sh              # Legacy 部署腳本
+├── bootstrap.sh           # 一鍵部署（Claude + Codex + Gemini）
+├── setup.sh               # Legacy 部署腳本
 ├── claude/
 │   ├── CLAUDE.md          # 全域 Claude 指令（軍機處大臣角色）
-│   ├── agents/            # Agent 定義（.md）
-│   │   ├── engineering/   # 工程類 agent
-│   │   ├── design/        # 設計類 agent
-│   │   └── testing/       # 測試類 agent
-│   └── skills/            # Skill 定義
-│       ├── scripts/       # 共用基礎腳本（DG Cell Core）
-│       ├── docs/          # 協定文件
-│       ├── memory/        # 學習記憶（corrections, telemetry）
-│       ├── dev/           # 端對端開發工作流
-│       ├── mlx-code/      # MLX 寫碼 + 審查
-│       ├── ollama-code/   # Ollama 寫碼 + 審查
-│       ├── linus-review/  # Linus 風格程式碼品味審查
-│       ├── linus-analyze/ # 五層需求分析
-│       └── ...            # 其他 30+ skills
-├── project-template/      # 新專案範本
+│   ├── agents/            # 9 類、共 44 個 agent 定義
+│   │   ├── engineering/   # 12      ├── marketing/          # 7
+│   │   ├── studio-operations/ # 5   ├── design/             # 5
+│   │   ├── testing/       # 5       ├── project-management/ # 3
+│   │   ├── product/       # 3       ├── analysis/           # 2
+│   │   └── bonus/         # 2
+│   └── skills/            # 約 50 個 skill 定義
+│       ├── scripts/       # 17 個共用基礎腳本（DG Cell Core）
+│       ├── docs/          # 協定文件（smart-router 等）
+│       ├── memory/        # 學習記憶（corrections / telemetry）
+│       └── ...            # dev, mlx-code, ollama-code, linus-review,
+│                          #   linus-analyze, tp, tr, magi, 命理三件套 等
+├── codex/
+│   ├── AGENTS.md          # Codex 角色與 Rubric 定義
+│   └── skills/            # 16 個 Codex 端 skill
+├── .gemini/
+│   ├── GEMINI.md          # Gemini 角色定義
+│   └── skills/            # 4 個 Gemini 端 skill
+├── docs/                  # DG 細胞理論藍圖 + 實作紀錄
+├── project-template/      # 新專案範本（CLAUDE.md）
 └── sample.md              # 範例文件
 ```
 
-## DG 細胞三大模組
-
-### 自我再生（Regeneration）
-
-系統容錯與自動恢復。
-
-| 腳本 | 功能 |
-|------|------|
-| `health-check.sh` | Provider 健康檢查（3 秒內回傳 JSON） |
-| `retry.sh` | 指數退避重試 + jitter |
-| `watchdog.sh` | 超時殺進程（exit 124） |
-| `validate-state.sh` | state.json 驗證 + 自動修復 + checkpoint |
-
-### 自我增殖（Multiplication）
-
-知識共享與自動擴散。
-
-| 項目 | 功能 |
-|------|------|
-| `linus-review/rubric.md` | 3-tier 評分唯一定義 |
-| `memory/corrections.jsonl` | 統一 corrections pool（含 metadata 篩選） |
-| `prune-corrections.sh` | 剪枝（FIFO 100 + critical 永久 + 90 天 minor 過期） |
-| `scaffold.sh` | Skill 骨架生成器（simple/intermediate/complex） |
-| MCP Bridge per-provider key | prompts.json 隔離（避免 race condition） |
-
-### 自我進化（Evolution）
-
-效能追蹤與智慧裁剪。
-
-| 項目 | 功能 |
-|------|------|
-| `telemetry.sh` | Skill 呼叫記錄（provider, duration, result, fallback） |
-| `telemetry-report.sh` | 效能報告（成功率、耗時、降級頻率） |
-| `complexity-classifier.md` | 任務複雜度分類（simple/medium/complex） |
-| Smart Trimming | 簡單任務自動跳過 cross-review |
+---
 
 ## 體系數據
 
-- **Skills**: 35+
-- **Agents**: 5+ categories
-- **AI Providers**: Claude, Gemini, Codex, Ollama (LAN), MLX (local)
-- **通訊協定**: Async Ask Pattern, FileOpsREQ/RES, Role-Based Routing
+- **Skills**：約 50 個（涵蓋開發工作流、程式碼審查、命理三件套、影像生成、求職、股市分析等）
+- **Agents**：9 類、共 44 個
+- **基礎腳本**：17 個（`claude/skills/scripts/`）
+- **AI Providers**：Claude、Gemini、Codex、opencode、droid（CCB）＋ Ollama（LAN）＋ MLX（本地）
+- **通訊協定**：Async Ask Pattern、FileOpsREQ/RES、Role-Based Routing、Linus 式 Peer Review
+
+---
 
 ## 環境需求
 
 - macOS（Apple Silicon 推薦）
 - Python 3.10+
 - Claude Code CLI
-- 選配：MLX Server (localhost:8090)、Ollama (LAN)、CCB 基礎設施
+- CCB（Claude Code Bridge）多 AI 協作基礎設施
+- 選配：MLX Server（localhost:8090）、Ollama（LAN）
+
+---
 
 ## 相關連結
 
 - [DG 細胞理論藍圖](docs/DG%20細胞理論%20—%20AI%20工作流自進化升級藍圖.md) — 設計文件
 - [DG 細胞理論實作紀錄](docs/DG%20細胞理論實作紀錄.md) — 三大模組開發過程
-- [Claude Code Bridge (CCB)](https://github.com/bfly123/claude_code_bridge) — 多 AI 協作通訊基礎設施
+- [Claude Codex Bridge (CCB)](https://github.com/SeemSeam/claude_codex_bridge) — 多 AI 協作通訊基礎設施
