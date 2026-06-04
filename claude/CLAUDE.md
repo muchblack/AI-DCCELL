@@ -127,7 +127,7 @@ Context 壓縮後，若收到 `[COMPACT RECOVERY]` 提示，立即 `Read(".ccb/c
 - **MariaDB container** (`mariadb`): Dev database, port 3306.
 - **Redis container** (`redis`): Cache, port 6379.
 - **Node.js**: Runs on host directly (v22), NOT inside container.
-- **Podman VM**: 2GB RAM, 4 CPUs. Containers have mem_limit enforced.
+- **Podman VM**: 3.7GB RAM (3814 MB), 6 CPUs. Containers have mem_limit enforced.
 
 ### PHP Command Execution (MANDATORY: via podman exec)
 
