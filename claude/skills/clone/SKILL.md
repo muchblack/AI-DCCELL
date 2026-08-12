@@ -6,6 +6,7 @@ description: >-
   拉專案, 下載 repo, clone 下來, 把 repo 拉下來.
   Examples: "/clone hemidemi:group/project.git ~/code/php",
   "/clone", "/clone hemidemi:tintint/spec-collection".
+model: claude-sonnet-5
 argument-hint: "[ssh-host:repo-path] [target-path]"
 ---
 

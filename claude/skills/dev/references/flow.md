@@ -9,10 +9,10 @@ For platform-specific tool syntax and role mappings, see `adapters/`.
 
 ## Terminology
 
-- **Primary Reviewer (主審)**: The platform's own AI. Performs plan and code review.
-- **Final Reviewer (終審)**: A different AI (cross-review). Provides second opinion.
-- **MLX**: Local reasoning model (Gemma4-26B on localhost:8090). Drafts plans.
-- **Ollama**: LAN code generation model (192.168.1.206:11434, model configured via `OLLAMA_MODEL` env var). Writes code.
+- **Primary Reviewer (主審)**: The platform's own AI. Drafts the plan, reviews code.
+- **Plan Reviewer (計劃終審)**: CCB analyst agent. Reviews plan for architectural soundness. On Claude Code: `analyst` (agy + localroles.analyst).
+- **Code Reviewer (程式碼終審)**: CCB code-review agent. Cross-reviews final code. On Claude Code: `reviewer1` (coordinator, auto-dispatches to `reviewer2`).
+- **Code Writer**: CCB coder agent (`worker2` first, `worker1` as fallback). Outputs code as text; primary reviewer applies files.
 
 Role assignments are defined in each platform's adapter file.
 
@@ -23,13 +23,13 @@ If `$ARGUMENTS` is `--resume`:
 1. Read `.dev-state.json` from project root
 2. If file doesn't exist, inform user: "No active /dev workflow found."
 3. Based on `step` field:
-   - `final_review_plan_pending`: Execute Phase 3 resume (fetch final reviewer reply for plan)
-   - `final_review_code_pending`: Execute Phase 7 resume (fetch final reviewer reply for code)
+   - `final_review_plan_pending`: Execute Phase 2 resume (fetch final reviewer reply for plan)
+   - `final_review_code_pending`: Execute Phase 6 resume (fetch final reviewer reply for code)
    - Other: inform user of current state and continue from that phase
 
 ---
 
-## Phase 1: MLX Plan Drafting
+## Phase 1: Primary Reviewer — Plan Draft + Self-Review
 
 ### Step 1.1: Prepare Context
 
@@ -40,30 +40,21 @@ If `$ARGUMENTS` is `--resume`:
    2. 執行 `git -C <spec-path> pull --rebase`
    3. 回報同步結果（updated / already up to date / failed）
    4. 若 pull 失敗，警告但不中斷流程
-4. **若任務涉及資料庫**：使用 `/db` 查詢相關表結構（欄位、型別、索引），附在 MLX context 中
-4. Read `~/.claude/skills/memory/corrections.jsonl`:
-   - If file exists, take last 5 entries (by timestamp, newest first)
-   - Format as human-readable correction notes for context injection
+4. **若任務涉及資料庫**：使用 `/db` 查詢相關表結構（欄位、型別、索引），附在計劃 context 中
+5. Read `~/.claude/skills/memory/corrections.jsonl`:
+   - If file exists, take last 5 entries (newest first), filter by `project_type` if known
+   - Format as correction notes for context injection
    - If file doesn't exist or is empty, skip injection
-4. Initialize `.dev-state.json` in project root:
 
-```json
-{
-  "version": 1,
-  "phase": "planning",
-  "step": "mlx_drafting",
-  "requirement": "<user requirement>",
-  "attempt": { "mlx_plan": 0, "ollama_code": 0 },
-  "maxAttempts": { "mlx_plan": 2, "ollama_code": 2 },
-  "artifacts": {},
-  "corrections": { "plan": [], "code": [] },
-  "startedAt": "<ISO timestamp>"
-}
-```
+### Step 1.2: Complexity Classification
 
-### Step 1.1b: Complexity Classification
+Classify task complexity before drafting:
 
-After analyzing the project structure, classify task complexity using the **Complexity Classifier** (`~/.claude/skills/docs/complexity-classifier.md`).
+- **simple**: single-file change, no new dependencies, no schema changes, no auth/security path
+- **medium**: multi-file change, or touches existing service/controller logic
+- **complex**: new feature spanning multiple layers, schema migration, auth change, or cross-service impact
+
+Override: if user includes `--full-review` in requirement, force `complex`.
 
 Output:
 ```
@@ -71,122 +62,79 @@ Output:
 Reason: <one-line justification>
 ```
 
-Store in `.dev-state.json` as `complexity` field. This determines which phases to skip:
-- **simple**: skip Phase 3 (plan cross-review) + Phase 7 (code cross-review)
-- **medium**: skip Phase 3 (plan cross-review)
-- **complex**: full workflow
+### Step 1.3: Draft Plan
 
-Override: if user includes `--full-review` in requirement, force `complex`.
+Primary reviewer writes the implementation plan directly, covering:
 
-### Step 1.2: Send to MLX
+- **Goal**: What this change accomplishes
+- **Architecture**: Which files/layers are touched and why
+- **Steps**: Ordered implementation steps with clear deliverables
+- **Risks**: Main technical risks and mitigation
 
-Call MCP tool (see adapter for exact syntax):
+Inject historical corrections context (from Step 1.1) to avoid repeated mistakes.
 
-```
-mlx_analyze(
-  requirement="Based on the following requirement, write an implementation plan including: goal, architecture, implementation steps, risks:\n<requirement>",
-  context="Project structure:\n<summary>\n\nHistorical corrections (avoid repeating mistakes):\n<last 5 corrections>",
-  thinking=true
-)
-```
+### Step 1.4: Four-Dimension Self-Review
 
-### Step 1.3: Display Result
+Evaluate the drafted plan across four dimensions:
 
-```
-## MLX (Gemma4-26B) Plan Draft
+| Dimension | Pass | Warn | Fail |
+|-----------|------|------|------|
+| Step Completeness | All steps present, deliverables clear | Gaps exist | Major steps missing |
+| Dependency Order | Dependencies correctly sequenced | Minor ordering issues | Critical ordering errors |
+| Risk Coverage | Main risks identified with mitigations | Partially covered | Major risks ignored |
+| Requirement Alignment | Plan solves the stated requirement | Partial drift | Misaligned |
 
-**Model**: mlx-community/gemma-4-26b-a4b-it-4bit | **Inference time**: {durationMs}ms
+If any dimension is Warn/Fail: revise the plan inline. Record what was corrected.
 
-{MLX plan draft verbatim}
-```
+### Step 1.5: Initialize State and Display
 
-### Step 1.4: Handle MLX Errors
+Initialize `.dev-state.json` in project root:
 
-- **Unreachable** (localhost:8090): Inform user, primary reviewer writes plan directly. Skip to Phase 2 with reviewer-authored plan.
-- **Timeout** (>3 min): Same fallback.
-- **Empty response**: Retry once with simplified requirement. If still empty, fallback to primary reviewer.
-
----
-
-## Phase 2: Primary Reviewer — Four-Dimension Plan Review
-
-The primary reviewer (platform's own AI) evaluates the MLX plan using four dimensions:
-
-### Four-Dimension Framework
-
-**Dimension 1: Step Completeness**
-- Are all necessary implementation steps included?
-- Are deliverables clear for each step?
-- Rating: ✅ Complete / ⚠️ Gaps exist / ❌ Major steps missing
-
-**Dimension 2: Dependency Correctness**
-- Are step dependencies correctly ordered?
-- Are external dependencies (libraries, services) identified?
-- Rating: ✅ Correct / ⚠️ Minor ordering issues / ❌ Critical dependency errors
-
-**Dimension 3: Risk Coverage**
-- Are main technical risks identified?
-- Are mitigation strategies reasonable?
-- Rating: ✅ Covered / ⚠️ Partially covered / ❌ Major risks ignored
-
-**Dimension 4: Requirement Alignment**
-- Does the plan actually solve the stated requirement?
-- Are there scope creep or missing requirements?
-- Rating: ✅ Aligned / ⚠️ Partial drift / ❌ Misaligned
-
-### Decision Logic
-
-| Result | Action |
-|--------|--------|
-| All four ✅ | Pass. Proceed to Phase 3. |
-| Any ⚠️ (no ❌) | Primary reviewer supplements directly. No MLX resend. Record corrections. |
-| Any ❌ AND `attempt.mlx_plan < 2` | Send back to MLX with specific error feedback. Increment `attempt.mlx_plan`. Return to Step 1.2. |
-| Any ❌ AND `attempt.mlx_plan >= 2` | Primary reviewer takes over plan writing entirely. Record takeover. |
-
-### MLX Resend Context Format
-
-When sending back to MLX:
-
-```
-The previous plan had these critical issues:
-1. [Dimension]: [Specific error description]
-2. [Dimension]: [Specific error description]
-
-Please rewrite the plan, focusing on correcting the above issues.
-Original requirement: <requirement>
+```json
+{
+  "version": 1,
+  "phase": "planning",
+  "step": "primary_drafting",
+  "requirement": "<user requirement>",
+  "complexity": "simple|medium|complex",
+  "attempt": { "worker_code": 0 },
+  "maxAttempts": { "worker_code": 2 },
+  "artifacts": {},
+  "corrections": { "plan": [], "code": [] },
+  "startedAt": "<ISO timestamp>"
+}
 ```
 
-### Display Review Result
-
+Display:
 ```
-## Plan Review (Primary Reviewer)
+## Plan Draft (Primary Reviewer)
 
-- Step Completeness: [✅/⚠️/❌] [brief note]
-- Dependency Correctness: [✅/⚠️/❌] [brief note]
-- Risk Coverage: [✅/⚠️/❌] [brief note]
-- Requirement Alignment: [✅/⚠️/❌] [brief note]
+[COMPLEXITY: {complexity}]
 
-**Verdict**: [PASS / SUPPLEMENTED / RETURNED TO MLX / TAKEOVER]
+{plan content}
+
+**Self-Review**: [all ✅ / supplemented N dimensions]
 ```
 
 ---
 
-## Phase 3: Final Review — Plan (Blocking, Cross-Review)
+## Phase 2: Final Review — Plan (Blocking, Cross-Review)
 
-**Smart Trimming**: If `complexity` is `simple` or `medium`, skip this phase entirely. Output: `[Phase 3 SKIPPED — complexity: {complexity}]`. Proceed to Phase 4.
+**Smart Trimming**: If `complexity` is `simple` or `medium`, skip entirely.
+Output: `[Phase 2 SKIPPED — complexity: {complexity}]`. Proceed to Phase 3.
 
-### Step 3.1: Prepare
+### Step 2.1: Prepare
 
 1. Store final plan text in `.dev-state.json` → `artifacts.plan_draft`
 2. Update state: `step: "final_review_plan_pending"`
-3. Record any corrections from Phase 2 in `corrections.plan`
+3. Record any self-review corrections in `corrections.plan`
 
-### Step 3.2: Send to Final Reviewer
+### Step 2.2: Send to Plan Reviewer
 
 Use platform's async delegation (see adapter for exact command):
 
 ```
-ask <final_reviewer> "Please review the following implementation plan:
+ask <analyst> "Please review the following implementation plan for architectural soundness:
 
 --- PLAN START ---
 <final plan>
@@ -194,99 +142,101 @@ ask <final_reviewer> "Please review the following implementation plan:
 
 Reply format:
 1. Overall assessment (one sentence)
-2. Issues found (if any)
-3. Improvement suggestions (if any)
+2. Architectural issues or risks found (if any)
+3. Missing steps or dependencies (if any)
 4. Conclusion: PASS / CONCERN"
 ```
 
-### Step 3.3: Block and End Turn
+### Step 2.3: Block and End Turn
 
 After async submission:
-- Reply with one line: `<Final Reviewer> processing...`
+- Reply with one line: `analyst processing...`
 - **END TURN IMMEDIATELY** (mandatory async guardrail)
 
-### Step 3.4: Resume (when user runs `/dev --resume`)
+### Step 2.4: Resume (when user runs `/dev --resume`)
 
-1. Fetch final reviewer reply (see adapter for pend command)
+1. Fetch analyst reply (see adapter for pend command)
 2. Process reply:
-   - **PASS**: Proceed to Phase 4
+   - **PASS**: Proceed to Phase 3
    - **CONCERN**: Primary reviewer evaluates the concerns:
-     - Agree with concern → apply fix, record correction
-     - Disagree → note disagreement reason, proceed anyway
+     - Agree → apply fix, record correction
+     - Disagree → note reason, proceed anyway
 3. Update state: `step: "plan_complete"`
 
 ---
 
-## Phase 4: Record Plan Learning Feedback
+## Phase 3: Record Plan Corrections
 
-If primary reviewer made ANY corrections to the MLX plan (⚠️ supplements, ❌ fixes, or takeover):
+If primary reviewer made any corrections to the plan (self-review supplements, or from final reviewer concerns):
 
-Append to `~/.claude/skills/memory/corrections.jsonl`:
+Append to `~/.claude/skills/memory/corrections.jsonl` (unified schema from `~/.claude/skills/memory/schema.md`):
 
 ```jsonl
-{"timestamp":"<ISO>","task_summary":"<one-line summary>","error_dimensions":["Step Completeness","Risk Coverage"],"original_issue":"<what was wrong>","correction":"<what was fixed>","severity":"warning","takeover":false}
+{"timestamp":"<ISO>","provider":"claude","artifact_type":"plan","task_summary":"<one-line summary>","language":"","project_type":"<type>","quality_score":"supplemented","issues":["<what was wrong>"],"corrections":["<what was fixed>"],"severity":"minor","takeover":false}
 ```
 
-Fields:
-- `timestamp`: ISO 8601 format
-- `task_summary`: One-line summary of the requirement
-- `error_dimensions`: Which dimensions had issues (array)
-- `original_issue`: What was wrong (concise)
-- `correction`: What was fixed (concise)
-- `severity`: `"warning"` for ⚠️, `"critical"` for ❌
-- `takeover`: `true` if primary reviewer took over entirely
+Key fields:
+- `provider`: `"claude"` (primary reviewer drafted it)
+- `quality_score`: `"pass"` | `"supplemented"`
+- `severity`: `"minor"` for ⚠️ dimensions, `"critical"` for ❌ dimensions
 
-If no corrections were needed (all ✅), skip this phase.
+If plan passed all dimensions without changes, skip this phase.
 
-Update state: `phase: "development"`, `step: "ollama_coding"`
+Update state: `phase: "development"`, `step: "worker_coding"`
 
 ---
 
-## Phase 5: Ollama Code Generation
+## Phase 4: CCB Worker Code Generation
 
-### Step 5.1: Prepare Coding Context
+### Step 4.1: Prepare Coding Context
 
 1. Extract implementation steps from the final plan
 2. Read `~/.claude/skills/memory/corrections.jsonl`:
-   - Take last 5 entries, format as correction notes
+   - Take last 5 entries (newest first), filter by `project_type`
+   - Format as correction notes for context injection
 3. Read existing files referenced in the plan (using Read tool)
 4. Determine language from plan content or project context
 
-### Step 5.2: Send to Ollama
+### Step 4.2: Send to Code Writer
 
-Call MCP tool (see adapter for exact syntax):
-
-```
-ollama_code(
-  task="Implement according to the following plan:\n<implementation steps>\n\nNotes:\n<historical corrections summary>",
-  context="Existing code:\n<relevant file contents>",
-  language="<detected language>"
-)
-```
-
-### Step 5.3: Display Result
+Use `worker2` (primary). If worker2 fails or times out, fall back to `worker1`.
+See adapter for exact command syntax.
 
 ```
-## Ollama Code Output
+ask worker2 "Implement the following plan. Output only the final code — do not write files yourself, just return the code.
 
-**Model**: {model from response} | **Response time**: {durationMs}ms
+Plan:
+<implementation steps>
+
+Existing code context:
+<relevant file contents>
+
+Language: <detected language>
+
+Historical corrections (avoid repeating these mistakes):
+<last 5 corrections>
+"
+```
+
+### Step 4.3: Display Result
+
+```
+## <code_writer> Code Output
 
 ```{language}
 {generated code}
 ```
 ```
 
-### Step 5.4: Handle Ollama Errors
+### Step 4.4: Handle Code Writer Errors
 
-- **Unreachable** (192.168.1.206:11434): Inform user, primary reviewer writes code directly. Skip to Phase 6 with reviewer-authored code.
-- **Timeout** (>5 min): Same fallback.
-- **Empty response**: Retry once. If still empty, fallback.
+- **worker2 no response / timeout** (>5 min): Fall back to `worker1` once. Record the switch.
+- **worker1 also fails**: Primary reviewer writes code directly. Record takeover.
+- **Empty response from either**: Retry once with simplified prompt. If still empty, primary reviewer takes over.
 
 ---
 
-## Phase 6: Primary Reviewer — Three-Tier Code Review (Linus Style)
-
-### Three-Tier Framework
+## Phase 5: Primary Reviewer — Code Review (Linus Style)
 
 Apply the **Linus Taste Review Rubric** (`~/.claude/skills/linus-review/rubric.md`).
 
@@ -296,19 +246,19 @@ Dual-pass review: Pass 1 (fatal issues) → Pass 2 (taste score 🟢🟡🔴 + m
 
 | Result | Action |
 |--------|--------|
-| 🟢 Good taste | Adopt directly. Proceed to Phase 7. |
-| 🟡 Passable | Primary reviewer fixes directly (variable naming, validation, edge cases). No Ollama resend. Record corrections. |
-| 🔴 Garbage AND `attempt.ollama_code < 2` | Send back to Ollama with review feedback. Increment `attempt.ollama_code`. Return to Step 5.2. |
-| 🔴 Garbage AND `attempt.ollama_code >= 2` | Primary reviewer takes over coding entirely. Record takeover. |
+| 🟢 Good taste | Adopt directly. Proceed to Phase 6. |
+| 🟡 Passable | Primary reviewer fixes directly. No worker resend. Record corrections. |
+| 🔴 Garbage AND `attempt.worker_code < 2` | Send back to `worker1` (fallback coder) with review feedback. Increment `attempt.worker_code`. Return to Step 4.2. |
+| 🔴 Garbage AND `attempt.worker_code >= 2` | Primary reviewer takes over coding entirely. Record takeover. |
 
-### Ollama Resend Context Format
+### Worker Resend Context Format
 
 ```
 Previous attempt had these issues:
-1. [specific issue from review]
-2. [specific issue from review]
+1. [specific issue]
+2. [specific issue]
 Avoid: [anti-patterns found]
-Instead: [correct approach to follow]
+Instead: [correct approach]
 ```
 
 ### Display Review Result
@@ -318,30 +268,31 @@ Instead: [correct approach to follow]
 
 **Taste Score**: [🟢/🟡/🔴] [brief assessment]
 
-**Fatal Issues**: [list or "No fatal issues"]
+**Fatal Issues**: [list or "None"]
 
 **Improvements**:
 1. [highest impact]
 2. [second]
 3. [third]
 
-**Verdict**: [ADOPT / FIXED / RETURNED TO OLLAMA / TAKEOVER]
+**Verdict**: [ADOPT / FIXED / RETURNED TO WORKER / TAKEOVER]
 ```
 
 ---
 
-## Phase 7: Final Review — Code (Blocking, Cross-Review)
+## Phase 6: Final Review — Code (Blocking, Cross-Review)
 
-**Smart Trimming**: If `complexity` is `simple`, skip this phase entirely. Output: `[Phase 7 SKIPPED — complexity: simple]`. Proceed to Phase 8.
+**Smart Trimming**: If `complexity` is `simple`, skip entirely.
+Output: `[Phase 6 SKIPPED — complexity: simple]`. Proceed to Phase 7.
 
-### Step 7.1: Prepare
+### Step 6.1: Prepare
 
 1. Store final code in `artifacts.code_output`
 2. Store changed file list in `artifacts.changed_files`
 3. Update state: `step: "final_review_code_pending"`
-4. Record any corrections from Phase 6 in `corrections.code`
+4. Record any corrections from Phase 5 in `corrections.code`
 
-### Step 7.2: Send to Final Reviewer
+### Step 6.2: Send to Final Reviewer
 
 ```
 ask <final_reviewer> "Please review the following code changes:
@@ -358,58 +309,62 @@ Reply format:
 5. Conclusion: PASS / CONCERN"
 ```
 
-### Step 7.3: Block and End Turn
+### Step 6.3: Block and End Turn
 
-Same as Phase 3 — async guardrail, end turn immediately.
+- Reply with one line: `<final_reviewer> processing...`
+- **END TURN IMMEDIATELY** (mandatory async guardrail)
 
-### Step 7.4: Resume
+### Step 6.4: Resume
 
-1. Fetch final reviewer reply
+1. Fetch final reviewer reply (see adapter for pend command)
 2. Process:
-   - **PASS**: Proceed to Phase 8
+   - **PASS**: Proceed to Phase 7
    - **CONCERN**: Primary reviewer evaluates, apply fixes if agreed
 3. Update state: `step: "code_complete"`
 
 ---
 
-## Phase 8: Record Code Learning Feedback
+## Phase 7: Record Code Corrections
 
-If primary reviewer made ANY corrections to Ollama's code:
+If primary reviewer made any corrections to the worker's code:
 
 Append to `~/.claude/skills/memory/corrections.jsonl`:
 
 ```jsonl
-{"timestamp":"<ISO>","task_summary":"<summary>","language":"TypeScript","taste_score":"passable","issues":["missing validation","incomplete error handling"],"corrections":["added zod schema","added try-catch with custom errors"],"severity":"minor"}
+{"timestamp":"<ISO>","provider":"worker1","artifact_type":"code","task_summary":"<summary>","language":"TypeScript","project_type":"<type>","quality_score":"passable","issues":["missing validation"],"corrections":["added zod schema"],"severity":"minor","takeover":false}
 ```
 
-Fields:
-- `timestamp`: ISO 8601
-- `task_summary`: One-line requirement summary
-- `language`: Programming language
-- `taste_score`: `"good"`, `"passable"`, or `"garbage"`
-- `issues`: Array of issues found (concise)
-- `corrections`: Array of corrections applied (concise)
+Key fields:
+- `provider`: `"worker1"` / `"worker2"` / `"claude"` (if takeover)
+- `quality_score`: `"good"` | `"passable"` | `"garbage"`
 - `severity`: `"minor"` for 🟡, `"major"` for 🔴
-- `takeover`: `true` if primary reviewer took over (add this field only when true)
+- `takeover`: `true` if primary reviewer wrote the code entirely
 
 If no corrections needed (🟢), skip this phase.
 
 ---
 
-## Phase 9: Git Commit (No Push)
+## Phase 8: Git Commit (No Push)
 
-### Step 9.1: Apply Code Changes
+### Step 8.1: Apply Code Changes
 
 Write the final reviewed code to files using Write/Edit tools.
 Only modify the files specified in `artifacts.changed_files`.
 
-### Step 9.2: Pre-commit Check
+### Step 8.2: Pre-commit Check
 
 1. Run `git status` to verify working tree state
 2. If there are unrelated uncommitted changes, warn user and ask whether to proceed
 3. If there are merge conflicts, inform user and stop
+4. **Repo hygiene**: scan `git status --porcelain` untracked entries not in
+   `artifacts.changed_files`. Flag any that look like accidental droppings —
+   0-byte files, or names with no extension / stray trailing punctuation
+   (classic sign of a Chinese phrase pasted into a shell command and
+   word-split, e.g. `touch 上架, 下架`). Never `git add -A`/`git add .` these
+   in by accident. List them for the user and ask before deleting — do not
+   delete without confirmation.
 
-### Step 9.3: Commit
+### Step 8.3: Commit
 
 ```bash
 git add <specific_files>
@@ -419,8 +374,8 @@ git commit -m "$(cat <<'EOF'
 - <change summary 1>
 - <change summary 2>
 
-Plan: MLX draft + primary review <PASS/SUPPLEMENTED/TAKEOVER>
-Code: Ollama + primary review <🟢/🟡/TAKEOVER>
+Plan: primary review <PASS/SUPPLEMENTED>
+Code: <code_writer> + primary review <🟢/🟡/TAKEOVER>
 
 Co-Authored-By: <platform AI signature>
 EOF
@@ -436,7 +391,7 @@ EOF
 - `test`: Adding or updating tests
 - `chore`: Build, config, tooling changes
 
-### Step 9.4: Cleanup and Summary
+### Step 8.4: Cleanup and Summary
 
 1. Delete `.dev-state.json`
 2. Display completion summary:
@@ -445,12 +400,12 @@ EOF
 ## /dev Workflow Complete
 
 **Requirement**: <one line>
-**Plan**: MLX draft + primary review <verdict>
-**Code**: Ollama + primary review <verdict>
-**Final Review**: <final reviewer> <verdict>
+**Plan**: primary review <verdict>
+**Code**: <code_writer> + primary review <verdict>
+**Final Review**: <final_reviewer> <verdict>
 **Commit**: <first 7 chars of commit hash>
 
-Learning feedback recorded: <N> entries (MLX: <n1>, Ollama: <n2>)
+Learning feedback recorded: <N> entries (plan: <n1>, code: <n2>)
 ```
 
 ---
@@ -463,15 +418,14 @@ Learning feedback recorded: <N> entries (MLX: <n1>, Ollama: <n2>)
 {
   "version": 1,
   "phase": "planning|development|committing|done",
-  "step": "mlx_drafting|primary_reviewing_plan|final_review_plan_pending|plan_complete|ollama_coding|primary_reviewing_code|final_review_code_pending|code_complete|committing",
+  "step": "primary_drafting|final_review_plan_pending|plan_complete|worker_coding|primary_reviewing_code|final_review_code_pending|code_complete|committing",
   "requirement": "original requirement text",
+  "complexity": "simple|medium|complex",
   "attempt": {
-    "mlx_plan": 0,
-    "ollama_code": 0
+    "worker_code": 0
   },
   "maxAttempts": {
-    "mlx_plan": 2,
-    "ollama_code": 2
+    "worker_code": 2
   },
   "artifacts": {
     "plan_draft": "final plan text (after review)",
@@ -490,10 +444,10 @@ Learning feedback recorded: <N> entries (MLX: <n1>, Ollama: <n2>)
 
 ## Principles
 
-1. Local/LAN AI generates, platform AI reviews — each handles its specialty
-2. Cross-review ensures no self-assessment blind spots
-3. Maximum 2 resend rounds (diminishing returns)
-4. Learning feedback accumulates over time, making future prompts more precise
-5. Blocking at final review ensures complete quality gate
+1. Primary reviewer drafts — CCB workers implement — cross-reviewer provides blind-spot check
+2. No self-assessment: final reviewer is always a different AI from primary reviewer
+3. Maximum 2 worker resend rounds (diminishing returns past that)
+4. Learning feedback accumulates: corrections injected into future worker prompts
+5. Blocking at final review is a hard quality gate — no skipping for "obvious" changes
 6. Git commit is the last step — no push, user decides when to push
 7. Maintain the Qing dynasty court official communication style (Traditional Chinese)

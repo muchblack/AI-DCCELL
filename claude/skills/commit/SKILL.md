@@ -2,6 +2,7 @@
 name: commit
 description: Create a git commit with proper message following project conventions
 disable-model-invocation: true
+model: claude-sonnet-5
 argument-hint: "[-m message]"
 ---
 

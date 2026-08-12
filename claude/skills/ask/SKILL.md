@@ -1,70 +1,93 @@
 ---
 name: ask
-description: Async via ask, end turn immediately; use when user explicitly delegates to any AI provider (gemini/codex/opencode/droid); NOT for questions about the providers themselves.
+description: Send a request to a CCB agent with `ask`.
 metadata:
-  short-description: Ask AI provider asynchronously
+  short-description: Ask agent
 ---
 
-# Ask AI Provider (Async)
+Use this when the user asks you to delegate with CCB, or when project memory
+says to use CCB `ask` for collaboration.
 
-Send the user's request to specified AI provider asynchronously.
+## Decision Card
 
-## Usage
+Before every ask, decide:
 
-The first argument must be the provider name, followed by the message:
-- `gemini` - Send to Gemini
-- `codex` - Send to Codex
-- `opencode` - Send to OpenCode
-- `droid` - Send to Droid
+1. Need delegation? If no, answer directly.
+2. Dependency gate:
+   - Default: do not use `--chain`.
+   - Use `--chain` only when the current active CCB task cannot finish until
+     this exact child result arrives. Then stop for continuation.
+   - Communication tests, batch sends, notifications, and independent work do
+     not become chain dependencies merely because replies are requested.
+3. Result intent:
+   - `--silence`: publish/execute task; success result not needed. Failures,
+     blockers, risks, or required next actions still surface.
+   - `--compact`: result wanted, but only distilled
+     findings/status/risks/blockers/next actions.
+   - `+ --artifact-reply`: consultation/analysis/report where full text should
+     be preserved.
+   - plain `ask`: short question or short handoff where inline text is enough.
+4. Request fidelity:
+   - `+ --artifact-request`: exact transient input
+     (logs/output/diffs/copied contents/config/JSON/YAML/table/structured text).
+     Prefer repo paths when the target can read files directly.
+   - `--artifact-io`: request and reply both need artifacts.
 
-## Headless Mode
+## Guardrails
 
-When `/tmp/.ccb-headless` exists, gemini and codex use CLI subprocess instead of tmux pane.
-Toggle with: `bash ~/.claude/skills/scripts/ccb-headless.sh`
+- Do not probe `--chain`; if unsure there is an active parent job, use plain
+  `ask`.
+- If CCB says `ask --chain requires an active parent job`, retry once with
+  plain `ask` for user-requested delegation.
+- Never add `--chain` merely to make a rejected plain ask succeed. If the work
+  is independent and no success result is needed, use `--silence`; otherwise
+  report the routing limitation instead of inventing a dependency.
+- `--chain` and `--silence` usually conflict; avoid mixing unless explicit.
+- Avoid `--silence --artifact-reply`; silence means no caller result needed; artifact-reply preserves one.
+- Artifact flags are orthogonal to `--chain`, `--silence`, and `--compact`.
+  They preserve content, not dependency shape.
+- Automatic spill for text over 4 KiB is a fallback, not the primary rule.
+- `--artifact-*` modes are CCB/daemon managed; targets do not write artifact reply files.
+- Plain nested `ask` from an active CCB task is rejected. Use `--chain` only
+  for a real child dependency; use `--silence` for independent no-result work.
+- In `A --silence -> B`, B still runs an active job. B-to-C depends on whether B needs C's result.
+- In task chains, each needed-result hop uses `--chain`; CCB then propagates continuations.
+- Finish an inbound CCB task in its current turn.
+- If the original caller is a registered CCB agent, CCB routes that turn's
+  terminal result through the existing lineage; do not open a new `ask` to
+  report completion to the original caller.
+- Direct CLI submitters read terminal results from control output such as
+  `watch` or `trace`.
+- If the current task is a CCB result-chain continuation, answer the current task
+  directly with the final result. Do not use `ask`, `--chain`, or
+  `--silence` to send that final result to the original caller; CCB routes the
+  continuation completion upstream.
+- `--silence` is not an active-job correction channel. Use
+  `ccb followup <active_job_id> --message "<correction>"` only when the target
+  provider supports exact active-turn injection; only `injected` is success.
+  On `rejected`, `too_late`, or `terminal`, cancel and resubmit the complete
+  corrected task instead of queueing a correction as ordinary work.
+- A `completed` CCB job means provider execution ended normally; it does not by
+  itself prove business acceptance.
+- `ask get`, `pend`, `watch`, and `ping` are diagnostics-only commands for
+  explicit debugging requests, not normal ask workflow tools.
+- Do not manually append output-policy text; stable reply policy comes from managed CCB memory, and `ask` adds only requested compact/silent mode metadata.
 
-Headless uses `gemini -p` and `codex exec --full-auto` — no terminal pane needed.
-Other providers (opencode, droid) always use the daemon path.
+Always send `MESSAGE` through the `<<'EOF' ... EOF` heredoc below. No other form
+is allowed. Use no flags or insert selected flags before `"$TARGET"`:
 
-## Execution (MANDATORY)
-
-**Step 1**: Check headless flag and provider:
-
+```bash
+command ask "$TARGET" <<'EOF'
+$MESSAGE
+EOF
 ```
-if [ -f /tmp/.ccb-headless ] && { [ "$PROVIDER" = "gemini" ] || [ "$PROVIDER" = "codex" ]; }
-→ Headless path
-else
-→ Daemon path
+
+```bash
+command ask --chain --artifact-reply "$TARGET" <<'EOF'
+$MESSAGE
+EOF
 ```
 
-**Headless path** (gemini/codex only):
-
-```
-Bash(bash ~/.claude/skills/scripts/ask-headless.sh $PROVIDER "$MESSAGE")
-```
-
-- This runs synchronously and returns the reply directly.
-- Do NOT follow the Async Guardrail — the reply is already in the output.
-- Present the reply to the user normally.
-
-**Daemon path** (default):
-
-```
-Bash(CCB_CALLER=claude ask $PROVIDER "$MESSAGE")
-```
-
-- Follow the **Async Guardrail** rule in CLAUDE.md (mandatory).
-- If output contains `CCB_ASYNC_SUBMITTED`, end your turn immediately.
-
-## Rules
-
-- If submit fails (non-zero exit):
-  - Reply with exactly one line: `[Provider] submit failed: <short error>`
-  - End your turn immediately.
-
-## Examples
-
-- `/ask gemini What is 12+12?`
-- `/ask codex Refactor this code`
-- `/ask opencode Analyze this bug`
-- `/ask droid Execute this task`
-
+After the command returns, end the turn. Do not wait for a reply,
+do not run `ask get` / `pend` / `ping` / `watch`, do not poll.
+For `--chain`, report only that delegation was submitted.

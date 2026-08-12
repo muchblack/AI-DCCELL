@@ -5,6 +5,7 @@ description: >-
   AI 生成功能名，組合為分支名稱並建立。Triggers on: 建分支, 開分支,
   create branch, new branch, 從需求開分支, branch from spec, 切分支.
   Examples: "/branch ./req.md", "/branch ./spec.md --from develop".
+model: claude-sonnet-5
 argument-hint: "<markdown-file> [--from <base-branch>]"
 ---
 

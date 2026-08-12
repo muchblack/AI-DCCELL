@@ -7,59 +7,53 @@ Platform-specific configuration for running the /dev workflow in Gemini-cli.
 | Role | Assignment | Communication |
 |------|-----------|---------------|
 | Primary Reviewer | Gemini (self) | Direct — no tool call needed |
-| Final Reviewer | Claude | `shell("CCB_CALLER=gemini ask claude '<message>'")` or MCP `ccb_ask_claude(message="<text>")` |
-| Plan Drafter | MLX | MCP `mcp__mcp-ai-bridge__mlx_analyze(...)` |
-| Code Writer | Ollama | MCP `mcp__mcp-ai-bridge__ollama_code(...)` |
+| Final Reviewer | Claude | `shell("CCB_CALLER=gemini ask claude '...'")`  or MCP `ccb_ask_claude(message="<text>")` |
+| Code Writer | worker1 (codex + localroles.coder) | `shell("CCB_CALLER=gemini ask worker1 '...'")`  or MCP `ccb_ask_worker1(message="<text>")` |
 
-## MCP Tool Syntax
+## CCB Ask Pattern
 
-### MLX Analyze
+### Sending to Code Writer (worker1)
+
+Option A — shell:
 ```
-mcp__mcp-ai-bridge__mlx_analyze(
-  requirement="<text>",
-  context="<text>",
-  thinking=true
-)
+shell("CCB_CALLER=gemini ask worker1 '<task>'")
 ```
 
-### Ollama Code
+Option B — MCP:
 ```
-mcp__mcp-ai-bridge__ollama_code(
-  task="<text>",
-  context="<text>",
-  language="<lang>"
-)
+ccb_ask_worker1(message="<task>")
 ```
-
-## Async Pattern
 
 ### Sending to Final Reviewer (Claude)
 
-Option A — CCB MCP tool:
-```
-ccb_ask_claude(message="<message>")
-```
-
-Option B — shell:
+Option A — shell:
 ```
 shell("CCB_CALLER=gemini ask claude '<message>'")
 ```
 
-### Async Guardrail
-When delegation is submitted:
-1. Reply: `Claude processing...`
-2. Wait for completion notification or user trigger
-
-### Fetching Final Reviewer Reply (on --resume)
-
-Option A — CCB MCP tool:
+Option B — MCP:
 ```
-ccb_pend_claude()
+ccb_ask_claude(message="<message>")
+```
+
+## Async Guardrail
+
+When delegation is submitted:
+1. Reply: `claude processing...` (or `worker1 processing...`)
+2. **END TURN IMMEDIATELY**
+
+## Fetching Reply (on --resume)
+
+Option A — MCP:
+```
+ccb_pend_claude()    # for Final Reviewer
+ccb_pend_worker1()   # for Code Writer (if used async)
 ```
 
 Option B — shell:
 ```
 shell("pend claude")
+shell("pend worker1")
 ```
 
 ## Git Commit Signature

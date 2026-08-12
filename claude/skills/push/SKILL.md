@@ -2,6 +2,7 @@
 name: push
 description: Push commits to remote repository with safety checks
 disable-model-invocation: true
+model: claude-sonnet-5
 argument-hint: "[remote] [branch]"
 ---
 

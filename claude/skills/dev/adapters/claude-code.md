@@ -7,52 +7,66 @@ Platform-specific configuration for running the /dev workflow in Claude Code.
 | Role | Assignment | Communication |
 |------|-----------|---------------|
 | Primary Reviewer | Claude (self) | Direct — no tool call needed |
-| Final Reviewer | Gemini | `Bash(CCB_CALLER=claude ask gemini "<message>")` |
-| Plan Drafter | MLX | `mcp__mcp-ai-bridge__mlx_analyze(...)` |
-| Code Writer | Ollama | `mcp__mcp-ai-bridge__ollama_code(...)` |
+| Plan Reviewer | analyst (agy, localroles.analyst) | `Bash(CCB_CALLER=main ask analyst "...")` |
+| Code Reviewer | reviewer1 (coordinator → reviewer2) | `Bash(CCB_CALLER=main ask reviewer1 "...")` |
+| Code Writer (primary) | worker2 (opencode, localroles.coder) | `Bash(CCB_CALLER=main ask worker2 "...")` |
+| Code Writer (fallback) | worker1 (codex, localroles.coder) | `Bash(CCB_CALLER=main ask worker1 "...")` |
 
-## MCP Tool Syntax
+## CCB Ask Pattern
 
-### MLX Analyze
-```
-mcp__mcp-ai-bridge__mlx_analyze(
-  requirement="<text>",
-  context="<text>",
-  thinking=true
-)
-```
-
-### Ollama Code
-```
-mcp__mcp-ai-bridge__ollama_code(
-  task="<text>",
-  context="<text>",
-  language="<lang>"
-)
-```
-
-## Async Pattern
-
-### Sending to Final Reviewer (Gemini)
+### Sending to Plan Reviewer (analyst)
 ```bash
-Bash(CCB_CALLER=claude ask gemini "<message>")
+CCB_CALLER=main ask analyst <<'EOF'
+<plan review message>
+EOF
 ```
 
-### Async Guardrail (MANDATORY)
+### Sending to Code Writer (worker2 primary, worker1 fallback)
+```bash
+CCB_CALLER=main ask worker2 <<'EOF'
+Implement the following plan. Output only the final code; do not write files.
+
+Plan:
+<implementation steps>
+
+Existing code context:
+<relevant file contents>
+
+Language: <lang>
+Historical corrections (avoid repeating):
+<last 5 corrections>
+EOF
+```
+If worker2 times out (>5 min), switch to `worker1` with the same message.
+
+### Sending to Code Reviewer (reviewer1)
+reviewer1 (code-review-coordinator) will automatically dispatch to reviewer2 and synthesize both verdicts.
+```bash
+CCB_CALLER=main ask reviewer1 <<'EOF'
+<code review message>
+EOF
+```
+
+## Async Guardrail (MANDATORY)
+
 When output contains `[CCB_ASYNC_SUBMITTED`:
-1. Reply exactly: `Gemini processing...`
+1. Reply exactly: `reviewer1 processing...` (or `worker1 processing...`)
 2. **END TURN IMMEDIATELY**
 3. Do NOT poll, sleep, or call pend
 
-### Fetching Final Reviewer Reply (on --resume)
+## Fetching Reply (on --resume)
+
 ```bash
-Bash(pend gemini)
+pend analyst     # for Plan Reviewer (Phase 2)
+pend reviewer1   # for Code Reviewer (Phase 6)
+pend worker2     # for Code Writer primary
+pend worker1     # for Code Writer fallback
 ```
 
 ## Git Commit Signature
 
 ```
-Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 ```
 
 ## Communication Style
