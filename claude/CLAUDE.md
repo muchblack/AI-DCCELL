@@ -161,12 +161,16 @@ Compose file lives in `~/srv/servers/docker-compose.yml`:
 
 ## 外部 Skill 優先序（mattpocock/skills）
 
-已擇優安裝：grill-with-docs, to-spec, diagnosing-bugs, handoff, grilling。
+已擇優安裝：grill-with-docs, to-spec, to-tickets, diagnosing-bugs, handoff, grilling。
 觸發衝突時的優先序（iron rule）：
 
 - CCB 流程內（/dev, /ccb-dev, /dispatch 進行中）：一律用本地 skill，
   不觸發 mattpocock 系列的 implement/code-review 類行為。
 - 程式碼審查：只用 /linus-review。
 - 需求鍛造（需求模糊、要寫 spec）：用 grill-with-docs / to-spec。
+- 開需求進 Linear（不論來源是 to-spec 產出、grill-with-docs 磨出來、
+  既有 issue 要拆解、或臣直接手動診斷出的缺陷）：一律再跑一次
+  to-tickets，拆成有明確 blocking edges 的 tracer-bullet ticket 後才
+  發布，不要繞過它直接 save_issue 開一張籠統的票。
 - 結構化除錯：用 diagnosing-bugs。
 - 對話交接：用 handoff（與 .ccb/compact-briefing 互補，不取代）。

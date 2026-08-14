@@ -146,6 +146,13 @@ When the call returns, check `herdr agent get <worker>`:
   requirement's Linear issue id (or doc path, for pre-existing local specs)
   so the reviewer can pull the source itself; the reviewer verifies spec
   compliance and TDD evidence item by item, not just code quality.
+- **A Linear-sourced requirement gets reported back on PASS.** If Step 0
+  resolved a Linear issue id and agy's final verdict is PASS, Phase 5 posts
+  a status comment on that issue (outcome, merge/worker commit shas, branch,
+  round count) and moves it to Done — see Phase 5. Doc-path/inline
+  requirements have no issue to report to; skip silently. A flow that never
+  reaches PASS has nothing to report (that's an escalation, not a
+  completion).
 - **main self-screens with `/linus-review` before handing off to agy.**
   After merging (Phase 3), invoke `/linus-review` on the merged diff
   (`git diff <parent>..<merge-commit>`) before writing the review brief.

@@ -223,7 +223,22 @@ State per transition: `{ "step": "fix_dispatched", "round": <n> }`
 2. Merges already happened per round. Extra commit/push only when asked.
    Commit messages in Traditional Chinese with the current model's standard
    `Co-Authored-By:` trailer.
-3. State: `{ "step": "done" }`. Clean up `.herdr-dev/*.md` working files.
+3. **If the requirement was a Linear issue id** (Step 0 case 1) **and the
+   final verdict is PASS**: report back on that issue before declaring
+   done. A doc-path or inline-description requirement has no issue to
+   report to — skip this step silently, don't invent one.
+   - `save_comment` (param is `issueId`, not `issue` — mismatched param
+     name fails validation) with a Traditional Chinese status comment:
+     processing outcome (PASS), the final merge commit sha(s) — one per
+     fix round if more than one — worker commit sha(s), branch name, round
+     count, and test result summary.
+   - `save_issue` with `id: "<issue-id>"` and `state` moved to the team's
+     "Done" state (or equivalent completed-type state — check
+     `list_issue_statuses` for the team if unsure of the exact name).
+   - A flow that never reached PASS (escalated to the Emperor after the
+     2-round fix cap) has nothing to report here — that's a Phase 4
+     escalation, not a Phase 5 completion.
+4. State: `{ "step": "done" }`. Clean up `.herdr-dev/*.md` working files.
 
 ---
 
