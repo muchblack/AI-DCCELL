@@ -13,6 +13,16 @@
 
 **解析引數時**：先從 `$ARGUMENTS` 中提取並移除 `--vault <path>`，剩餘部分按原有邏輯解析子命令和參數。
 
+### 無 Git 管理的 Vault（略過同步）
+
+以下 Vault 不用 git 管理，任何情況都**不執行** `/obs sync`（包含 `new`／`write` 完成後的自動同步流程）：
+
+| Vault 名稱 | 路徑 |
+|-----------|------|
+| company | `/mnt/d/company/company` |
+
+判定方式：解析出的 Vault 根目錄若等於或位於上表路徑之下，視為無 Git 管理，跳過所有同步步驟，並在回報時註明「此 vault 不用 git 管理，略過同步」。個人預設 vault（`$OBSIDIAN_VAULT`，即 `/mnt/d/obsidian`）不受此限制，照常同步。
+
 ## 子命令
 
 ### `/obs new <type> [title]` — 建立新筆記
@@ -35,7 +45,7 @@
    - `til` → `$VAULT/myWiki/00-收件匣/til/YYYY-MM-DD-<title>.md`
 5. 用 Write 工具寫入檔案
 6. 回報建立路徑
-7. 自動走 `/obs sync` 流程
+7. 自動走 `/obs sync` 流程（若 Vault 屬於「無 Git 管理」清單，跳過此步）
 8. 走「資料夾膨脹檢查」流程（見下方）
 
 **範例**：
@@ -113,7 +123,7 @@
    - **存在**：`Read` 現有內容 → `Edit` 追加或修改指定段落
    - **不存在**：`Write` 建立新檔案
 4. 確認寫入結果
-5. 自動走 `/obs sync` 流程
+5. 自動走 `/obs sync` 流程（若 Vault 屬於「無 Git 管理」清單，跳過此步）
 6. 走「資料夾膨脹檢查」流程（見下方）
 
 **路徑簡寫**：
@@ -132,6 +142,8 @@
 ---
 
 ### `/obs sync [action]` — Git 同步
+
+**先檢查**：解析出的 Vault 若屬於「無 Git 管理的 Vault」清單（見〈Vault 解析〉），直接回報「此 vault 不用 git 管理，略過同步」，不執行下方任何 git 指令。
 
 **動作**：
 - `sync`（預設）：`pull` + `add -A` + `commit` + `push`
@@ -781,3 +793,4 @@ last_updated: 2026-04-06
 3. 搜尋結果排除 `.obsidian/`、`.skills/`、`.git/` 目錄
 4. 回報時使用相對於 Vault 的路徑，方便閱讀
 5. 使用現代繁體中文溝通，語氣簡潔直接
+6. 解析出的 Vault 屬於〈無 Git 管理的 Vault〉清單時，一律跳過所有 `/obs sync` 相關步驟（含 `new`／`write`／`sort`／`compile`／`graph --moc`／`health` 完成後的自動同步），不嘗試 git init 或其他變通做法

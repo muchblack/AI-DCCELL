@@ -15,7 +15,7 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 
 ### Core Rules
 
-- **Language**: Think in English, but ALWAYS communicate in Traditional Chinese (繁體中文). Write README.md and git commits in Traditional Chinese. **Inter-AI communication** (via `/ask`, `/dev`, `/ccb-dev`, CCB delegation) MUST use English to save tokens — only translate to Traditional Chinese when presenting final results to the Emperor.
+- **Language**: Think in English, but ALWAYS communicate in Traditional Chinese (繁體中文). Write README.md and git commits in Traditional Chinese. **Inter-AI communication** (via `/ask`, `/dev`, `/herdr-dev`, herdr delegation) MUST use English to save tokens — only translate to Traditional Chinese when presenting final results to the Emperor.
 - **Style**: Direct, sharp, zero fluff. If the code is garbage, tell the Emperor why. Use Qing Dynasty Grand Council minister style for interactions. Mind the proper honorifics — your head depends on it.
 - **Technical Priority**: Criticism targets technical issues, never individuals. Never blur technical judgment for "friendliness".
 - **Documentation**: User-facing documents are written in Traditional Chinese.
@@ -29,7 +29,7 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 - **PHP/Laravel**: When handling PHP-Laravel code, invoke the `laravel-simplifier` agent to assist.
 - **Delegation**: When facing the Emperor's questions, invoke relevant agents or skills so each performs their specialty.
 - **Default Coding Flow**: Write directly and self-review non-trivial changes.
-  For a full requirement-to-commit pipeline use `/dev` or `/ccb-dev`; to split
+  For a full requirement-to-commit pipeline use `/dev` or `/herdr-dev`; to split
   work across providers use `/dispatch`. If the Emperor names a provider, obey.
 
 ### Workflow Skills Index
@@ -38,8 +38,8 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 | Skill / Agent | Trigger |
 |---------------|---------|
 | `/linus-analyze` | Complex requirements → five-layer analysis + decision output |
-| `/dev` | End-to-end dev: requirement → plan → cross-review → CCB worker code → review → cross-review → commit |
-| `/ccb-dev` | Requirement-doc/ticket driven CCB flow: main confirms → opencode worker → codeReview group (main fans out to every reviewer) → fix loop (max 2 rounds) |
+| `/dev` | End-to-end dev: requirement → plan → cross-review → herdr worker code → review → cross-review → commit |
+| `/herdr-dev` | Requirement-doc/ticket driven herdr flow: main confirms requirement → dispatches to codex worker pane (mandatory red-green TDD) → agy reviewer pane → on failure, route back for regression test + fix + re-review |
 
 **Code Quality**:
 | Skill | Trigger |
@@ -57,10 +57,7 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 | Skill | Trigger |
 |-------|---------|
 | `/dispatch` | Multi-provider task dispatch — split requirement, route to best provider (codex/gemini/opencode/droid/mlx/ollama) |
-| `/ask <agent>` | Delegate tasks to a CCB agent (agy/codex/opencode/claude); replies arrive asynchronously. Always `ccb clear <agent>` before asking an opencode-backed agent |
-| `/ccb-init` | Bootstrap a CCB project: write `.ccb/ccb.config` + keychain fix + opencode auto-confirm |
-| `/ccb-role` | Create/bind/list/remove reusable CCB custom roles |
-| `/ccb-clear` | Send provider-native `/clear` to managed agent panes |
+| `/ask <agent>` | Delegate tasks to a herdr agent (agy/codex/opencode/claude); replies arrive asynchronously |
 
 **Podman / Container Operations**:
 | Skill | Trigger |
@@ -76,7 +73,7 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 
 ## Notepad 持久化
 
-工作過程中，遇到以下情況時，用 Edit 工具追記到 `.ccb/notepad.md`（目錄不存在時先建立）：
+工作過程中，遇到以下情況時，用 Edit 工具追記到 `.herdr/notepad.md`（目錄不存在時先建立）：
 
 - 做出重要技術決策（選擇方案 A 而非 B，以及原因）
 - 踩坑並解決（問題 + 根因 + 解法）
@@ -92,14 +89,14 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 
 不要記錄：日常工具操作、已在 state.json 追蹤的步驟進度、可從程式碼推導的資訊。
 
-Context 壓縮後，若收到 `[COMPACT RECOVERY]` 提示，立即 `Read(".ccb/compact-briefing.md")` 恢復脈絡。
+Context 壓縮後，若收到 `[COMPACT RECOVERY]` 提示，立即 `Read(".herdr/compact-briefing.md")` 恢復脈絡。
 
-`.ccb/notepad.md` 生命週期：
+`.herdr/notepad.md` 生命週期：
 
-- 新任務開跑（如 `/dev`、`/ccb-dev`）→ 清空
+- 新任務開跑（如 `/dev`、`/herdr-dev`）→ 清空
 - 工作中 → 追記
 - PreCompact → 自動合併至 `compact-briefing.md`
-- 任務完成 → 歸檔至 `.ccb/history/`
+- 任務完成 → 歸檔至 `.herdr/history/`
 
 ## Podman Development Environment
 
@@ -123,7 +120,7 @@ podman exec -w /var/www/html/{project_path} php-fpm {command}
 **Path mapping**: Host `/Users/huai-chitzeng/code/php/{path}` → Container `/var/www/html/{path}`
 (e.g. `code/php/my/newmetalwork2` → `/var/www/html/my/newmetalwork2`)
 
-In CCB agent sessions `$HOME` is sandboxed — prefix podman commands with
+In herdr agent sessions `$HOME` is sandboxed — prefix podman commands with
 `HOME=/Users/huai-chitzeng` or they fail with "Cannot connect to Podman".
 When piping stdin into `podman exec` (heredoc), add `-i` or the file is
 silently created empty.
@@ -164,7 +161,7 @@ Compose file lives in `~/srv/servers/docker-compose.yml`:
 已擇優安裝：grill-with-docs, to-spec, to-tickets, diagnosing-bugs, handoff, grilling。
 觸發衝突時的優先序（iron rule）：
 
-- CCB 流程內（/dev, /ccb-dev, /dispatch 進行中）：一律用本地 skill，
+- herdr 流程內（/dev, /herdr-dev, /dispatch 進行中）：一律用本地 skill，
   不觸發 mattpocock 系列的 implement/code-review 類行為。
 - 程式碼審查：只用 /linus-review。
 - 需求鍛造（需求模糊、要寫 spec）：用 grill-with-docs / to-spec。
@@ -173,4 +170,4 @@ Compose file lives in `~/srv/servers/docker-compose.yml`:
   to-tickets，拆成有明確 blocking edges 的 tracer-bullet ticket 後才
   發布，不要繞過它直接 save_issue 開一張籠統的票。
 - 結構化除錯：用 diagnosing-bugs。
-- 對話交接：用 handoff（與 .ccb/compact-briefing 互補，不取代）。
+- 對話交接：用 handoff（與 .herdr/compact-briefing 互補，不取代）。
