@@ -66,8 +66,31 @@ Run `herdr agent list` at flow start and record the pane ids (e.g. `w1:p2`)
 in state. If a required pane is missing, tell the user which agent to start
 in a pane and END TURN — do not spawn panes yourself unless asked.
 
-All panes share one working tree (sequential flow — only one agent writes at
-a time). Worker commits on a `herdr/dev-<slug>` branch; main merges `--no-ff`.
+**If the project is under git version control**: each dispatched pane gets
+its own `git worktree` before it starts — worker at
+`.herdr-dev/worktrees/worker-<slug>` on new branch `herdr/dev-<slug>`;
+reviewer at `.herdr-dev/worktrees/reviewer-<slug>` checked out (detached) at
+the merge commit. This is what actually fixes the transient
+`fatal: Unable to write index.` failure noted below — separate worktrees
+mean separate index files, so main and a pane's agent no longer race on the
+same lock. Worker commits on `herdr/dev-<slug>`; main merges `--no-ff` into
+main from main's own checkout. See `references/flow.md` Phase 2/3 for the
+exact commands.
+
+**If the project is not under git version control**: fall back to the
+legacy shared-working-tree flow — all panes operate directly in the project
+directory, sequentially (only one writes at a time).
+
+**Responsibility boundary — who creates the worktree.** Only **main**
+(the dispatcher) creates or switches worktrees, and only *before*
+dispatching — `git worktree add` for the worker/reviewer path happens in
+Phase 2 step 0 / Phase 3 step 5, run by main, before the brief is written.
+The worker and reviewer panes never call `git worktree add`/`switch`
+themselves. A dispatched brief states the pane's cwd, branch, and base
+commit as facts to **verify**, not choices to make — if a pane's read of
+`git status`/`pwd` doesn't match what the brief says, that is a blocker to
+report back, not something to silently fix by creating or switching to a
+different worktree.
 
 ## Herdr Dispatch Pattern
 
@@ -196,7 +219,30 @@ When the call returns, check `herdr agent get <worker>`:
   by design on this project's host (see project CLAUDE.md's Podman section).
 - **A shared-working-tree git operation can transiently fail** (`fatal:
   Unable to write index.`) if main and a pane's agent touch git at the same
-  moment. Retry once before treating it as a real failure.
+  moment. Per-pane worktrees (the git-repo case above) eliminate this by
+  construction; it can still happen in the non-git fallback flow. Retry once
+  before treating it as a real failure.
+- **Worktrees persist across fix rounds, don't recreate them.** A fix
+  dispatch (Phase 4) reuses the existing `worker-<slug>` worktree and branch
+  — `git worktree add` only runs once per slug, the first time. If the
+  worktree path exists but `git worktree list` doesn't know about it (e.g.
+  stale after manual cleanup), that's a real error — surface it rather than
+  silently re-adding, since it usually means the `.git` metadata and the
+  directory disagree.
+- **Container bind-mounts may not cover a worktree path.** If the project
+  runs its build/test commands inside a container (e.g. this environment's
+  Podman `php-fpm` container, which only bind-mounts the main checkout under
+  `/var/www/html/...`), a worktree created under `.herdr-dev/worktrees/...`
+  may not be visible inside the container. Check this before dispatching a
+  brief that assumes an in-container command will find the worktree files —
+  if the mount doesn't cover it, flag it to the Emperor instead of guessing
+  a fix (e.g. widening the compose mount) on their behalf.
+- **Clean up worktrees only after the branch's fate is settled** (Phase 5,
+  or a Phase 4 escalation the Emperor resolves) — `git worktree remove` the
+  worker/reviewer paths, keeping the branch itself. Check `git status` in a
+  worktree before removing it; use `--force` only after confirming there's
+  nothing uncommitted worth keeping, per the standing rule against
+  discarding work without checking first.
 - **An "always allow this conversation for `<prefix>`" grant can cover more
   than the literal prefix shown** (observed: granting it for `git diff`
   let several later `git show`/`git diff --stat`/file-scoped `git diff`

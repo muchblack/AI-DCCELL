@@ -37,6 +37,8 @@ Break the work into **tracer bullet** tickets.
 
 Give each ticket its **blocking edges** — the other tickets that must complete before it can start. A ticket with no blockers can start immediately.
 
+Give each ticket a **severity** tier too, on a four-level scale (Critical/High/Medium/Low). If the source material already grades severity (e.g. a security review's 🔴🟠🟡🟢, or its own vocabulary), reuse that grading and its terms for the ticket(s) it produced — don't re-derive it or translate it into a different scheme. Otherwise default to Critical/High/Medium/Low, assessed from impact and urgency. A ticket that isn't itself a graded finding (a performance improvement, a process/tech-debt item) still gets a tier — judge it by the same impact/urgency lens, don't leave it unlabeled.
+
 **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change — rename a column, retype a shared symbol — whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket — green is promised only there.
 
 ### 4. Quiz the user
@@ -44,6 +46,7 @@ Give each ticket its **blocking edges** — the other tickets that must complete
 Present the proposed breakdown as a numbered list. For each ticket, show:
 
 - **Title**: short descriptive name
+- **Severity**: Critical / High / Medium / Low
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
 
@@ -61,7 +64,8 @@ Publish one issue per ticket, in dependency order (blockers first) so each ticke
 
 - **Find the team/project**: match the repo's directory name (or git remote name) against Linear project names via `list_projects`. Exactly one match → use that project and its team. None or several matches → ask the user which Linear team/project to file under; don't guess. If this ticket set decomposes an existing parent issue, reuse that issue's project/team — don't re-derive it.
 - **Ensure the triage label exists**: check `list_issue_labels` (scoped to that team) for `ready-for-agent`; create it with `create_issue_label` if missing.
-- **Create each issue** with `save_issue`, in dependency order: `title` = ticket title, `team`/`project` = as found above, `description` = the ticket body per the template below (as Markdown), `labels` = `["ready-for-agent"]`.
+- **Ensure the severity labels exist**: check `list_issue_labels` (scoped to that team) for the four severity tiers (in whatever vocabulary this ticket set uses — the source's own terms, or Critical/High/Medium/Low by default); create whichever are missing with `create_issue_label`. Linear rejects emoji in label names, so use plain text even if the source used emoji (e.g. 🔴 → 嚴重, not `🔴 嚴重`).
+- **Create each issue** with `save_issue`, in dependency order: `title` = ticket title, `team`/`project` = as found above, `description` = the ticket body per the template below (as Markdown), `labels` = `["ready-for-agent", "<severity tier>"]` — every issue gets exactly one severity label alongside the triage label.
 - **Set native blocking edges**: on the blocked ticket's `save_issue` call, pass `blockedBy` = the just-created blocker issue identifier(s) (this is why creation order matters — a blocker must exist before you can reference it). A ticket with no blockers omits `blockedBy` entirely.
 - If the source was an existing parent issue, add a link back to it (`links` param) rather than nesting — do NOT close or modify the parent issue itself.
 - Report the created issues' identifiers and URLs back to the user, in the same dependency order.
