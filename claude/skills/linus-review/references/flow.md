@@ -30,6 +30,22 @@ Inspection results enhance Pass 1 by surfacing issues Claude may miss from readi
 - Potential null dereference, deprecated API usage
 - Framework-specific issues (Laravel route conflicts, missing views, etc.)
 
+### Step 1.6: Load Language Checklist
+
+For each changed file, match its extension against the table below and load the corresponding checklist from `references/checklists/`. A file can match at most one checklist. No extension match → fall back to the generic `default.md` row (last in the table); never skip a file entirely.
+
+| Extensions | Checklist |
+|---|---|
+| `.php`, `.phtml` | `references/checklists/php.md` |
+| `.py`, `.pyi`, `.ipynb` | `references/checklists/python.md` |
+| `.java` | `references/checklists/java.md` |
+| `.ts`, `.js`, `.tsx`, `.jsx`, `.mjs`, `.cjs` | `references/checklists/ts_js_tsx_jsx.md` |
+| *(no other match)* | `references/checklists/default.md` |
+
+Loaded checklist content feeds into Pass 1 as supplementary fatal-issue evidence, same tier as Step 1.5's IDE inspection results — it sharpens what counts as a real defect for that language, it does not add new categories beyond the Fatal Issues definition in Pass 1.
+
+`references/checklists/` holds 47 more languages/frameworks on standby (see its `README.md`) — not wired here because this project doesn't currently use them. Add a row above to activate one.
+
 ### Step 2: Dual-Pass Review
 
 Review in **two separate passes** to prevent important issues from being buried by minor ones.
@@ -56,6 +72,7 @@ Definition of fatal issues:
 - Security vulnerabilities (SQL injection, XSS, sensitive data leaks, trust boundary violations)
 - Race conditions or concurrency bugs
 - Data loss or corruption risks
+- Severe performance/DB query defects (N+1 at production scale, missing WHERE/index causing a full-table scan, unbounded result sets without pagination)
 - Defects that would cause real damage in production
 
 If no fatal issues: `No fatal issues found.`
