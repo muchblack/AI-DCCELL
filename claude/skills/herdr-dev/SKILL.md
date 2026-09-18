@@ -27,7 +27,7 @@ input (doc / text)
   → [codex pane] TDD develop        (RED → minimal GREEN, one slice at a time)
   → [main] verify TDD evidence via git, merge to main
   → [main] self-review via /linus-review   (CRITICAL? → fix loop, agy never sees it)
-  → [agy pane] review               (quality + spec + TDD compliance)
+  → [agy pane] review               (quality + spec + TDD + security + perf)
   → PASS ? report : regression RED → fix GREEN → re-review (max 2 rounds)
 ```
 

@@ -215,14 +215,66 @@ On the wait firing, `herdr agent get <worker>`:
    project's `podman exec -w /var/www/html/<project> php-fpm <cmd>`
    requirement for PHP/artisan — see project CLAUDE.md) — the reviewer
    independently re-runs tests too and will otherwise try a bare host
-   command that fails by design. Require an explicit verdict per axis,
-   findings ranked by severity, written to `.herdr-dev/verdict.md`:
+   command that fails by design. **Priority review focus — call these out
+   explicitly even if the axes below don't surface them.**
+
+   First, **detect which stacks this diff actually touches**: `git diff
+   --name-only <parent-of-merge>..<merge-commit>` and bucket the paths by
+   extension/location using the table below. Then write into the brief
+   **only the stack-specific tells for buckets present in this diff** —
+   drop every row that doesn't match, so agy gets a short, targeted
+   checklist instead of a multi-stack dump it has to self-filter. If a
+   touched file's extension isn't in the table, still include the three
+   language-neutral categories and ask agy to apply its own knowledge of
+   that stack's equivalent patterns.
+
+   | Bucket | Path match | Security tells | DB/perf tells |
+   |---|---|---|---|
+   | PHP/Laravel | `**/*.php` | raw `DB::raw`/`whereRaw` string interpolation instead of bindings or the query builder; mass-assignment vs fillable/guarded; `unserialize()` or dynamic `eval`/`include` on attacker-reachable data | Eloquent N+1 (missing `with()`), `->get()` without pagination on a possibly-large table |
+   | JS/TS/frontend | `**/*.{js,ts,jsx,tsx}` | `dangerouslySetInnerHTML`/`innerHTML` from unescaped input; URLs/HTML built via string concatenation; unhandled promise rejection on a path with side effects | client-side loops re-fetching per item instead of batching |
+   | SQL/mapper | `**/*.sql`, `**/*mapper*.xml` | string-concatenated SQL instead of bound parameters, especially dynamic `LIKE`/`IN` clauses | missing WHERE (full-table-scan risk), missing LIMIT/pagination on a large table |
+   | Go | `**/*.go` | SQL/shell/paths built from untrusted input without parameterization/escaping; `math/rand` used for tokens/session ids instead of `crypto/rand` | goroutine/resource leak on an early-return path, unreleased `sql.Rows`/lock |
+
+   All buckets share these **language-neutral categories** regardless of
+   which rows apply:
+   - **(1) Security** — server-side authz enforced (not just hidden in a
+     client/template); untrusted input reaching a query, shell, template,
+     or dynamic-eval sink without parameterization/escaping/allowlisting;
+     secrets or tokens logged or returned in error output; weak/predictable
+     randomness for tokens or session ids.
+   - **(2) Runtime execution performance** — hot-path algorithmic
+     complexity, unbounded loops/recursion, blocking I/O on a request
+     path without timeout, resources (files/sockets/locks/goroutines/
+     promises) not released or awaited on every reachable path.
+   - **(3) Database query performance** — N+1 queries (missing eager
+     load), full-table-scan risk (query with no usable WHERE/index),
+     unbounded result sets missing pagination/LIMIT, repeated identical
+     subqueries that should be hoisted, transactions left open across an
+     early-return/exception path (missing rollback).
+   Require **evidence, not suspicion**, for every finding in these three
+   areas: name the reachable input/caller and the concrete consequence —
+   and check whether the project's own static analysis for the touched
+   bucket (e.g. Larastan/PHPStan for PHP, ESLint/tsc for TS, staticcheck/
+   go vet for Go) would already catch it; if so, don't re-report it
+   unless the diff shows a concrete consequence that tooling doesn't
+   express. When the full execution context can't be confirmed, favor
+   **not reporting** over a false positive — a security/perf finding with
+   no demonstrated exploit or reachable path is 🟡 at most, never
+   CRITICAL. Only an exploitable,
+   evidenced security finding is a FIX-blocking CRITICAL; unevidenced
+   suspicions belong in the findings list as 🟡, not as gates.
+   Require an explicit verdict per axis, findings ranked by severity,
+   written to `.herdr-dev/verdict.md`:
    - **(a) code quality** — taste, correctness, maintainability (Linus
      standards: data structures, edge cases, no needless complexity).
    - **(b) spec compliance** — diff vs requirement document item by item;
      unimplemented / partial / out-of-scope-added behavior is a FIX finding.
    - **(c) TDD compliance** — tests cover public behavior at declared
      seams; credible RED/GREEN per slice; full suite passes.
+   - **(d) security** — the priority-focus items above; treat this axis as
+     a hard gate, not advisory, but gate only on evidenced findings.
+   - **(e) performance** — execution and database query performance per
+     the priority-focus items above.
 5. **If `git_repo`**: create/reuse the reviewer's worktree, checked out
    (detached — the reviewer doesn't commit) at the merge commit so review
    and any independent test runs don't touch main's own checkout:
