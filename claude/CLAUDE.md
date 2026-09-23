@@ -171,7 +171,7 @@ Compose file lives in `~/srv/servers/docker-compose.yml`:
 - 程式碼審查：只用 /linus-review。
 - 需求鍛造（需求模糊、要寫 spec）：用 grill-with-docs / to-spec。
 - 開需求進 Linear（不論來源是 to-spec 產出、grill-with-docs 磨出來、
-  既有 issue 要拆解、或臣直接手動診斷出的缺陷）：一律再跑一次
+  既有 issue 要拆解、或直接手動診斷出的缺陷）：一律再跑一次
   to-tickets，拆成有明確 blocking edges 的 tracer-bullet ticket 後才
   發布，不要繞過它直接 save_issue 開一張籠統的票。
 - 結構化除錯：用 diagnosing-bugs。
