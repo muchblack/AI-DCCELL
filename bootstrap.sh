@@ -150,6 +150,32 @@ elif command -v git >/dev/null 2>&1; then
 else
     echo -e "  ${YELLOW}跳過：找不到 git${NC}"
 fi
+
+# SKILL.md 要求 Codex 走 ~/.codex/skills/open-seo-advisor/ 才能用 $open-seo-advisor 語法
+if [[ -d "${OPEN_SEO_ADVISOR_DIR}" ]]; then
+    CODEX_SKILLS_DIR="${HOME}/.codex/skills"
+    CODEX_SEO_DST="${CODEX_SKILLS_DIR}/open-seo-advisor"
+    mkdir -p "${CODEX_SKILLS_DIR}"
+
+    if [[ -L "${CODEX_SEO_DST}" ]]; then
+        current="$(readlink "${CODEX_SEO_DST}")"
+        if [[ "${current}" == "${OPEN_SEO_ADVISOR_DIR}" ]]; then
+            echo -e "  ${GREEN}✓ open-seo-advisor → Codex（已正確）${NC}"
+        else
+            rm "${CODEX_SEO_DST}"
+            ln -s "${OPEN_SEO_ADVISOR_DIR}" "${CODEX_SEO_DST}"
+            echo -e "  ${GREEN}✓ open-seo-advisor → Codex${NC}"
+        fi
+    elif [[ -e "${CODEX_SEO_DST}" ]]; then
+        mv "${CODEX_SEO_DST}" "${CODEX_SEO_DST}.bak.$(date +%Y%m%d-%H%M%S)"
+        echo -e "  ${YELLOW}備份：Codex open-seo-advisor${NC}"
+        ln -s "${OPEN_SEO_ADVISOR_DIR}" "${CODEX_SEO_DST}"
+        echo -e "  ${GREEN}✓ open-seo-advisor → Codex${NC}"
+    else
+        ln -s "${OPEN_SEO_ADVISOR_DIR}" "${CODEX_SEO_DST}"
+        echo -e "  ${GREEN}✓ open-seo-advisor → Codex${NC}"
+    fi
+fi
 echo ""
 
 # === Step 2: Scripts 執行權限 ===
