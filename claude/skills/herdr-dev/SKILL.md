@@ -260,12 +260,13 @@ When the call returns, check `herdr agent get <worker>`:
   brief that assumes an in-container command will find the worktree files —
   if the mount doesn't cover it, flag it to the Emperor instead of guessing
   a fix (e.g. widening the compose mount) on their behalf.
-- **Clean up worktrees only after the branch's fate is settled** (Phase 5,
-  or a Phase 4 escalation the Emperor resolves) — `git worktree remove` the
-  worker/reviewer paths, keeping the branch itself. Check `git status` in a
-  worktree before removing it; use `--force` only after confirming there's
-  nothing uncommitted worth keeping, per the standing rule against
-  discarding work without checking first.
+- **Clean up worktrees automatically once development is complete and the
+  Linear issue is Done** (Phase 5; standing order from the Emperor,
+  2026-09-24 — do not ask again). `git worktree remove` the worker/reviewer
+  paths and delete flow-created scratch dirs under `.herdr-dev/`, keeping the
+  branch itself. Check `git status` in a worktree first; uncommitted changes
+  → stop and report, never `--force` blindly. Before Done (still In Review,
+  or a Phase 4 escalation the Emperor hasn't resolved) worktrees stay.
 - **An "always allow this conversation for `<prefix>`" grant can cover more
   than the literal prefix shown** (observed: granting it for `git diff`
   let several later `git show`/`git diff --stat`/file-scoped `git diff`

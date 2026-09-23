@@ -412,13 +412,20 @@ State per transition: `{ "step": "fix_dispatched", "round": <n> }`
    - A flow that never reached PASS (escalated to the Emperor after the
      2-round fix cap) has nothing to report here — that's a Phase 4
      escalation, not a Phase 5 completion.
-4. **If `git_repo`**: remove the pane worktrees now that the branch's fate
-   is settled — `git worktree remove .herdr-dev/worktrees/worker-<slug>`
-   and `.../reviewer-<slug>` (check `git status` in each first; `--force`
-   only after confirming there's nothing worth keeping). The branch
-   `herdr/dev-<slug>` itself stays. An escalation to the Emperor (Phase 4
-   round cap) is not a Phase 5 completion — leave its worktrees in place
-   until the Emperor decides the outcome.
+4. **If `git_repo`**: remove the pane worktrees **as soon as development is
+   complete and the Linear issue is Done** (Emperor's standing order,
+   2026-09-24 — no need to ask again). Trigger = step 3's `save_issue`
+   → Done succeeded (doc-path/inline requirement with no issue: trigger =
+   final PASS). Run `git status --short` in each first; if a worktree has
+   uncommitted changes, stop and report instead of forcing. Otherwise
+   `git worktree remove .herdr-dev/worktrees/worker-<slug>` and
+   `.../reviewer-<slug>`, then `git worktree prune`. Also delete scratch
+   dirs this flow created under `.herdr-dev/` (e.g. `cleancheck`). The
+   branch `herdr/dev-<slug>` itself stays. If the Linear issue is left
+   In Review (e.g. waiting for push approval), worktrees stay until it
+   reaches Done. An escalation to the Emperor (Phase 4 round cap) is not a
+   Phase 5 completion — leave its worktrees in place until the Emperor
+   decides the outcome.
 5. State: `{ "step": "done" }`. Clean up `.herdr-dev/*.md` working files.
 
 ---
