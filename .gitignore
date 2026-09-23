@@ -24,3 +24,6 @@ skills/memory/corrections.jsonl
 # Python virtualenv（每台機器自建，勿入庫）
 **/.venv/
 **/__pycache__/
+
+# 巢狀 git repo（保留獨立版控，不併入 agentSkill 歷史）
+claude/skills/open-seo-advisor/

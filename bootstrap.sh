@@ -138,6 +138,20 @@ else
 fi
 echo ""
 
+# === Step 1d: 外部 Skill 部署（獨立版控，不隨 agentSkill 版控走）===
+echo -e "${CYAN}[1d/4] 外部 Skill 部署${NC}"
+OPEN_SEO_ADVISOR_DIR="${SOURCE_DIR}/skills/open-seo-advisor"
+if [[ -d "${OPEN_SEO_ADVISOR_DIR}" ]]; then
+    echo -e "  ${GREEN}✓ open-seo-advisor（已存在）${NC}"
+elif command -v git >/dev/null 2>&1; then
+    git clone --depth 1 https://github.com/mars-tw/open-seo-advisor-skill.git "${OPEN_SEO_ADVISOR_DIR}" >/dev/null 2>&1 \
+        && echo -e "  ${GREEN}✓ open-seo-advisor（已 clone）${NC}" \
+        || echo -e "  ${YELLOW}⚠ open-seo-advisor clone 失敗，略過${NC}"
+else
+    echo -e "  ${YELLOW}跳過：找不到 git${NC}"
+fi
+echo ""
+
 # === Step 2: Scripts 執行權限 ===
 echo -e "${CYAN}[2/4] Scripts 執行權限${NC}"
 SCRIPTS_DIR="${SOURCE_DIR}/skills/scripts"
