@@ -13,6 +13,11 @@ output is **Traditional Chinese** in Grand Council minister tone.
 - An **inline requirement description** — freeform text (still gated by Step 0).
 - `--resume` — continue from a pending background wait.
 
+Optional flags, combinable with any of the above (not with `--resume`):
+
+- `--worker=<agent>` — Herdr agent name for the Code Writer role (default `codex`).
+- `--reviewer=<agent>` — Herdr agent name for the Code Reviewer role (default `agy`).
+
 State: `.herdr-dev/state.json`. Working files live under `.herdr-dev/`
 (add it to `.gitignore` if not already).
 
@@ -29,10 +34,15 @@ Neither → AskUserQuestion; if none exists, PAUSE, point to `/grill-with-docs`
 ## Phase 0: Resolve Panes
 
 1. `$ARGUMENTS == --resume` → go to **Resume Handling**.
-2. `herdr agent list` → record codex pane id (worker) and agy pane id
-   (reviewer) in state. Missing pane → tell the user which agent CLI to
-   start in a Herdr pane, END TURN.
-3. Detect version control: `git rev-parse --is-inside-work-tree` in the
+2. Parse `--worker=<agent>` / `--reviewer=<agent>` if given; default to
+   `codex` / `agy`. If they name the same agent, stop and ask the user to
+   pick two different agents — one CLI cannot both write and review the
+   same change — END TURN.
+3. `herdr agent list` → record the pane id whose agent matches the worker
+   agent name, and the pane id whose agent matches the reviewer agent name.
+   Missing pane for either role → tell the user which agent CLI to start in
+   a Herdr pane, END TURN.
+4. Detect version control: `git rev-parse --is-inside-work-tree` in the
    project root. Record `"git_repo": true` or `false` in state.
    - `true` → this flow uses **per-pane git worktrees**: worker gets
      `.herdr-dev/worktrees/worker-<slug>` (Phase 2), reviewer gets
@@ -123,11 +133,11 @@ main (self) does this directly; no worker involved yet.
 7. Present the brief to the Emperor (繁中), proceed. No separate "approve
    the brief" round-trip unless step 6 raised a real question.
 
-State: `{ "step": "requirement_confirmed", "worker": "w1:p2", "reviewer": "w1:p3" }`
+State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w1:p2", "reviewer_agent": "agy", "reviewer": "w1:p3" }`
 
 ---
 
-## Phase 2: Dispatch Development → codex pane
+## Phase 2: Dispatch Development → worker pane
 
 0. **If `git_repo`**: create the worker's worktree (skip if it already
    exists on disk — a fix round, or a resumed dispatch, reuses it):
@@ -178,8 +188,9 @@ State: `{ "step": "requirement_confirmed", "worker": "w1:p2", "reviewer": "w1:p3
    ```bash
    herdr agent prompt <worker> "Read .herdr-dev/brief.md and execute it. Write your final report to .herdr-dev/report.md when done." --wait --timeout 1800000
    ```
-4. Reply one short line (`codex 開發中…`) and **END TURN**. The background
-   call re-enters this session when it settles (idle/done/blocked) or times out.
+4. Reply one short line (`<worker agent> 開發中…`) and **END TURN**. The
+   background call re-enters this session when it settles (idle/done/blocked)
+   or times out.
 
 State: `{ "step": "dev_dispatched", "round": 0 }`
 
@@ -238,7 +249,7 @@ On the wait firing, `herdr agent get <worker>`:
    investigating rather than just retrying blindly.)
 3. **Self-review with `/linus-review`** on `git diff <parent-of-merge>..<merge-commit>`
    (main runs this itself, inline, same turn — no pane, no dispatch):
-   - **CRITICAL fatal issue found** → do NOT proceed to agy. Handle exactly
+   - **CRITICAL fatal issue found** → do NOT proceed to the reviewer. Handle exactly
      like a Phase 4 FIX: write a fix brief (the finding verbatim, expected
      regression test reproducing it RED-first, then GREEN); if `git_repo`,
      the worker's existing worktree is already on `herdr/dev-<slug>` which
@@ -252,17 +263,17 @@ On the wait firing, `herdr agent get <worker>`:
      self-caught issue is still a real round from the worker's side.
    - **No CRITICAL** (🟡/🟢 taste findings, or none) → keep the taste score
      and improvement notes, continue to step 4. Do not block on 🟡 findings
-     — those are exactly the kind of thing to hand agy as context, not a
-     gate.
+     — those are exactly the kind of thing to hand the reviewer as context,
+     not a gate.
 4. Write the **review brief** (English) to `.herdr-dev/review-brief.md`:
    Requirement Brief + acceptance criteria + main @ merge commit + the
    requirement's **Linear issue id** (or doc path, for pre-existing local
-   specs) so agy pulls the source itself instead of relying on a copied
-   summary + the worker's TDD evidence + **main's own
-   `/linus-review` taste score and improvement notes from step 3** (so agy
-   isn't rediscovering the same things and can spend its attention on spec/
-   TDD compliance — explicitly invite agy to confirm, dispute, or add to
-   main's taste read rather than silently ignoring it). **Restate the
+   specs) so the reviewer pulls the source itself instead of relying on a
+   copied summary + the worker's TDD evidence + **main's own
+   `/linus-review` taste score and improvement notes from step 3** (so the
+   reviewer isn't rediscovering the same things and can spend its attention
+   on spec/TDD compliance — explicitly invite it to confirm, dispute, or add
+   to main's taste read rather than silently ignoring it). **Restate the
    same execution-environment constraints the dev brief got** (e.g. this
    project's `podman exec -w /var/www/html/<project> php-fpm <cmd>`
    requirement for PHP/artisan — see project CLAUDE.md) — the reviewer
@@ -349,7 +360,7 @@ On the wait firing, `herdr agent get <worker>`:
 7. Clear + dispatch the reviewer + background wait (same pattern as
    Phase 2 steps 2–3, targeting `<reviewer>`, prompt pointing at
    `.herdr-dev/review-brief.md` → `.herdr-dev/verdict.md`).
-8. Reply one short line (`agy 審查中…`) and **END TURN**.
+8. Reply one short line (`<reviewer agent> 審查中…`) and **END TURN**.
 
 State: `{ "step": "review_dispatched", "round": <n>, "merge_commit": "<sha>" }`
 
@@ -361,7 +372,7 @@ On the reviewer wait firing (handle blocked/stalled as in Phase 3 preamble),
 read `.herdr-dev/verdict.md`:
 
 - **PASS on all axes** → Phase 5.
-- **FIX** → route findings back to the codex pane:
+- **FIX** → route findings back to the worker pane:
   1. Write the fix brief to `.herdr-dev/brief.md`: findings verbatim
      (ranked), unmet acceptance criteria, and the contract to add a
      regression test reproducing each behavioral finding (**RED**) before

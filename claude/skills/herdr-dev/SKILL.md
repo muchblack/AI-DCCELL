@@ -2,17 +2,19 @@
 name: herdr-dev
 description: >-
   Herdr-architecture requirement-driven development flow. main (this Claude
-  Code session) confirms the requirement, dispatches development to the
-  codex agent pane under a mandatory red-green TDD contract, then routes the
-  result to the agy reviewer pane; on review failure it routes the findings
-  back to the same worker to add a failing regression test, fix, and
-  re-review. main asks the user directly whenever a requirement question
-  arises. Triggers on: herdr dev, herdr 開發, 需求開發, 文件開發, 跑需求,
-  接需求, 照文件開發, spec dev, requirement-driven, 需求驅動開發, 從文件開發,
-  開發這份需求. Examples: "/herdr-dev docs/spec.md",
-  "/herdr-dev docs/feature-x.md phase 1", "/herdr-dev --resume".
+  Code session) confirms the requirement, dispatches development to a
+  worker agent pane (default: codex) under a mandatory red-green TDD
+  contract, then routes the result to a reviewer agent pane (default: agy);
+  on review failure it routes the findings back to the same worker to add a
+  failing regression test, fix, and re-review. Worker/reviewer are
+  overridable via --worker/--reviewer. main asks the user directly whenever
+  a requirement question arises. Triggers on: herdr dev, herdr 開發, 需求開發,
+  文件開發, 跑需求, 接需求, 照文件開發, spec dev, requirement-driven,
+  需求驅動開發, 從文件開發, 開發這份需求. Examples: "/herdr-dev docs/spec.md",
+  "/herdr-dev docs/feature-x.md phase 1", "/herdr-dev --resume",
+  "/herdr-dev VIN-44 --worker=agy".
 metadata:
-  short-description: "Herdr requirement-driven dev: main confirm → codex worker → agy review → fix loop"
+  short-description: "Herdr requirement-driven dev: main confirm → worker (default codex) → reviewer (default agy) → fix loop"
 ---
 
 # Herdr-Dev — Requirement-Driven Development Flow (Herdr)
@@ -24,19 +26,27 @@ transport instead of CCB tmux/ask.
 ```
 input (doc / text)
   → [main] confirm requirement    ──(question?)──▶ ask the user directly
-  → [codex pane] TDD develop        (RED → minimal GREEN, one slice at a time)
+  → [worker pane] TDD develop       (RED → minimal GREEN, one slice at a time)
   → [main] verify TDD evidence via git, merge to main
-  → [main] self-review via /linus-review   (CRITICAL? → fix loop, agy never sees it)
-  → [agy pane] review               (quality + spec + TDD + security + perf)
+  → [main] self-review via /linus-review   (CRITICAL? → fix loop, reviewer never sees it)
+  → [reviewer pane] review          (quality + spec + TDD + security + perf)
   → PASS ? report : regression RED → fix GREEN → re-review (max 2 rounds)
 ```
+
+Default worker = `codex`, default reviewer = `agy`; override with
+`--worker`/`--reviewer` (see Usage).
 
 ## Usage
 
 ```
-/herdr-dev <linear-issue-id | requirement-doc-path | inline description>
+/herdr-dev <linear-issue-id | requirement-doc-path | inline description> [--worker=<agent>] [--reviewer=<agent>]
 /herdr-dev --resume
 ```
+
+`--worker` and `--reviewer` name the Herdr agent (as it appears in `herdr
+agent list`, e.g. `codex`, `agy`, `opencode`) to use for each role. Defaults:
+`--worker=codex`, `--reviewer=agy`. The two must resolve to different
+panes — one CLI cannot both write and review the same change.
 
 ## Step 0 — Requirement Gate (always runs first)
 
@@ -56,15 +66,19 @@ Never substitute an inline chat description for a missing requirement.
 
 ## Roles (resolved at runtime from `herdr agent list`)
 
-| Role | Agent | How to resolve |
+| Role | Agent (default) | How to resolve |
 |------|-------|----------------|
 | Orchestrator | `main` — this Claude Code session | self |
-| Code Writer | the **codex** agent pane | `herdr agent list` → pane whose agent is codex |
-| Code Reviewer | the **agy** agent pane | `herdr agent list` → pane whose agent is agy |
+| Code Writer | **worker** — `codex` unless `--worker=<agent>` given | `herdr agent list` → pane whose agent matches the worker agent name |
+| Code Reviewer | **reviewer** — `agy` unless `--reviewer=<agent>` given | `herdr agent list` → pane whose agent matches the reviewer agent name |
 
-Run `herdr agent list` at flow start and record the pane ids (e.g. `w1:p2`)
-in state. If a required pane is missing, tell the user which agent to start
-in a pane and END TURN — do not spawn panes yourself unless asked.
+Resolve the worker/reviewer agent names first (from `--worker`/`--reviewer`,
+defaulting to `codex`/`agy`); if they name the same agent, stop and ask the
+user to pick two different agents — one CLI cannot both write and review
+the same change. Then run `herdr agent list` and record the matching pane
+ids (e.g. `w1:p2`) in state, along with the agent names used. If a required
+pane is missing, tell the user which agent to start in a pane and END TURN —
+do not spawn panes yourself unless asked.
 
 **If the project is under git version control**: each dispatched pane gets
 its own `git worktree` before it starts — worker at
@@ -164,31 +178,32 @@ When the call returns, check `herdr agent get <worker>`:
 - **TDD exceptions belong to main.** Only non-behavioral work (docs,
   generated artifacts) may skip RED/GREEN, and main records the reason
   before dispatch. Workers may not grant themselves an exception.
-- **Review is mandatory.** Every completed development goes through the agy
+- **Review is mandatory.** Every completed development goes through the
   reviewer before it is called done. The review brief includes the
   requirement's Linear issue id (or doc path, for pre-existing local specs)
   so the reviewer can pull the source itself; the reviewer verifies spec
   compliance and TDD evidence item by item, not just code quality.
 - **A Linear-sourced requirement gets reported back on PASS.** If Step 0
-  resolved a Linear issue id and agy's final verdict is PASS, Phase 5 posts
+  resolved a Linear issue id and the reviewer's final verdict is PASS, Phase 5 posts
   a status comment on that issue (outcome, merge/worker commit shas, branch,
   round count) and moves it to Done — see Phase 5. Doc-path/inline
   requirements have no issue to report to; skip silently. A flow that never
   reaches PASS has nothing to report (that's an escalation, not a
   completion).
-- **main self-screens with `/linus-review` before handing off to agy.**
-  After merging (Phase 3), invoke `/linus-review` on the merged diff
-  (`git diff <parent>..<merge-commit>`) before writing the review brief.
-  This is a cheap, inline, same-turn check — no separate pane, no dispatch
-  round-trip. If Pass 1 turns up a CRITICAL fatal issue, do not send it to
-  agy at all: treat it exactly like a Phase 4 FIX verdict (fix brief back
-  to the worker, regression-test-first, re-verify, re-merge, re-run
-  `/linus-review`) and it **counts toward the same 2-round fix cap** — a
-  cheap self-check is still a real round from the worker's perspective. If
-  `/linus-review` comes back clean (no CRITICAL — 🟡/🟢 taste findings are
-  fine), fold its taste score and improvement notes into the review brief
-  as context for agy, so agy isn't rediscovering the same things and can
-  spend its attention on spec/TDD compliance.
+- **main self-screens with `/linus-review` before handing off to the
+  reviewer.** After merging (Phase 3), invoke `/linus-review` on the merged
+  diff (`git diff <parent>..<merge-commit>`) before writing the review
+  brief. This is a cheap, inline, same-turn check — no separate pane, no
+  dispatch round-trip. If Pass 1 turns up a CRITICAL fatal issue, do not
+  send it to the reviewer at all: treat it exactly like a Phase 4 FIX
+  verdict (fix brief back to the worker, regression-test-first, re-verify,
+  re-merge, re-run `/linus-review`) and it **counts toward the same
+  2-round fix cap** — a cheap self-check is still a real round from the
+  worker's perspective. If `/linus-review` comes back clean (no CRITICAL —
+  🟡/🟢 taste findings are fine), fold its taste score and improvement
+  notes into the review brief as context for the reviewer, so it isn't
+  rediscovering the same things and can spend its attention on spec/TDD
+  compliance.
 - **Jev spec-readiness pre-flight is advisory only, never a gate.** Phase 1
   step 5 (`references/flow.md`) can run a same-turn Vercel AI Gateway check
   on the Requirement Brief before dispatch, to catch an ambiguous spec
@@ -265,7 +280,7 @@ When the call returns, check `herdr agent get <worker>`:
   overwriting an existing `verdict.md` needed no create-file confirmation,
   where writing it fresh the first time did) — not a problem, just don't
   be surprised if a round has fewer approval prompts than the previous one.
-- **Fixes go back to the worker.** On FIX, route findings back to the codex
+- **Fixes go back to the worker.** On FIX, route findings back to the worker
   pane with a regression-test-first contract. Do not re-implement in main.
   Max 2 fix rounds, then escalate to the Emperor.
 - **Ask the Emperor on requirement questions, anytime.** Scope, behavior,

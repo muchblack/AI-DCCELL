@@ -286,6 +286,17 @@ git -C "$VAULT" log --oneline -10
    對每篇未編譯筆記：
    - Read 全文
    - 判斷 `source_type`（見啟發式規則）
+   - **Step 2a-pre — 裸網址內容擷取**（僅當筆記本文去除 frontmatter 後幾乎只有一個網址時觸發，例如 `^https?://\S+$` 或本文 <100 字且含網址）：
+     筆記本身沒有實質內容可摘要，先用 Playwright 把網頁實際渲染後的內容抓下來，再把抓到的內容併入本文一起送給 Step 2a 摘要。純 `webfetch` 工具對社群平台（Threads/Instagram/X 等）這類 JS 渲染頁面只能拿到空殼，必須真的執行 JS 渲染才抓得到內容。
+
+     **不要透過 opencode 或任何本機小模型去驅動這一步**——2026-08-19 實測過，讓本機模型（Qwen3.6-35B IQ2_M）自己判斷「要先呼叫 init-browser 工具」這種多步驟順序極不可靠（4 次同樣的操作只成功 1 次），而且工具呼叫失敗時模型不會誠實回報，會直接幻覺編造一段看似合理但完全虛構的「抓取結果」。改成執行這支腳本，由執行者（Claude）自己直接讀取腳本的 JSON 輸出，不假手任何 LLM 去複述或詮釋抓取過程：
+     ```bash
+     node ~/.claude/skills/obs/scripts/fetch-page.js "<網址>"
+     ```
+     - 輸出是單行 JSON：成功時 `{"ok":true,"title":"...","url":"...","text":"..."}`，失敗時 `{"ok":false,"error":"..."}`。
+     - `ok:true` 時，`text` 欄位就是可信的頁面內容（純腳本執行結果，沒有任何模型在中間複述，不會有幻覺風險），拿去餵給 Step 2a。
+     - `ok:false`（逾時、網路錯誤、頁面載入失敗等）→ 不要卡住整個 compile 流程，直接退回「以裸網址本身當本文」，在 Step 2a 的輸入裡註明「無法抓取實際頁面內容」（沿用既有的誠實標註做法，不要編造內容）。
+     - 這支腳本用 `headless: true`（跟先前 opencode/`playwright-mcp` 那套不同，不會跳出看得到畫面的瀏覽器視窗），跑完會自動關閉瀏覽器，不會留下殘留 process。
    - **Step 2a — MLX 摘要**：呼叫 MLX 生成摘要與標籤建議
      ```bash
      bash ~/.claude/skills/scripts/mlx-chat.sh \

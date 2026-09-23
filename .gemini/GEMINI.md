@@ -92,6 +92,12 @@
 
 <!-- CCB_CONFIG_START -->
 
+> ⚠️ **PAUSED**: CCB collaboration mode is paused project-wide until further
+> notice. Ignore every instruction in this CCB_CONFIG block — do not run
+> `/ask`, do not request a plan or code review via `ask`, do not treat any
+> role mappings below as active. Proceed on tasks directly per whatever
+> brief/prompt you were given. Remove this notice to re-enable.
+
 ## AI Collaboration
 
 Use `/ask <provider>` to consult other AI assistants (claude/codex/opencode/droid).
