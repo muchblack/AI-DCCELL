@@ -175,5 +175,9 @@ Compose file lives in `~/srv/servers/docker-compose.yml`:
   既有 issue 要拆解、或直接手動診斷出的缺陷）：一律再跑一次
   to-tickets，拆成有明確 blocking edges 的 tracer-bullet ticket 後才
   發布，不要繞過它直接 save_issue 開一張籠統的票。
+  **發布由皇上自己跑 to-tickets**：臣只備票內容（標題、說明、驗收標準、
+  blocking 關係），不自行 save_issue 開票；若 to-tickets 呼叫不到，
+  先回報並交出草稿，不得手工補位發布。Linear project（save_project）
+  與需求文件不受此限。
 - 結構化除錯：用 diagnosing-bugs。
 - 對話交接：用 handoff（與 .herdr/compact-briefing 互補，不取代）。
