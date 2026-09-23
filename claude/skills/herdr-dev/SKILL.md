@@ -189,6 +189,14 @@ When the call returns, check `herdr agent get <worker>`:
   fine), fold its taste score and improvement notes into the review brief
   as context for agy, so agy isn't rediscovering the same things and can
   spend its attention on spec/TDD compliance.
+- **Jev spec-readiness pre-flight is advisory only, never a gate.** Phase 1
+  step 5 (`references/flow.md`) can run a same-turn Vercel AI Gateway check
+  on the Requirement Brief before dispatch, to catch an ambiguous spec
+  before it burns a full TDD round. No API key, or the call fails/times out
+  → skip silently, never block dispatch on a third-party outage. A low or
+  uncertain result is one input to main's own judgment on whether to raise
+  a question — it can never auto-block, auto-approve, or be cited to the
+  Emperor as the reason on its own.
 - **Trust git, not narration.** A report file is a claim. Before acting:
   `git log <branch> --oneline --stat`, spot-check key claimed changes, and
   run the reported test commands independently. **Specifically check

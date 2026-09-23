@@ -66,10 +66,62 @@ main (self) does this directly; no worker involved yet.
    - **Test commands** — smallest targeted command per slice + full-suite.
    - **TDD exception** — normally none; if granted, the specific reason.
    - **Assumptions / Open questions.**
-5. **Gate on questions.** Open questions that change *what gets built* →
-   AskUserQuestion (四段式) now. Implementation details → worker decides.
-6. Present the brief to the Emperor (繁中), proceed. No separate "approve
-   the brief" round-trip unless step 5 raised a real question.
+5. **Jev spec-readiness pre-flight (advisory, optional, best-effort).**
+   Before the question gate below, run a same-turn check on the Brief's
+   Goal + Scope + Acceptance criteria text via Vercel AI Gateway — no pane,
+   no dispatch, same pattern as the Phase 3 `/linus-review` self-check.
+   Piloted and verified working 2026-09-23; not yet run in anger on a real
+   flow, so treat early misses as signal to retune the prompt, not proof the
+   step is wrong.
+   - Write the request body to a file first (long/multi-line spec text in a
+     shell `-d` string is quoting hell — same reasoning as the "long briefs
+     go through files" rule in SKILL.md's Dispatch Pattern):
+     ```bash
+     cat > .herdr-dev/jev-preflight-request.json <<'EOF'
+     {
+       "model": "typesafe-ai/jev",
+       "state": "<Goal + Scope + Acceptance criteria from the Brief, verbatim>",
+       "questions": {
+         "is_spec_actionable": {"type": "boolean", "instructions": "Is this requirement specific and actionable enough for a developer to implement without further clarification?"},
+         "has_unambiguous_acceptance_criteria": {"type": "boolean", "instructions": "Does this requirement include clear, checkable acceptance criteria?"}
+       }
+     }
+     EOF
+     ```
+   - Call it, reading `AI_GATEWAY_API_KEY` from the environment (export it
+     yourself, or `set -a; source .herdr-dev/.env 2>/dev/null; set +a` if a
+     gitignored `.herdr-dev/.env` exists — **never** write the key's value
+     into a brief, report, note, or anything that leaves this shell):
+     ```bash
+     curl -sS --max-time 10 https://ai-gateway.vercel.sh/v1/evaluate \
+       -H "Authorization: Bearer $AI_GATEWAY_API_KEY" \
+       -H "Content-Type: application/json" \
+       -d @.herdr-dev/jev-preflight-request.json
+     ```
+   - **No key set, call errors, times out, or returns non-200 → skip this
+     step silently and proceed to step 6 as if it didn't exist.** Never
+     block or delay dispatch because a third-party service is unreachable —
+     this mirrors the graceful-fallback rule already governing this feature.
+   - Read `answers.<question>.probability` (0–1) from the response. **This
+     endpoint does not populate a separate calibrated-confidence field** —
+     `providerMetadata.typesafe.confidence` came back empty `{}` in testing
+     (2026-09-23) despite TypeSafe's own docs describing a confidence score
+     distinct from probability. Use distance from 0.5 as the uncertainty
+     proxy instead: `abs(probability - 0.5) < 0.3` on either question →
+     treat as uncertain.
+   - **This is advisory input to step 6's judgment, never a standalone
+     gate.** Uncertain or low-probability result → weigh it alongside main's
+     own read of the requirement when deciding whether to raise a question;
+     do not auto-block dispatch on this signal alone, and do not cite "Jev
+     said X" to the Emperor as the reason — name the actual ambiguity in the
+     requirement text. Confident/high-probability on both → no action,
+     proceed silently (don't clutter the brief presentation with a
+     pre-flight pass notice).
+6. **Gate on questions.** Open questions that change *what gets built* →
+   AskUserQuestion (四段式) now — fold in step 5's signal if it fired.
+   Implementation details → worker decides.
+7. Present the brief to the Emperor (繁中), proceed. No separate "approve
+   the brief" round-trip unless step 6 raised a real question.
 
 State: `{ "step": "requirement_confirmed", "worker": "w1:p2", "reviewer": "w1:p3" }`
 

@@ -28,9 +28,14 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 - **Token Awareness**: Before starting development, assess remaining token budget and let the user decide whether to continue.
 - **PHP/Laravel**: When handling PHP-Laravel code, invoke the `laravel-simplifier` agent to assist.
 - **Delegation**: When facing the Emperor's questions, invoke relevant agents or skills so each performs their specialty.
-- **Default Coding Flow**: Write directly and self-review non-trivial changes.
-  For a full requirement-to-commit pipeline use `/dev` or `/herdr-dev`; to split
-  work across providers use `/dispatch`. If the Emperor names a provider, obey.
+- **Herdr Dispatch**: Once confirmed to be working in herdr mode, run `herdr agent list` first and dispatch to the codex/agy panes already running there (`herdr agent prompt <pane> "..." --wait`, `herdr agent read <pane>`). Do NOT spawn separate one-off headless CLI processes (`codex exec`, `agy --print`) when herdr panes already exist for the project — that bypasses the persistent pane context and defeats the point of herdr.
+- **Default Coding Flow**: When the Emperor says 開發／開始實作 (or otherwise clearly
+  asks to implement/build a feature), default to `/herdr-dev` — applies across all
+  projects, not just one. Fall back to `/dev` only when the project isn't
+  herdr-mounted (no active codex/agy panes to dispatch to). For requests framed as
+  a small bug fix or one-off edit rather than "開發"/實作 a feature, write directly
+  and self-review instead. To split work across providers use `/dispatch`. If the
+  Emperor names a provider, obey.
 
 ### Workflow Skills Index
 
