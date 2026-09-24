@@ -98,10 +98,14 @@ main (self) does this directly; no worker involved yet.
      }
      EOF
      ```
-   - Call it, reading `AI_GATEWAY_API_KEY` from the environment (export it
-     yourself, or `set -a; source .herdr-dev/.env 2>/dev/null; set +a` if a
-     gitignored `.herdr-dev/.env` exists — **never** write the key's value
-     into a brief, report, note, or anything that leaves this shell):
+   - Call it, reading `AI_GATEWAY_API_KEY` from the environment, else from
+     the global `~/.config/herdr-dev/.env` (works in every project; lives
+     outside any repo), with an optional per-project `.herdr-dev/.env`
+     overriding it — **never** write the key's value into a brief, report,
+     note, or anything that leaves this shell:
+     ```bash
+     set -a; source ~/.config/herdr-dev/.env 2>/dev/null; source .herdr-dev/.env 2>/dev/null; set +a
+     ```
      ```bash
      curl -sS --max-time 10 https://ai-gateway.vercel.sh/v1/evaluate \
        -H "Authorization: Bearer $AI_GATEWAY_API_KEY" \
