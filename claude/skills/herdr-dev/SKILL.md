@@ -142,6 +142,15 @@ When the call returns, check `herdr agent get <worker>`:
   `done`/`idle` while sitting at a file-write approval dialog, not just
   command-approval ones — always `agent read` and look at the actual screen
   before trusting the status label alone.**
+  **Stronger form (observed three times on agy reviews, 2026-09-24): `agent
+  prompt --wait` / `agent wait` can return `done` while agy is still working,
+  and the stale `.herdr-dev/verdict.md` from the PREVIOUS ticket (same file
+  name, already ending in `VERDICT: PASS`) is still on disk. Before trusting a
+  verdict, all three must hold: (1) `ls -l` shows verdict.md is newer than
+  review-brief.md, (2) its title/header names THIS ticket and merge commit,
+  (3) the pane is idle (not `Editing files…`). If not, re-run `herdr agent
+  wait <reviewer>` in the background (no sleep/poll loops) and re-check.
+  Same rule for the worker's `report.md`.**
 - `blocked` → `herdr agent read <worker> --source recent-unwrapped --lines 40`;
   if it is a permission prompt, answer via `herdr agent send-keys <worker>
   <key>` (e.g. `enter`, `esc`, `y`); if it is a requirement question, ask
