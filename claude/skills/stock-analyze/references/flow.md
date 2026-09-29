@@ -1,6 +1,6 @@
 # Stock-Analyze Workflow
 
-雙視角股市深度分析工作流。循序呼叫本地 MLX 以兩種專家人設分析，再由 Claude 綜合產出決策摘要。
+雙視角股市深度分析工作流。以兩個平行 subagent 分別扮演華爾街財經專家與國際政治關係專家分析同一份資料，再由 Claude 綜合產出決策摘要。
 
 ## Input
 
@@ -12,16 +12,7 @@
 
 ## Phase 1: Data Preparation（資料準備）
 
-### Step 1.1: MLX Health Check
-
-```bash
-result=$(bash ~/.claude/skills/scripts/health-check.sh mlx)
-```
-
-- `status: "ok"` → 繼續
-- `status: "down"` or `"no_model"` → 告知使用者 MLX 不可用，回退為 Claude Agent 模式（見 Fallback 章節）
-
-### Step 1.2: Git Sync
+### Step 1.1: Git Sync
 
 ```bash
 git -C ~/Obsidian/stockDB fetch origin 2>/dev/null
@@ -32,7 +23,7 @@ REMOTE=$(git -C ~/Obsidian/stockDB rev-parse origin/main 2>/dev/null)
 - 若 `LOCAL != REMOTE`：`git -C ~/Obsidian/stockDB pull --rebase`
 - 若無 git remote：跳過
 
-### Step 1.3: Resolve Date & Locate Files
+### Step 1.2: Resolve Date & Locate Files
 
 1. 解析日期參數：
    - 無參數 → 今天 (`currentDate`)
@@ -47,41 +38,39 @@ REMOTE=$(git -C ~/Obsidian/stockDB rev-parse origin/main 2>/dev/null)
 
 4. 若無任何檔案存在 → 回報「{date} 無資料」並結束
 
-### Step 1.4: Data Summary
+### Step 1.3: Data Summary
 
 快速統計：
 - 各 feed 文章數量
 - 總新聞數
-- 回報給使用者：「找到 {N} 篇新聞（國際財經 {n1} / 臺股動態 {n2}），以本地 MLX 循序分析中...」
-
-### Step 1.5: Data Truncation（資料截斷策略）
-
-MLX 本地模型 context 有限（~8K tokens 有效輸入）。若新聞原文過長：
-
-1. 計算所有新聞的大概字數
-2. 若超過 **6000 字**，按時間倒序保留最新的文章，直到總字數在 6000 字以內
-3. 在分析結果中註明「因 MLX context 限制，已截取最近 {N} 篇（共 {total} 篇）」
-4. 截斷後的資料同時用於兩次 MLX 呼叫，確保兩位專家分析同一份資料
+- 回報給使用者：「找到 {N} 篇新聞（國際財經 {n1} / 臺股動態 {n2}），以兩位專家平行分析中...」
 
 ---
 
-## Phase 2: Sequential MLX Expert Analysis（循序 MLX 專家分析）
+## Phase 2: Parallel Expert Analysis（平行專家分析）
 
-**IMPORTANT**: MLX 為單模型本地推理，無法平行處理。兩次呼叫必須循序執行。
+用 Agent 工具發出兩個 subagent，**必須在同一個 message 中平行發出**，兩者收到**完全相同**的新聞資料。
+
+- Agent 1：華爾街財經專家（Step 2.1 的人設 prompt + 新聞資料）
+- Agent 2：國際政治關係專家（Step 2.2 的人設 prompt + 新聞資料）
+
+每個 subagent 的 prompt 結構：
+
+```
+<人設 prompt>
+
+以下是 {date} 的股市新聞原始資料，請依框架進行分析：
+
+---
+
+{news content}
+```
+
+收到結果後分別暫存為 `$WALL_STREET_RESULT`、`$GEOPOLITICAL_RESULT`。
 
 ### Step 2.1: Wall Street Analyst（華爾街財經專家）
 
-使用 `mcp__mcp-ai-bridge__mlx_chat` 工具：
-
-```
-mcp__mcp-ai-bridge__mlx_chat(
-  systemPrompt: "<Wall Street system prompt — 見下方>",
-  message: "<完整新聞資料>",
-  maxTokens: 4096
-)
-```
-
-**System Prompt**:
+**專家人設 Prompt**:
 
 ```
 You are a senior Wall Street financial analyst with 25+ years at Goldman Sachs and Morgan Stanley. CFA charterholder, PhD in Financial Economics from Wharton. You analyze market data with sharp, numbers-first, no-fluff professional style.
@@ -111,30 +100,9 @@ Rules:
 - End with actionable implications for Taiwan investors
 ```
 
-**Message**: 完整新聞資料（或截斷後的資料），前面加上：
-```
-以下是 {date} 的股市新聞原始資料，請依框架進行分析：
-
----
-
-{news content}
-```
-
-收到結果後暫存為 `$WALL_STREET_RESULT`。
-
 ### Step 2.2: Geopolitical Analyst（國際政治關係專家）
 
-使用 `mcp__mcp-ai-bridge__mlx_chat` 工具：
-
-```
-mcp__mcp-ai-bridge__mlx_chat(
-  systemPrompt: "<Geopolitical system prompt — 見下方>",
-  message: "<完整新聞資料>",
-  maxTokens: 4096
-)
-```
-
-**System Prompt**:
+**專家人設 Prompt**:
 
 ```
 You are a senior geopolitical analyst with 30+ years of experience. Former Senior Fellow at the Council on Foreign Relations (CFR) and Brookings Institution. PhD in International Relations from Georgetown. You advise sovereign wealth funds on geopolitical risk. You think in terms of power structures, incentive alignment, and escalation ladders — not headlines.
@@ -162,30 +130,14 @@ Rules:
 - Connect all analysis back to market and economic implications
 ```
 
-**Message**: 同 Step 2.1 使用的相同新聞資料。
-
-收到結果後暫存為 `$GEOPOLITICAL_RESULT`。
-
 ---
 
-## Phase 3: Claude Quality Review（Claude 品質審閱）
+## Phase 3: Synthesis（綜合決策摘要）
 
-Claude 對兩份 MLX 報告進行快速品質檢查（非完整四維審閱，僅掃描明顯問題）：
+由 Claude 綜合兩份報告產出最終報告。同時掃描明顯問題：
 
-### 檢查項目
-
-1. **框架完整性**：是否所有要求的章節都有涵蓋？缺少的章節由 Claude 補充。
-2. **數據引用**：是否有引用具體數字？若 MLX 忽略了關鍵數據點，Claude 補入。
-3. **明顯謬誤**：是否有與原始資料矛盾的事實性錯誤？若有，Claude 修正。
-
-- 若兩份報告品質可接受 → 直接進入 Phase 4
-- 若有缺漏或錯誤 → Claude 在報告末尾附加 `[Claude 補充]` 段落修正，不重新呼叫 MLX
-
----
-
-## Phase 4: Synthesis（綜合決策摘要）
-
-由 Claude（Grand Secretary 角色）綜合兩份報告產出最終報告。
+- 是否所有要求的章節都有涵蓋？缺少的章節由 Claude 在該報告末尾以 `[Claude 補充]` 補上。
+- 是否有與原始資料矛盾的事實？若有，以 `[Claude 補充]` 修正，不重新呼叫 subagent。
 
 ### Output Format
 
@@ -193,7 +145,7 @@ Claude 對兩份 MLX 報告進行快速品質檢查（非完整四維審閱，�
 # 📊 stockDB 雙視角深度分析 — {date}
 
 > 資料來源：{feeds} | 新聞數：{count} 篇
-> 分析引擎：本地 MLX (Gemma4-26B) | 綜合：Claude
+> 分析：兩位專家 subagent | 綜合：Claude
 > 分析日期：{today}
 
 ---
@@ -239,25 +191,9 @@ Claude 對兩份 MLX 報告進行快速品質檢查（非完整四維審閱，�
 
 ---
 
-## Fallback: MLX Unavailable（MLX 不可用回退方案）
-
-若 Phase 1 健康檢查發現 MLX 不可用：
-
-1. 告知使用者：「MLX 不可用，回退為 Claude Agent 模式」
-2. 改用 Agent 工具平行發出兩個 subagent：
-   - Agent 1: `wall-street-analyst` 人設 + 新聞資料
-   - Agent 2: `geopolitical-analyst` 人設 + 新聞資料
-3. 兩個 Agent **必須在同一個 message 中平行發出**
-4. 其餘流程（Phase 3 品質審閱跳過，Phase 4 綜合）不變
-
----
-
 ## Rules
 
-1. Phase 2 使用 `mcp__mcp-ai-bridge__mlx_chat`，以 `systemPrompt` 注入專家人設
-2. 兩次 MLX 呼叫**循序執行**（本地單模型，無法平行）
-3. 新聞資料超過 6000 字時必須截斷，兩次呼叫使用相同截斷資料
-4. Claude 負責品質審閱與綜合摘要，不再額外呼叫 MLX
-5. 全程使用繁體中文
-6. 若某一視角的新聞較少（例如無明顯地緣政治內容），MLX 仍須產出報告，但可註明「本日地緣政治事件密度較低」
-7. `maxTokens` 設為 4096，確保 MLX 有足夠空間產出完整分析
+1. 兩個專家 subagent 在同一個 message 中平行發出，使用相同的新聞資料
+2. Claude 負責綜合摘要與明顯問題的補充，不因補充而重跑 subagent
+3. 全程使用繁體中文
+4. 若某一視角的新聞較少（例如無明顯地緣政治內容），該專家仍須產出報告，但可註明「本日地緣政治事件密度較低」

@@ -13,9 +13,8 @@ metadata:
 
 # Stock-Analyze — 雙視角股市深度分析
 
-使用本地 MLX (Gemma4-26B) 循序以華爾街財經專家與國際政治關係專家兩種人設分析 stockDB 原始資料，
-Claude 負責品質審閱與綜合，最終產出面向台灣投資人的決策摘要。
-MLX 不可用時自動回退為 Claude Agent 平行模式。
+以兩個平行 subagent 分別扮演華爾街財經專家與國際政治關係專家，分析 stockDB 原始資料，
+再由 Claude 綜合，最終產出面向台灣投資人的決策摘要。
 
 ## Usage
 

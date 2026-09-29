@@ -7,7 +7,7 @@
 
 1. **AI 是圖書館員** — Obsidian 只是前端，AI 做分類、索引、上架、連結
 2. **漸進式採用** — 新功能以子命令方式加入，不破壞現有 `/obs` 流程
-3. **本地 MLX 優先** — 編譯、連結發現等重量級任務用 `mlx-chat.sh` 委派 Gemma 4，省 Claude token
+3. **Claude 直接處理** — 編譯、連結發現、品質評估都由 Claude 直接執行，不依賴外部模型
 
 ---
 
@@ -45,14 +45,11 @@ Step 1: 掃描目標目錄
 Step 2: 逐筆編譯（每次最多 10 篇，避免超時）
   ├── Read 原始筆記全文
   ├── 判斷 source_type（見下方啟發式規則）
-  ├── 呼叫 MLX（mlx-chat.sh）進行編譯
-  │   ├── system prompt: 編譯指令（見下方）
-  │   └── user message: 原始筆記內容
-  ├── 解析 MLX 回應
+  ├── Claude 依編譯範本（見下方）進行編譯
   └── 產出結構化筆記
 
 Step 3: 寫入編譯結果
-  ├── 以 MLX 輸出完全取代原始內容（AI 全權改寫）
+  ├── 以編譯輸出完全取代原始內容（AI 全權改寫）
   ├── 注入標準 frontmatter（見下方）
   └── 保留原始內容在底部折疊區塊（可選）
 
@@ -65,7 +62,7 @@ Step 5: 同步
   └── 走 /obs sync 流程
 ```
 
-### 編譯 System Prompt（給 MLX）
+### 編譯範本（Claude 依此格式輸出）
 
 ```
 You are a knowledge librarian. Compile the following raw note into a structured knowledge entry.
@@ -135,9 +132,9 @@ Step 2: 收集候選連結池
   ├── 搜尋範圍：全庫（排除 .obsidian/, .git/, templates/）
   └── 收集匹配筆記的標題 + 摘要（前 5 行）
 
-Step 3: 呼叫 MLX 分析連結
+Step 3: 分析連結
   ├── 輸入：目標筆記 + 候選筆記清單
-  ├── MLX 判斷每個候選的連結類型與強度
+  ├── Claude 判斷每個候選的連結類型與強度
   └── 沿已有的 [[wikilink]] 走 2-3 層，尋找間接關聯
 
 Step 4: 寫入連結區塊
@@ -184,7 +181,7 @@ Step 1: 收集統計資料
 
 Step 2: 品質掃描（抽樣，最多 20 篇）
   ├── 讀取筆記內容
-  ├── 送 MLX 做品質評估：
+  ├── Claude 做品質評估：
   │   ├── 是否有矛盾資訊（與其他筆記衝突）
   │   ├── 是否過於淺薄（只有標題沒有實質內容）
   │   ├── frontmatter 完整性
@@ -297,22 +294,9 @@ last_updated: 2026-04-06
 
 ---
 
-## 六、MLX 使用策略
+## 六、執行方式
 
-**模型**：Gemma 4 26B-A4B（MoE 架構，4-bit 量化，~15GB）
-**特性**：推理模型，回應分 `reasoning`（思考鏈→stderr）和 `content`（最終答案→stdout）
-**限制**：prompt 超過 ~5000 tokens 可能 OOM，每批控制在 2000 字以內
-
-| 操作 | 是否用 MLX | 理由 |
-|------|-----------|------|
-| compile（編譯） | 是（摘要+標籤） | 重量級改寫，省 Claude token。Claude 做最終決策 |
-| link（連結發現） | 是（語義配對） | 需要語義理解，適合本地推理 |
-| health（品質評估） | 是（矛盾偵測） | 批次分析，不需即時互動 |
-| sort（分類） | 否（Claude 直接做） | 輕量判斷，現有邏輯已足夠 |
-
-MLX 呼叫方式統一用 `~/.claude/skills/scripts/mlx-chat.sh`。
-
-**降級策略**：MLX 不可用時（exit code 2/3），由 Claude 直接執行對應步驟，並在輸出標註 `> ⚠️ MLX 不可用，由 Claude 直接處理`。
+compile、link、health 皆由 Claude 直接執行，不呼叫外部模型；sort 同樣由 Claude 直接判斷。批次處理時每批控制在合理範圍（compile 每次最多 10 篇），避免單次過長。
 
 ---
 
@@ -320,7 +304,7 @@ MLX 呼叫方式統一用 `~/.claude/skills/scripts/mlx-chat.sh`。
 
 | 批次 | 功能 | 依賴 | 預估工程量 |
 |------|------|------|-----------|
-| P0 | `/obs compile` | mlx-chat.sh（已有） | 更新 flow.md + 測試 |
+| P0 | `/obs compile` | 無 | 更新 flow.md + 測試 |
 | P1 | `/obs link` | compile 的 frontmatter 結構 | 更新 flow.md + 測試 |
 | P2 | `/obs health` | compile + link 的資料 | 更新 flow.md + 測試 |
 | P3 | Topic Index 自動維護 | compile 流程整合 | 低，compile 時順帶更新 |
@@ -341,7 +325,7 @@ MLX 呼叫方式統一用 `~/.claude/skills/scripts/mlx-chat.sh`。
   - 計算 degree centrality, betweenness centrality, connected components
   - Louvain 社群偵測（python-louvain，需轉無向圖）
   - 匯出 GraphML + vis.js HTML + JSON meta
-  - 依賴：`~/.mlx-env/bin/python`（networkx, python-louvain, jinja2）
+  - 依賴：`python3` 需安裝 networkx、python-louvain、jinja2
 
 - **`graph-template.html`**（`~/.claude/skills/scripts/templates/`）：vis.js 互動圖譜
   - 節點顏色 = PARA 分類，大小 = degree centrality，邊框色 = 社群
@@ -360,7 +344,7 @@ MLX 呼叫方式統一用 `~/.claude/skills/scripts/mlx-chat.sh`。
 | `/obs graph` | 新子命令，呼叫 obs-graph.py 生成圖譜 |
 | `/obs link` | Step 1.5 檢查 graph-meta.json，用圖譜拓撲擴展候選池 |
 | `/obs health` | Step 1.5 讀取 graph-meta.json，加入圖譜健康指標區塊 |
-| `/obs graph --moc` | 用 MLX 對密集社群自動生成 `_index.md` |
+| `/obs graph --moc` | 由 Claude 對密集社群自動生成 `_index.md` |
 
 ### 關鍵指標（graph-meta.json）
 

@@ -297,20 +297,13 @@ git -C "$VAULT" log --oneline -10
      - `ok:true` 時，`text` 欄位就是可信的頁面內容（純腳本執行結果，沒有任何模型在中間複述，不會有幻覺風險），拿去餵給 Step 2a。
      - `ok:false`（逾時、網路錯誤、頁面載入失敗等）→ 不要卡住整個 compile 流程，直接退回「以裸網址本身當本文」，在 Step 2a 的輸入裡註明「無法抓取實際頁面內容」（沿用既有的誠實標註做法，不要編造內容）。
      - 這支腳本用 `headless: true`（跟先前 opencode/`playwright-mcp` 那套不同，不會跳出看得到畫面的瀏覽器視窗），跑完會自動關閉瀏覽器，不會留下殘留 process。
-   - **Step 2a — MLX 摘要**：呼叫 MLX 生成摘要與標籤建議
-     ```bash
-     bash ~/.claude/skills/scripts/mlx-chat.sh \
-       -s "<compile system prompt>" \
-       -t 0.3 -m 4096 \
-       "<筆記全文（控制在 2000 字以內，超過則截斷並附摘要）>"
-     ```
-     - MLX 不可用時（exit code 2/3），由 Claude 直接執行 Step 2a + 2b
-   - **Step 2b — Claude 決策**：根據 MLX 輸出，Claude 負責：
+   - **Step 2a — 摘要與標籤建議**：Claude 依下方 Compile 範本，對筆記全文生成摘要與標籤建議（筆記全文控制在 2000 字以內，超過則截斷並附摘要）
+   - **Step 2b — 決策**：根據 Step 2a 的輸出，Claude 負責：
      - 確認/修正 `para_category` 和 `source_type`
      - 注入標準 frontmatter
      - 決定歸檔目標目錄
 
-   **Compile System Prompt**（給 MLX）：
+   **Compile 範本**（Claude 依此格式輸出）：
    ```
    You are a knowledge librarian. Compile the following raw note into a structured knowledge entry.
 
@@ -357,7 +350,7 @@ git -C "$VAULT" log --oneline -10
      original_path: "00-收件匣/raw-note.md"
      ---
      ```
-   - 以 MLX 輸出取代原始內容
+   - 以 Step 2a 的編譯輸出取代原始內容
    - 原始內容保留在底部折疊區塊：
      ```markdown
      <details>
@@ -396,7 +389,7 @@ git -C "$VAULT" log --oneline -10
    git -C "$VAULT" push
    ```
 
-**source_type 啟發式判斷規則**（供 Claude 在 MLX 無法判定時使用）：
+**source_type 啟發式判斷規則**（供 Claude 判定時參考）：
 
 | 信號 | 判定 |
 |------|------|
@@ -424,10 +417,11 @@ git -C "$VAULT" log --oneline -10
 
 2. **生成圖譜**：
    ```bash
-   ~/.mlx-env/bin/python ~/.claude/skills/scripts/obs-graph.py \
+   python3 ~/.claude/skills/scripts/obs-graph.py \
      --vault "$VAULT/myWiki" \
      --output "$VAULT/.graph"
    ```
+   - 依賴：`python3` 需安裝 `networkx`、`python-louvain`、`jinja2`（`pip install networkx python-louvain jinja2`，建議放在專用 venv）
    - 若加 `--open`，追加 `--open` 參數（自動開啟 HTML）
    - 腳本產出三個檔案至 `$VAULT/.graph/`：
      - `knowledge-graph.graphml` — 圖結構
@@ -470,14 +464,7 @@ git -C "$VAULT" log --oneline -10
    - 對每個 `size > 5` 的社群：
      1. 檢查該社群主要筆記所在目錄是否已有 `_index.md`
      2. 若無 `_index.md`：
-        - 用 MLX 生成 MOC 筆記：
-          ```bash
-          bash ~/.claude/skills/scripts/mlx-chat.sh \
-            -s "You are a knowledge librarian. Generate a Map of Content (MOC) for these related notes. Output Markdown with: title, context description (2-3 sentences), and a bullet list of notes with one-line descriptions. Respond in the same language as the input." \
-            -t 0.3 -m 2048 \
-            "<社群內筆記標題列表>"
-          ```
-        - MLX 不可用時，由 Claude 直接生成
+        - 由 Claude 依社群內的筆記標題列表生成 MOC 筆記：標題、脈絡說明（2-3 句），以及每篇筆記附一句話描述的清單；語言與輸入一致
         - 寫入對應目錄的 `_index.md`（標準 Topic Index 格式）
    - 走 `/obs sync` 流程
 
@@ -525,20 +512,11 @@ git -C "$VAULT" log --oneline -10
    - 合併 Step 1.5 的圖譜候選與 Grep 候選，去重
    - 最多收集 15 個候選
 
-3. **呼叫 MLX 分析連結**：
-   ```bash
-   bash ~/.claude/skills/scripts/mlx-chat.sh \
-     -s "<link analysis system prompt>" \
-     -t 0.3 -m 2048 \
-     "Target note: <title + content summary>
-      Candidates:
-      1. <candidate title>: <summary>
-      2. ..."
-   ```
-   - 候選池控制在 15 個以內（prompt 控制在 2000 字以內，避免 OOM）
-   - MLX 不可用時（exit code 2/3），由 Claude 直接根據候選池判斷連結類型
+3. **分析連結**：Claude 依下方 Link Analysis 範本，逐一判斷目標筆記與每個候選的關係
+   - 輸入：目標筆記（標題 + 內容摘要）與候選清單（每個候選的標題 + 摘要）
+   - 候選池控制在 15 個以內
 
-   **Link Analysis System Prompt**：
+   **Link Analysis 範本**（Claude 依此判斷）：
    ```
    You are a knowledge connector. Analyze the relationship between the target note and each candidate.
 
@@ -634,14 +612,7 @@ git -C "$VAULT" log --oneline -10
    - 從全庫隨機抽取已編譯筆記
    - 檢查 frontmatter 完整性（必要欄位：title, compiled, source_type）
    - 檢查死連結（`[[target]]` 但 target 檔案不存在）
-   - 找矛盾或重複內容：用 MLX 對抽樣筆記做交叉比對
-     ```bash
-     bash ~/.claude/skills/scripts/mlx-chat.sh \
-       -s "You are a knowledge auditor. Compare these notes and identify: 1) Contradictions 2) Duplicates 3) Notes that should be merged. Output plain text, be concise." \
-       -t 0.3 -m 2048 \
-       "<抽樣筆記摘要列表（控制在 2000 字以內）>"
-     ```
-   - MLX 不可用時，由 Claude 直接做交叉比對（跳過此步也可接受，統計資料本身已有價值）
+   - 找矛盾或重複內容：Claude 對抽樣筆記的摘要做交叉比對，找出 1) 互相矛盾 2) 重複 3) 應合併的筆記，輸出簡潔的純文字（跳過此步也可接受，統計資料本身已有價值）
 
 3. **索引檢查**：
    - Glob 掃描所有 `_index.md`
@@ -767,33 +738,6 @@ last_updated: 2026-04-06
 - 此檢查僅針對寫入檔案的「直接所在資料夾」，不檢查父層或子層
 - 若寫入的目標資料夾本身就是 sort 的結果（已有子資料夾結構），不重複觸發
 - 判斷方式：若資料夾內已有子資料夾且子資料夾中也有 `.md` 檔案，視為「已分類」，跳過檢查
-
----
-
-## MLX 使用注意事項
-
-### 模型：Gemma 4 26B-A4B（MoE，4-bit 量化）
-
-- **推理模型**：回應分為 `reasoning`（思考鏈）和 `content`（最終答案），需足夠 `max_tokens`（建議 ≥ 512）讓模型完成思考並產出 content
-- **OOM 風險**：24GB M4 Pro 上，單次 prompt 超過 ~5000 tokens 可能觸發 Metal GPU OOM。每批 prompt 控制在 2000 字以內
-- **呼叫方式**：統一用 `~/.claude/skills/scripts/mlx-chat.sh`
-
-### MLX 不可用時的降級策略
-
-若 `mlx-chat.sh` 回傳 exit code 2（server 不可達）或 3（請求失敗）：
-- **compile**：由 Claude 直接執行編譯（省略 MLX 呼叫，Claude 自行生成摘要、分類、frontmatter）
-- **link**：由 Claude 直接根據 Grep 候選池判斷連結類型（不呼叫 MLX）
-- **health**：品質抽樣的矛盾/重複檢查改由 Claude 執行（統計部分不依賴 MLX）
-- 降級時在輸出中標註 `> ⚠️ MLX 不可用，由 Claude 直接處理`
-
-### MLX 使用策略
-
-| 操作 | 是否用 MLX | 理由 |
-|------|-----------|------|
-| compile（編譯） | 是 | 重量級改寫，省 Claude token |
-| link（連結發現） | 是 | 需要語義理解，適合本地推理 |
-| health（品質評估） | 是 | 批次分析，不需即時互動 |
-| sort（分類） | 否（Claude 直接做） | 輕量判斷，現有邏輯已足夠 |
 
 ---
 
