@@ -129,7 +129,7 @@
      ## AIStock 分析結果
 
      📥 抓取：{N} 篇新文章
-     🧠 分析：{N} 篇完成（MLX {n1} / MAGI {n2} / Claude {n3}）
+     🧠 分析：{N} 篇完成
      📊 技術指標：{symbols}
      📢 通知：{N} 則已發送
 
@@ -141,7 +141,6 @@
    - venv 不存在 → 提示 `cd ~/code/python/AIstock && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`
    - config.yaml 不存在 → 提示 `cp config.example.yaml config.yaml`
    - DB 未初始化 → 自動執行 `--migrate` 後重試
-   - MLX 不可用 → 提示檢查 MLX server（`localhost:8090`）
    - Redis 不可用 → 告警但不阻塞（fail-open）
 
 **範例**：
