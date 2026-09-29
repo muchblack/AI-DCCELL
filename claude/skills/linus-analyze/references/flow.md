@@ -1,17 +1,25 @@
 # Linus-Style Requirement Analysis
 
-Structured five-layer analysis framework — from requirement understanding to actionable decisions.
-Analysis powered by local MLX (Gemma4-26B), reviewed by Claude with Linus taste review.
+Five-layer analysis framework, from requirement understanding to an actionable
+decision. Claude performs the analysis directly; no external model is involved.
+
+## Relationship to the grill skills
+
+- Requirement is vague, or decisions are still open → run `/grill-with-docs`
+  (or `/grilling`) **first**. Those skills draw the decisions out of the user;
+  this skill judges a requirement that is already understood.
+- Requirement is clear, but you need a verdict on whether and how to build
+  it → run this skill.
+- Do not run both on the same question at once. Grill first, analyze after
+  the shared understanding is confirmed.
 
 ## Input
 
-- `$ARGUMENTS`: User's requirement description or technical question
+- `$ARGUMENTS`: the user's requirement description or technical question
 
 ## Execution Flow
 
 ### Step 0: Three Pre-Check Questions (Short-Circuit)
-
-Before starting analysis, answer these three questions:
 
 ```text
 1. "Is this a real problem or imagined?" — Reject over-engineering
@@ -19,185 +27,118 @@ Before starting analysis, answer these three questions:
 3. "Will it break anything?" — Backward compatibility is iron law
 ```
 
-**Short-circuit rule**: If the answer is "fake problem / simpler method exists / will break things", produce a brief conclusion and skip the five-layer analysis.
+**Short-circuit rule**: if the answer is "fake problem / simpler method
+exists / will break things", give a brief conclusion and skip the five layers.
 
-### Step 0.5: Pre-flight Health Check
+### Step 1: Confirm Understanding
 
-Before entering five-layer analysis (which uses MLX), verify provider availability:
+Restate the requirement in one or two sentences and ask whether it is
+accurate. Wait for confirmation before continuing. If it is wrong, clarify
+first. If the restatement keeps failing, the requirement is not ready — hand
+off to `/grill-with-docs`.
 
-```bash
-result=$(bash ~/.claude/skills/scripts/health-check.sh mlx)
-```
+### Step 1.2: Jev Spec-Readiness Pre-flight (advisory, optional, best-effort)
 
-- `status: "ok"` → proceed to Step 1, use MLX for analysis
-- `status: "down"` or `"no_model"` → set fallback flag, Claude will perform five-layer analysis directly in Step 2
+Run right after the user confirms the restatement, before spending effort on
+the five layers. A cheap same-turn check via Vercel AI Gateway on whether the
+confirmed requirement is concrete enough to analyze. Same mechanism as the
+`herdr-dev` Phase 1 pre-flight; if that one is retuned, retune this to match.
 
-This avoids wasting tokens on prompts that will fail. See `~/.claude/skills/docs/resilience-state.md`.
+**Data note**: this sends the requirement text to a third-party service. If
+the requirement contains secrets, customer data or anything the user would not
+paste into an external API, skip this step.
 
-### Step 1: Requirement Understanding Confirmation
+- Write the request body to a scratch file first (long text in a shell `-d`
+  string is quoting hell):
+  ```bash
+  REQ=$(mktemp)
+  cat > "$REQ" <<'EOF'
+  {
+    "model": "typesafe-ai/jev",
+    "state": "<the confirmed requirement from Step 1, verbatim>",
+    "questions": {
+      "is_spec_actionable": {"type": "boolean", "instructions": "Is this requirement specific and actionable enough for a developer to implement without further clarification?"},
+      "has_unambiguous_acceptance_criteria": {"type": "boolean", "instructions": "Does this requirement include clear, checkable acceptance criteria?"}
+    }
+  }
+  EOF
+  ```
+- Call it, reading `AI_GATEWAY_API_KEY` from the environment (**never** write
+  the key's value into any file, brief, note or output):
+  ```bash
+  curl -sS --max-time 10 https://ai-gateway.vercel.sh/v1/evaluate \
+    -H "Authorization: Bearer $AI_GATEWAY_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d @"$REQ"
+  rm -f "$REQ"
+  ```
+- **No key set, call errors, times out, or non-200 → skip silently and go to
+  the next step.** Never block or delay the analysis on a third-party outage.
+- Read `answers.<question>.probability` (0–1). The endpoint does not fill a
+  separate confidence field, so use distance from 0.5 as the uncertainty
+  proxy: `abs(probability - 0.5) < 0.3` on either question → uncertain.
+- **Advisory only, never a gate.** Uncertain or low → it is one input to your
+  own judgment. If your own read agrees the requirement is loose, name the
+  actual ambiguity to the user and suggest `/grill-with-docs` before the
+  five layers. Do not cite "Jev said X" as the reason, and do not auto-stop.
+  Confident on both → say nothing, proceed.
+- Do not use it to skip Step 0 or the analysis itself: it judges how
+  specified the requirement is, not whether it is worth doing.
 
-Confirm understanding with the user:
+### Step 1.5: DB Schema Context (only if the task touches the database)
 
-```text
-Based on available information, I understand your requirement is: [Restate requirement using Linus's thinking/communication style]
-Please confirm if my understanding is accurate?
-```
+For CRUD, schema changes or data-flow questions, run `/db` first to get the
+real table structure. This matters most for Layer 1 and Layer 4.
 
-Wait for user confirmation before proceeding. If understanding is wrong, clarify and then enter analysis.
+### Step 2: Five-Layer Analysis
 
-### Step 1.5: DB Schema Context（若任務涉及資料庫）
+Go through the layers in order. Look up facts in the codebase instead of
+asking the user; only real decisions go back to the user.
 
-若需求涉及資料庫操作（CRUD、schema 變更、資料流分析等），在送 MLX 之前先使用 `/db` 查詢相關表結構，將結果附在 Step 2a 的 context 中。這對 Layer 1（資料結構分析）和 Layer 4（破壞性影響分析）尤為關鍵。
-
-### Step 2: Five-Layer Analysis (MLX generates + Claude reviews)
-
-#### 2a. Send to MLX
-
-Call `mcp__mcp-ai-bridge__mlx_chat`, passing the five-layer analysis framework as systemPrompt:
-
-```
-mcp__mcp-ai-bridge__mlx_chat(
-  systemPrompt: <see MLX System Prompt below>,
-  message: "Requirement: {confirmed requirement from Step 1}\n\nContext: {relevant code/files/project context}",
-  maxTokens: 6000
-)
-```
-
-**MLX System Prompt**:
-
-```
-/think
-You are performing a Linus Torvalds-style five-layer technical analysis. Be rigorous, practical, and direct. No fluff.
-
-Analyze the given requirement through these five layers IN ORDER:
-
-## Layer 1: Data Structure Analysis
-"Bad programmers worry about the code. Good programmers worry about data structures."
-- What is the core data? What are the relationships?
-- Where does data flow? Who owns it? Who mutates it?
+**Layer 1 — Data structure**
+"Bad programmers worry about the code. Good programmers worry about data
+structures."
+- What is the core data and how is it related?
+- Where does it flow, who owns it, who mutates it?
 - Any unnecessary copying or transformation?
 
-## Layer 2: Special Case Identification
-"Good code has no special cases"
-- Identify all if/else branches or conditional logic this feature implies
-- Which are genuine business logic? Which are patches for bad design?
-- Can the data structure be redesigned to eliminate these branches?
+**Layer 2 — Special cases**
+"Good code has no special cases."
+- List every if/else the feature implies.
+- Which are genuine business rules, and which patch a bad design?
+- Can the data structure be redesigned so the branches disappear?
 
-## Layer 3: Complexity Audit
-"If the implementation requires more than 3 levels of indentation, redesign it"
-- What is the ESSENCE of this feature? (one sentence)
-- How many concepts does the current approach require?
-- Can it be halved? Halved again?
+**Layer 3 — Complexity**
+"If the implementation needs more than 3 levels of indentation, redesign it."
+- What is the essence of the feature, in one sentence?
+- How many concepts does the current approach need? Can it be halved?
 
-## Layer 4: Destructive Impact Analysis
-"Never break userspace" — backward compatibility is iron law
-- List ALL existing functionality that could be affected
+**Layer 4 — Destructive impact**
+"Never break userspace."
+- What existing behavior could be affected?
 - Which dependencies would break?
-- How to improve WITHOUT breaking anything?
+- How to improve without breaking any of it?
 
-## Layer 5: Practicality Verification
-"Theory and practice sometimes clash. Theory loses. Every single time."
-- Does this problem actually exist in production?
-- How many users actually encounter this?
-- Does the solution complexity match the problem severity?
+**Layer 5 — Practicality**
+"Theory and practice sometimes clash. Theory loses."
+- Does the problem exist in production? How many users hit it?
+- Does the solution's complexity match the problem's severity?
 
-End with a VERDICT section:
-- Worth doing or not? (one line with reasoning)
-- Key insight from each layer (one line each)
-- Recommended approach if worth doing (3-4 numbered steps, simplest possible)
-```
+### Step 2.5: Self-Check Before Output
 
-#### 2b. Display MLX Analysis Result
+Before writing the decision, check the analysis against these four points and
+fix the analysis if any fails:
 
-```
-## MLX (Gemma4-26B) Five-Layer Analysis
-
-**Model**: gemma-4-26b-a4b-it-4bit | **Inference time**: {durationMs}ms
-
-{MLX analysis result verbatim}
-```
-
-#### 2c. Claude Linus Taste Review
-
-Claude reviews MLX's five-layer analysis using the following four-dimensional framework:
-
-```
-[LINUS TASTE REVIEW]
-
-1. Data Structure Instinct
-- Did MLX identify the core data structure? Or was it misled by surface features?
-- Rating: ✅ Precise / ⚠️ Off-target / ❌ Fundamentally wrong
-
-2. Special Case Smell
-- Are the identified special cases complete? Any fatal edge cases missed?
-- Did MLX propose eliminating rather than handling special cases?
-- Rating: ✅ Thorough / ⚠️ Gaps exist / ❌ Wrong direction
-
-3. Breakage Blind Spots
-- Did MLX miss potential userspace breakage?
-- Is backward compatibility analysis complete?
-- Rating: ✅ Comprehensive / ⚠️ Blind spots / ❌ Major omissions
-
-4. Pragmatism Check
-- Is the conclusion "damn practical"?
-- Any over-engineering or solving non-existent problems?
-- Rating: ✅ Pragmatic / ⚠️ Too theoretical / ❌ Armchair theorizing
-```
-
-**Decision and action**:
-
-- **All four dimensions ✅** → Adopt MLX result directly, integrate into Step 3 decision output
-
-  ```
-  [TASTE REVIEW PASSED] Four-dimensional quality confirmed
-  - Data Structure Instinct: ✅
-  - Special Case Smell: ✅
-  - Breakage Blind Spots: ✅
-  - Pragmatism Check: ✅
-  This analysis can be used directly as decision basis.
-  ```
-
-- **Any dimension ⚠️** → Claude supplements directly (no MLX resend, efficiency first)
-
-  ```
-  [TASTE REVIEW PASSED (with corrections)]
-  - [List each dimension's rating]
-  - ⚠️ Dimension correction: [specific supplemental content]
-  [Display corrected analysis conclusion]
-  ```
-
-- **Any dimension ❌** → Resend to MLX with review feedback (max 1 time)
-  ```
-  Resend instruction:
-  "Previous analysis had critical issues:
-  1. [Dimension name]: [Specific error description]
-  Please re-analyze with corrections. Focus on: [aspects needing re-analysis]"
-  ```
-  If still ❌ after resend, Claude writes that part directly.
-
-#### 2d. Gemini Spot-Check (Major Decisions Only)
-
-Trigger when ANY of these conditions are met:
-
-- MLX core verdict is "✅ Worth doing" AND involves complex features (expected to enter `/all-plan`)
-- Claude review has any dimension at ⚠️
-
-```
-Bash(CCB_CALLER=claude ask gemini "The following is a conclusion from a Linus-style five-layer technical analysis. Please independently judge whether this conclusion is reasonable and point out anything you find problematic:\n\n{core verdict + key insights summary}")
-```
-
-Follow **Async Guardrail**: if output contains `[CCB_ASYNC_SUBMITTED`, end turn immediately. When Gemini result arrives (via hook or `/pend gemini`), continue with opinion handling below.
-
-**Gemini opinion handling rules**:
-
-- Gemini opinion is reference only, no veto power
-- If Gemini and Claude agree → Increased confidence, proceed to Step 3
-- If Gemini raises valuable new perspectives → Claude integrates into conclusion
-- If Gemini and Claude disagree → Claude makes final ruling, note the disagreement in Step 3
+1. Did you identify the real core data structure, not a surface feature?
+2. Are the special cases complete, and did you try to eliminate them rather
+   than handle them?
+3. Is the breakage analysis complete — any userspace you did not check?
+4. Is the conclusion practical, or is it over-engineering / solving a
+   non-existent problem?
 
 ### Step 3: Decision Output
 
-After five-layer analysis and review, produce this fixed format:
+Use this fixed format, no additions and no omissions:
 
 ```text
 [CORE VERDICT]
@@ -221,52 +162,22 @@ If not worth doing:
 
 ---
 
-## Error Handling
+## Follow-up Guide
 
-- **MLX unreachable** (localhost:8090 not responding):
-  Fall back to Claude executing the five-layer analysis directly (pre-migration behavior).
-  Inform user: "MLX unreachable, I will perform the analysis directly."
-
-- **MLX timeout** (> 3 minutes):
-  Fall back to Claude direct execution.
-
-- **MLX output empty or garbled**:
-  Fall back to Claude direct execution.
-
-- **Gemini unreachable**:
-  Skip Step 2d spot-check, rely on Claude review results only.
-
----
-
-## Follow-up Action Guide
-
-After analysis, guide to appropriate workflow based on verdict:
-
-| Verdict                          | Recommended Next                                              | Description                                                           |
-| -------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------- |
-| ✅ Worth doing + Complex feature | `/tp` or `/all-plan`                                          | Enter collaborative task planning with inspiration + reviewer scoring |
-| ✅ Worth doing + Simple change   | Direct implementation                                         | No additional planning needed                                         |
-| ✅ Worth doing + Laravel related | Invoke `laravel-simplifier` agent                             | PHP/Laravel code handled by specialist agent                          |
-| ✅ Worth doing + Frontend UI     | Invoke `frontend-developer` or `pragmatic-ui-architect` agent | Visual iteration or component architecture                            |
-| ❌ Not worth doing               | Report reasoning to user                                      | Explain what the real problem is                                      |
-
-### Related Skills Quick Reference
-
-- `/all-plan` — Full collaborative planning (designer + inspiration + reviewer roles)
-- `/tp` — Quick task plan creation (internally calls `/all-plan`)
-- `/tr` — Execute AutoFlow steps
-- `/review` — Formal dual review (Claude initial + Cross-reviewer re-evaluation)
-- `/ask <provider>` — Delegate tasks to other AI (gemini/codex/opencode/droid)
-
----
+| Verdict                          | Next                                                          |
+| -------------------------------- | ------------------------------------------------------------- |
+| ✅ Worth doing + spec still loose | `/grill-with-docs` → `/to-spec`                               |
+| ✅ Worth doing + ready to build   | `/herdr-dev <linear-id \| doc-path>`                          |
+| ✅ Worth doing + simple change    | Implement directly and self-review with `/linus-review`      |
+| ✅ Worth doing + Laravel          | `laravel-simplifier` agent                                    |
+| ✅ Worth doing + frontend UI      | `frontend-developer` or `pragmatic-ui-architect` agent        |
+| ❌ Not worth doing                | Report the reasoning and what the real problem is             |
 
 ## Principles
 
-1. Three pre-check questions can short-circuit the entire flow (pragmatism first)
-2. Wait for user confirmation of requirement understanding before entering five-layer analysis
-3. MLX generates analysis, Claude handles taste review quality gate
-4. Major decisions get additional Gemini spot-check, but Claude holds final ruling authority
-5. Output format is fixed — no additions, no omissions
-6. Maintain the Qing dynasty court official communication style (I/Your Majesty)
-7. Criticism targets technical issues, never the person
-8. Auto-fallback to Claude direct analysis when MLX is unreachable
+1. The three pre-check questions can short-circuit the whole flow.
+2. Wait for the user to confirm the requirement before the five layers.
+3. Decisions belong to the user; facts belong to the codebase.
+   The Jev pre-flight is advisory input, never a gate, and never a stated reason.
+4. The output format is fixed.
+5. Criticism targets technical issues, never the person.

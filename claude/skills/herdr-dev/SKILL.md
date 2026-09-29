@@ -20,8 +20,7 @@ metadata:
 # Herdr-Dev — Requirement-Driven Development Flow (Herdr)
 
 Herdr-native end-to-end flow for turning a **requirement document** into
-reviewed, working code. Successor to `/ccb-dev` — same contract, Herdr
-transport instead of CCB tmux/ask.
+reviewed, working code, dispatched over the Herdr CLI.
 
 ```
 input (doc / text)
@@ -121,7 +120,7 @@ Long briefs go through files, not CLI args (no shell-quoting hell):
 
 ```bash
 # 1. Write the brief
-#    .herdr-dev/brief.md  (dev)  /  .herdr-dev/review-brief.md  (review)
+#    .herdr-dev/tasks/<slug>/brief.md  (dev)  /  .herdr-dev/tasks/<slug>/review-brief.md  (review)
 
 # 2. Optional: peek at the pane first — if it's empty/idle with no visible
 #    prior conversation, there's nothing to clear. There is no documented
@@ -134,11 +133,11 @@ herdr agent read <worker> --source recent-unwrapped --lines 30
 # 3. Submit + wait in one call (atomic paste+Enter, waits for the first
 #    settled idle/done/blocked state). Run this in the background — it can
 #    take a long time and re-enters this session when it fires.
-herdr agent prompt <worker> "Read .herdr-dev/brief.md and execute it. Write your final report to .herdr-dev/report.md when done." --wait --timeout 1800000
+herdr agent prompt <worker> "Read .herdr-dev/tasks/<slug>/brief.md and execute it. Write your final report to .herdr-dev/tasks/<slug>/report.md when done." --wait --timeout 1800000
 ```
 
 When the call returns, check `herdr agent get <worker>`:
-- `idle`/`done` → read `.herdr-dev/report.md`, verify via git, continue.
+- `idle`/`done` → read `.herdr-dev/tasks/<slug>/report.md`, verify via git, continue.
   **Note: some agent CLIs (observed with the Antigravity/agy provider) report
   `done`/`idle` while sitting at a file-write approval dialog, not just
   command-approval ones — always `agent read` and look at the actual screen
@@ -221,9 +220,19 @@ When the call returns, check `herdr agent get <worker>`:
   branch and file list, diff matched, but the branch had zero commits ahead
   of main). Diff-matches-claim is not proof of a commit; check the commit
   log itself.
+- **File boundary is a hard gate, not a review comment.** The dev brief
+  declares `owns` (writable) and optional `may_touch_with_reason`; the whole
+  repo stays readable. Before merge, main runs `git diff --name-only
+  <base_sha>..<branch>` and any path outside those lists blocks the merge —
+  it never reaches `/linus-review` or agy. The base is a pinned SHA recorded
+  once in state at first dispatch (`base_sha`), never a floating branch name.
+- **Per-task working files.** Brief, report, review brief and verdict live
+  under `.herdr-dev/tasks/<slug>/`, not at the `.herdr-dev/` root, so tasks
+  never overwrite each other. The report carries `status`, `attempt` and
+  `result_sha`; main checks `result_sha` against the branch head.
 - **A long-lived pane may carry baked-in habits from a prior role that no
-  brief text fully overrides** (observed: a codex pane previously run as a
-  CCB worker tried to submit a plan review via `ask codex` mid-task — not
+  brief text fully overrides** (observed: a codex pane previously run under
+  a different orchestration setup tried to submit a plan review via `ask codex` mid-task — not
   requested by the brief, not in this project's role config, just residual
   session context/instinct from its old job; `ask` failed since this flow
   doesn't provide it, and the worker recovered on its own after ~1 extra

@@ -146,19 +146,26 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
 0. **If `git_repo`**: create the worker's worktree (skip if it already
    exists on disk — a fix round, or a resumed dispatch, reuses it):
    ```bash
-   # first dispatch for this slug — branch doesn't exist yet
-   git worktree add .herdr-dev/worktrees/worker-<slug> -b herdr/dev-<slug> main
-   # re-dispatch onto an already-existing branch (e.g. after a salvage) — no -b
+   # first dispatch for this slug — branch doesn't exist yet.
+   # Pin the base to an exact SHA, never a floating branch name.
+   BASE_SHA=$(git rev-parse main)
+   git worktree add .herdr-dev/worktrees/worker-<slug> -b herdr/dev-<slug> "$BASE_SHA"
+   # re-dispatch onto an already-existing branch (e.g. after a salvage) — no -b;
+   # keep the base_sha already recorded in state, do not recompute it
    git worktree add .herdr-dev/worktrees/worker-<slug> herdr/dev-<slug>
    ```
-   Record the absolute worktree path in state
-   (`worker_worktree: "<abs-path>"`). `.herdr-dev/` must be gitignored (see
+   Record the absolute worktree path and the pinned base in state
+   (`worker_worktree: "<abs-path>"`, `base_sha: "<sha>"`). The base is
+   written once on first dispatch and never changes across fix rounds —
+   the boundary check in Phase 3 diffs against it.
+   `.herdr-dev/` must be gitignored (see
    Input section) so the worktree itself isn't tracked by main's checkout.
    If the project's build/test commands run inside a container with a fixed
    bind-mount (see project CLAUDE.md), confirm the mount covers this path
    before dispatching — if it doesn't, flag it to the Emperor rather than
    silently falling back to the shared tree.
-1. Write the **dev brief** (English) to `.herdr-dev/brief.md`: the
+   Also `mkdir -p .herdr-dev/tasks/<slug>` (all per-task files go there).
+1. Write the **dev brief** (English) to `.herdr-dev/tasks/<slug>/brief.md`: the
    Requirement Brief + this mandatory TDD contract:
    - **If `git_repo`**: state the worker's working directory is
      `<worker_worktree>` (absolute path) — a dedicated git worktree already
@@ -168,7 +175,18 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
      the report if they don't — never to run `git worktree add/switch`
      itself, and never to `cd` back to the main checkout or re-clone. All
      commands (including any container-wrapped ones per project CLAUDE.md)
-     run against files under this path.
+     run against files under this path. State the pinned `base_sha` too;
+     `git merge-base HEAD <base_sha>` must equal it.
+   - **File boundary.** main declares, in the brief, an `owns:` list (paths
+     or globs the worker may change — derived from the Requirement Brief,
+     including the test files) and an optional `may_touch_with_reason:`
+     list. The whole repo is readable; only `owns` is writable. Touching a
+     `may_touch_with_reason` path requires a one-line justification in the
+     report's "boundary expansion" field; touching anything else is a
+     violation, not a judgment call. If the work seems to need an
+     out-of-boundary file, stop and write the blocker to the report
+     (`status: BLOCKED`) instead of editing it. Lockfiles, route registries
+     and migration files are out of bounds unless listed in `owns`.
    - Work in vertical slices: one behavioral test, one minimal implementation.
    - **RED:** write the test first, run the targeted command, confirm it
      fails for the expected missing behavior (not setup/syntax errors).
@@ -178,9 +196,14 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    - Test public behavior, not private methods.
    - Run the relevant full suite after the final GREEN.
    - Commit on branch `herdr/dev-<slug>`.
-   - Write the final report to `.herdr-dev/report.md`: TDD evidence table
-     (per slice: RED command + expected failure, GREEN command + result),
-     final suite result, changed files, branch name.
+   - Write the final report to `.herdr-dev/tasks/<slug>/report.md` (per-task
+     path — concurrent or successive tasks never overwrite each other) with
+     these fields: `status` (`DONE` | `BLOCKED`), `attempt` (1 = first
+     dispatch, +1 per fix round), `result_sha` (`git rev-parse HEAD` after
+     the final commit), TDD evidence table (per slice: RED command +
+     expected failure, GREEN command + result), final suite result, changed
+     files, branch name, boundary expansion (`none` or per-file reason).
+     `result_sha` is a claim to be checked, not proof — see Phase 3.
    - If no test can express the behavior and no TDD exception was granted,
      stop and write the blocker to the report before touching production code.
 2. **Check for stale context**: `herdr agent read <worker> --source
@@ -190,13 +213,13 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    --kind <kind> --pane <id>` on a plain shell, or ask the Emperor.
 3. Dispatch + wait, atomic, run in background (can take a long time):
    ```bash
-   herdr agent prompt <worker> "Read .herdr-dev/brief.md and execute it. Write your final report to .herdr-dev/report.md when done." --wait --timeout 1800000
+   herdr agent prompt <worker> "Read .herdr-dev/tasks/<slug>/brief.md and execute it. Write your final report to .herdr-dev/tasks/<slug>/report.md when done." --wait --timeout 1800000
    ```
 4. Reply one short line (`<worker agent> 開發中…`) and **END TURN**. The
    background call re-enters this session when it settles (idle/done/blocked)
    or times out.
 
-State: `{ "step": "dev_dispatched", "round": 0 }`
+State: `{ "step": "dev_dispatched", "round": 0, "base_sha": "<sha>", "owns": [...] }`
 
 ---
 
@@ -230,6 +253,17 @@ On the wait firing, `herdr agent get <worker>`:
      files (nothing else) and `git commit`; do not restart from the full
      brief, and do not commit on the worker's behalf. Re-check `git log
      main..branch` after.
+   - `git rev-parse herdr/dev-<slug>` must equal the report's `result_sha`;
+     mismatch → commits were added or missing after the report, re-check
+     before trusting anything in it.
+   - **Boundary gate (hard, mechanical).** `git diff --name-only
+     <base_sha>..herdr/dev-<slug>` — every path must match `owns`, or
+     `may_touch_with_reason` *and* be justified in the report. Any other
+     path → do not merge, do not review: send a fix brief to revert the
+     out-of-boundary change (regression-test-first does not apply to a pure
+     revert; the worker just removes it and re-commits). Counts as a fix
+     round. Run this before the test re-runs — it is cheap and needs no
+     container.
    - `git log herdr/dev-<slug> --oneline --stat` — commits exist, touch the
      expected files. Spot-check 2–3 key claimed changes in the diff.
    - Unless a TDD exception was recorded: require changed behavioral tests,
@@ -269,7 +303,7 @@ On the wait firing, `herdr agent get <worker>`:
      and improvement notes, continue to step 4. Do not block on 🟡 findings
      — those are exactly the kind of thing to hand the reviewer as context,
      not a gate.
-4. Write the **review brief** (English) to `.herdr-dev/review-brief.md`:
+4. Write the **review brief** (English) to `.herdr-dev/tasks/<slug>/review-brief.md`:
    Requirement Brief + acceptance criteria + main @ merge commit + the
    requirement's **Linear issue id** (or doc path, for pre-existing local
    specs) so the reviewer pulls the source itself instead of relying on a
@@ -331,7 +365,7 @@ On the wait firing, `herdr agent get <worker>`:
    evidenced security finding is a FIX-blocking CRITICAL; unevidenced
    suspicions belong in the findings list as 🟡, not as gates.
    Require an explicit verdict per axis, findings ranked by severity,
-   written to `.herdr-dev/verdict.md`:
+   written to `.herdr-dev/tasks/<slug>/verdict.md`:
    - **(a) code quality** — taste, correctness, maintainability (Linus
      standards: data structures, edge cases, no needless complexity).
    - **(b) spec compliance** — diff vs requirement document item by item;
@@ -363,7 +397,7 @@ On the wait firing, `herdr agent get <worker>`:
    itself; that already happened in step 5, run by main.
 7. Clear + dispatch the reviewer + background wait (same pattern as
    Phase 2 steps 2–3, targeting `<reviewer>`, prompt pointing at
-   `.herdr-dev/review-brief.md` → `.herdr-dev/verdict.md`).
+   `.herdr-dev/tasks/<slug>/review-brief.md` → `.herdr-dev/tasks/<slug>/verdict.md`).
 8. Reply one short line (`<reviewer agent> 審查中…`) and **END TURN**.
 
 State: `{ "step": "review_dispatched", "round": <n>, "merge_commit": "<sha>" }`
@@ -373,11 +407,11 @@ State: `{ "step": "review_dispatched", "round": <n>, "merge_commit": "<sha>" }`
 ## Phase 4: Handle the Verdict
 
 On the reviewer wait firing (handle blocked/stalled as in Phase 3 preamble),
-read `.herdr-dev/verdict.md`:
+read `.herdr-dev/tasks/<slug>/verdict.md`:
 
 - **PASS on all axes** → Phase 5.
 - **FIX** → route findings back to the worker pane:
-  1. Write the fix brief to `.herdr-dev/brief.md`: findings verbatim
+  1. Write the fix brief to `.herdr-dev/tasks/<slug>/brief.md`: findings verbatim
      (ranked), unmet acceptance criteria, and the contract to add a
      regression test reproducing each behavioral finding (**RED**) before
      fixing it (**GREEN**), re-commit on the same branch, same report format.
