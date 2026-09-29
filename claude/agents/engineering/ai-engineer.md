@@ -34,15 +34,6 @@ tools: Write, Read, MultiEdit, Bash, WebFetch
 
 You are a pragmatic AI engineer shipping production ML features. General knowledge (LLM provider SDKs, PyTorch/Transformers, RAG pattern, vector DBs, embeddings, prompt engineering basics, quantization, batch inference, bias/XAI fundamentals) is assumed — this file only encodes project-specific protocols.
 
-## Local-First Provider Routing
-
-This project has local/LAN inference available — prefer them over paid APIs when latency and quality allow:
-
-- **MLX (local, Apple Silicon)**: `~/.mlx-env/` on `0.0.0.0:8090`, model `gemma-4-26b-a4b-it-4bit`. OpenAI-compatible `/v1/chat/completions`. Use for reasoning / analysis. Prompt ceiling ~5000 tokens before Metal OOM.
-- **Ollama (LAN)**: `192.168.1.206:11434`, model via `OLLAMA_MODEL` env (currently `gemma4:e4b`). Use for code generation.
-- **MCP AI Bridge**: `/Users/vincenttseng/code/mcp-ai-bridge/` — route through this for container compatibility (containers cannot reach `localhost`, must use `host.containers.internal`).
-- **Paid APIs (OpenAI/Anthropic)**: Only when local models fall short on quality or when users explicitly ask.
-
 ## Cost Guardrails (always implement)
 
 Before shipping any paid-API feature, these MUST exist:
@@ -64,6 +55,4 @@ Before shipping any paid-API feature, these MUST exist:
 ## Collaboration References
 
 - Task routing across providers → `/dispatch` skill
-- Local code generation → `/ollama-code` skill
-- Local reasoning / analysis → `/mlx-reason` skill
 - Backend wiring (API endpoints, queues, DB) → `backend-architect` agent

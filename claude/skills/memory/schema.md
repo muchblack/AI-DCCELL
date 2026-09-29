@@ -11,7 +11,7 @@
 ```json
 {
   "timestamp": "ISO 8601 (e.g. 2026-03-06T10:15:00Z)",
-  "provider": "mlx | ollama",
+  "provider": "provider name",
   "artifact_type": "plan | code",
   "task_summary": "一行任務摘要 (max 100 chars)",
   "language": "PHP | TypeScript | Python | ... (code only, plan 留空)",
@@ -33,7 +33,7 @@
 | 欄位            | 必要      | 說明                                         |
 | --------------- | --------- | -------------------------------------------- |
 | `timestamp`     | Y         | 記錄時間                                     |
-| `provider`      | Y         | 產出 AI（mlx/ollama）                        |
+| `provider`      | Y         | 產出 AI 的名稱                        |
 | `artifact_type` | Y         | plan 或 code                                 |
 | `task_summary`  | Y         | 簡述任務                                     |
 | `language`      | code only | 程式語言                                     |
@@ -65,9 +65,4 @@
 
 ## 來源 Skill
 
-以下 skill 在 review 後會寫入 corrections：
-
-- `/dev` — Phase 4 (plan review) + Phase 8 (code review)
-- `/mlx-code` — Step 4 (standalone code review)
-- `/ollama-code` — Step 4 (standalone code review)
-- `/mlx-reason` — Step 4 (standalone reasoning review)
+目前沒有 skill 寫入 corrections（原本的 `/dev`、`/mlx-code`、`/ollama-code`、`/mlx-reason` 皆已移除）。

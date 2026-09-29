@@ -1,6 +1,7 @@
 # Dispatch — Multi-Provider Task Router
 
-Split a work requirement into subtasks and route each to the optimal AI provider.
+Split a work requirement into subtasks and route each to the optimal AI
+provider running in a herdr pane.
 
 **Provider matrix**: See `references/providers.md`
 
@@ -14,33 +15,25 @@ From `$ARGUMENTS`: a work requirement in natural language (Chinese or English).
 
 ## Execution Flow
 
-### Step 1: Health Check
-
-Run provider availability check:
+### Step 1: Resolve Available Providers
 
 ```bash
-bash ~/.claude/skills/scripts/health-check.sh 2>/dev/null
+herdr agent list
 ```
 
-Parse result to build available provider list. Also check CCB providers:
+Keep the entries whose `cwd` matches this project's root, and record each
+provider's pane id. Build `available_providers`:
 
-```bash
-ccb-mounted 2>/dev/null
-```
-
-Build `available_providers` map:
-
-- `mlx`: health-check status
-- `ollama`: health-check status
-- `codex`: ccb-mounted status
-- `gemini`: ccb-mounted status
-- `opencode`: ccb-mounted status
-- `droid`: ccb-mounted status
+- `codex`, `agy`, `gemini`, `opencode`, `droid`: available only if a live pane
+  for this project exists
 - `claude`: always available
+
+No herdr panes at all → say so and offer to handle every subtask with Claude
+directly; do not invent a transport.
 
 ### Step 2: Analyze & Decompose
 
-Claude (designer) analyzes the requirement and decomposes into subtasks.
+Claude analyzes the requirement and decomposes it into subtasks.
 
 For each subtask, determine:
 
@@ -57,34 +50,33 @@ For each subtask, apply routing rules in order:
 ```
 Rule 1: security_sensitive == true → claude (no delegation)
 Rule 2: context_needed == "full" AND complexity == "complex" → claude
-Rule 3: Match task_type against Provider Mapping table (providers.md)
+Rule 3: Match task_type against the Provider Mapping table (providers.md)
          → Pick highest-priority AVAILABLE provider
 Rule 4: If primary provider unavailable → try fallback chain
 Rule 5: If all fallbacks unavailable → claude (always available)
 ```
 
-**Local provider preference**: When a subtask can be handled by local providers (mlx/ollama), prefer them to save cost — UNLESS the subtask quality is critical.
+**Parallel dispatch**: subtasks routed to different panes can run at the same
+time. Subtasks routed to the same pane must be batched into one message.
 
-**Parallel dispatch**: Subtasks routed to different CCB providers can be dispatched simultaneously. Subtasks routed to the same provider must be batched into one message.
+**Writers**: at most one pane writes to a given working tree at a time. If two
+subtasks would write code, give each its own git worktree (see the
+`herdr-dev` skill) or run them sequentially.
 
 ### Step 4: Present Routing Plan
-
-Display the routing plan to the user:
 
 ```markdown
 ## Dispatch Plan — [requirement summary]
 
-**Available providers**: claude, codex, gemini, mlx, ollama
+**Available providers**: claude, codex, gemini
 **Unavailable**: [list, or "none"]
 
 | #   | Subtask               | Type       | Provider | Reason                      |
 | --- | --------------------- | ---------- | -------- | --------------------------- |
 | 1   | [subtask description] | review     | codex    | Code review specialist      |
 | 2   | [subtask description] | brainstorm | gemini   | Creative exploration        |
-| 3   | [subtask description] | reason     | mlx      | Local reasoning, free       |
-| 4   | [subtask description] | architect  | claude   | Complex, needs full context |
+| 3   | [subtask description] | architect  | claude   | Complex, needs full context |
 
-**Cost estimate**: [N] cloud calls + [N] local calls
 **Parallel groups**: [which subtasks can run simultaneously]
 
 Confirm? (Y / adjust / skip [N])
@@ -92,45 +84,25 @@ Confirm? (Y / adjust / skip [N])
 
 ### Step 5: Dispatch
 
-After user confirms:
+After the user confirms:
 
-**5.1 Local providers first** (synchronous, immediate result):
+**5.1 Claude subtasks**: do them yourself, inline.
 
-For MLX tasks:
-
-```bash
-bash ~/.claude/skills/scripts/mlx-chat.sh \
-  -s "<task-specific system prompt>" \
-  -t 0.3 -m 4096 \
-  "<subtask prompt>"
-```
-
-For Ollama tasks:
-
-- Use MCP tools `ollama_code` / `ollama_review` / `ollama_chat`
-
-Collect local results immediately.
-
-**5.2 CCB providers** (asynchronous via /ask):
-
-For each CCB subtask, craft a focused prompt that includes:
-
-- The subtask description
-- Relevant context (files, code snippets) — only what's needed
-- Expected output format
-- Any results from local providers that inform this subtask
-
-Dispatch via:
+**5.2 Herdr subtasks**: for each one, write a focused brief to a scratch file
+(subtask description, only the context needed, expected output format, and a
+reply file path). Then, for each pane:
 
 ```bash
-CCB_CALLER=claude ask <provider> "<crafted prompt>"
+herdr agent read <pane> --source recent-unwrapped --lines 30   # stale context?
+herdr agent prompt <pane> "Read <brief-file> and respond. Write your findings to <reply-file> when done." --wait --timeout 900000
 ```
 
-**Important**: Follow Async Guardrail — after all `/ask` calls are submitted, report status and END TURN.
+Run each `prompt --wait` call with the Bash tool's `run_in_background: true`;
+it re-enters this session when it settles. Different panes can be started in
+the same turn. For state handling (blocked / stalled / approval dialogs), follow
+the "Herdr Dispatch Pattern" in the `herdr-dev` skill.
 
-**5.3 Batch same-provider tasks**:
-
-If multiple subtasks route to the same provider, combine them into a single prompt with numbered sections:
+**5.3 Batch same-pane tasks** into one brief with numbered sections:
 
 ```
 Please handle these tasks:
@@ -143,26 +115,17 @@ For each task, provide your response under the corresponding number.
 
 ### Step 6: Report
 
-After dispatching:
+After dispatching, end the turn with a status table. When results arrive, read
+each `<reply-file>` (or `herdr agent read`), then integrate them.
 
 ```markdown
 ## Dispatched
 
-| #   | Subtask | Provider | Status                     |
-| --- | ------- | -------- | -------------------------- |
-| 1   | [desc]  | mlx      | Done (inline result below) |
-| 2   | [desc]  | codex    | Submitted                  |
-| 3   | [desc]  | gemini   | Submitted                  |
-
-### Local Results
-
-#### Subtask 1: [desc]
-
-[MLX result]
-
-### Pending
-
-Use `/pend codex` and `/pend gemini` to retrieve async results.
+| #   | Subtask | Provider | Status    |
+| --- | ------- | -------- | --------- |
+| 1   | [desc]  | claude   | Done      |
+| 2   | [desc]  | codex    | Submitted |
+| 3   | [desc]  | gemini   | Submitted |
 ```
 
 ---
@@ -183,10 +146,9 @@ After adjustment, re-display the updated plan.
 
 ## Principles
 
-1. **User confirms before dispatch** — never auto-send to CCB without confirmation
-2. **Local first** — prefer mlx/ollama for cost savings when quality permits
-3. **Parallel when possible** — different providers can work simultaneously
-4. **Async guardrail** — respect CCB async rules, end turn after submission
-5. **Focused prompts** — each provider gets only the context it needs, not the entire conversation
-6. **Batch same-provider** — don't send 3 separate messages to codex when 1 will do
-7. **Fallback gracefully** — provider down → next in chain → claude as last resort
+1. **User confirms before dispatch** — never send to a pane without confirmation
+2. **Parallel when possible** — different panes can work simultaneously
+3. **Verify status by reading the pane** — idle/done can hide an approval dialog
+4. **Focused prompts** — each provider gets only the context it needs, not the entire conversation
+5. **Batch same-pane** — don't send 3 separate messages to codex when 1 will do
+6. **Fallback gracefully** — provider missing → next in chain → claude as last resort

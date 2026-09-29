@@ -1,68 +1,46 @@
 # Provider Capability Matrix
 
-## Cloud Providers (via CCB /ask)
+Providers are agents running in herdr panes. Availability is decided at run
+time from `herdr agent list`; a provider with no live pane for this project is
+unavailable. Claude (this session) is always available.
 
-### codex (reviewer)
+## Herdr Providers
 
-- **Strengths**: Code review, structured scoring (Rubric), file operations, deterministic evaluation, diff analysis
+### codex
+
+- **Strengths**: Code review, structured scoring (rubric), file operations, deterministic evaluation, diff analysis, TDD implementation
 - **Weaknesses**: Not creative, slower turnaround, no web access
-- **Best for**: `review`, `score`, `audit`, `file-op`
-- **Cost**: Medium (async, API)
-- **Availability**: CCB session required
+- **Best for**: `review`, `score`, `audit`, `file-op`, `draft-code`
 
-### gemini (inspiration)
+### agy
 
-- **Strengths**: Creative brainstorming, long-context analysis (1M tokens), web search/research, multi-modal, divergent thinking
-- **Weaknesses**: Unreliable for precise code, hallucination-prone, session fragile (runtime_dir issue)
+- **Strengths**: Independent review (quality, spec compliance, security, performance), second look at a finished diff
+- **Weaknesses**: May report idle while sitting at an approval dialog
+- **Best for**: `review`, `second-opinion`
+
+### gemini
+
+- **Strengths**: Creative brainstorming, long-context analysis, web search / research, divergent thinking
+- **Weaknesses**: Unreliable for precise code, hallucination-prone
 - **Best for**: `brainstorm`, `research`, `explore`, `summarize-large`, `name`
-- **Cost**: Medium (async, API)
-- **Availability**: CCB session required, may need re-register after reboot
 
 ### opencode
 
 - **Strengths**: General coding, alternative perspective, independent implementation
 - **Weaknesses**: Less integrated with project context
 - **Best for**: `code-alt`, `second-opinion`, `prototype`
-- **Cost**: Medium (async, API)
-- **Availability**: CCB session required
 
 ### droid
 
 - **Strengths**: Task execution, shell operations
 - **Weaknesses**: Limited reasoning
 - **Best for**: `execute`, `shell-task`
-- **Cost**: Medium (async, API)
-- **Availability**: CCB session required
-
-## Local Providers (direct call)
-
-### mlx (local, free)
-
-- **Strengths**: Reasoning, analysis, summarization, classification, privacy-safe, zero cost
-- **Weaknesses**: OOM on large prompts (>5000 tokens), slower on complex generation, Gemma 4 is reasoning model (needs sufficient max_tokens)
-- **Best for**: `reason`, `analyze`, `classify`, `summarize`, `translate`
-- **Cost**: Free (local GPU)
-- **Availability**: localhost:8090, health-check.sh
-- **Call**: `mlx-chat.sh`
-
-### ollama (LAN, free)
-
-- **Strengths**: Code generation, code review, medium-quality drafts, zero cost
-- **Weaknesses**: 12GB VRAM limit, slower than cloud, quality varies by model
-- **Best for**: `draft-code`, `code-review-light`, `refactor`
-- **Cost**: Free (LAN GPU)
-- **Availability**: 192.168.1.206:11434, health-check.sh
-- **Call**: via MCP `ollama_code` / `ollama_review`
 
 ## Claude (self, always available)
 
-### claude (designer + executor)
-
 - **Strengths**: Strongest reasoning, best code quality, architecture design, security-sensitive tasks, full project context
-- **Weaknesses**: Most expensive (token cost), single-threaded (can't delegate to self async)
+- **Weaknesses**: Most expensive, cannot delegate to itself
 - **Best for**: `architect`, `security`, `complex-code`, `decision`, `integrate-results`
-- **Cost**: High (direct token usage)
-- **Availability**: Always
 
 ---
 
@@ -70,17 +48,17 @@
 
 | Task Type                   | Primary  | Fallback 1         | Fallback 2 |
 | --------------------------- | -------- | ------------------ | ---------- |
-| `review` (code/plan)        | codex    | ollama             | claude     |
+| `review` (code/plan)        | codex    | agy                | claude     |
 | `brainstorm` / `creative`   | gemini   | claude             | —          |
 | `research` / `explore`      | gemini   | claude (WebSearch) | —          |
-| `reason` / `analyze`        | mlx      | claude             | —          |
-| `draft-code` (non-critical) | ollama   | claude             | —          |
+| `reason` / `analyze`        | claude   | —                  | —          |
+| `draft-code` (non-critical) | codex    | opencode           | claude     |
 | `draft-code` (security)     | claude   | —                  | —          |
 | `score` / `evaluate`        | codex    | claude             | —          |
-| `summarize` (large doc)     | gemini   | mlx                | claude     |
-| `classify` / `tag`          | mlx      | claude             | —          |
-| `refactor`                  | ollama   | claude             | —          |
+| `summarize` (large doc)     | gemini   | claude             | —          |
+| `classify` / `tag`          | claude   | —                  | —          |
+| `refactor`                  | codex    | opencode           | claude     |
 | `architect` / `design`      | claude   | —                  | —          |
 | `file-op`                   | codex    | claude             | —          |
-| `second-opinion`            | opencode | gemini             | —          |
-| `prototype`                 | opencode | ollama             | —          |
+| `second-opinion`            | agy      | opencode           | gemini     |
+| `prototype`                 | opencode | codex              | claude     |
