@@ -49,7 +49,6 @@ claude/skills/scripts/health-check.sh
 | `scripts/health-check.sh` | Provider 健康檢查（秒級回傳 JSON 狀態） |
 | `scripts/retry.sh` | 指數退避重試 + jitter |
 | `scripts/watchdog.sh` | 超時殺進程（exit 124） |
-| `scripts/validate-state.sh` | `state.json` 驗證 + 自動修復 + checkpoint |
 
 搭配 `/dev --resume`、`/continue` 與 provider 降級鏈（MLX/Ollama → Claude），中斷可從斷點續接。
 
