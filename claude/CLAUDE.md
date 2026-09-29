@@ -62,7 +62,7 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 **Collaboration & Delegation**:
 | Skill | Trigger |
 |-------|---------|
-| `/dispatch` | Multi-provider task dispatch — split requirement, route to best provider (codex/gemini/opencode/droid/mlx/ollama) |
+| `/dispatch` | Multi-provider task dispatch — split requirement, route to best provider (codex/agy/gemini/opencode/droid) |
 | `/ask <agent>` | Delegate tasks to a herdr agent (agy/codex/opencode/claude); replies arrive asynchronously |
 
 **Podman / Container Operations**:

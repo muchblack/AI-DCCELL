@@ -17,7 +17,7 @@ Review pending instincts from automatic extraction, or manually trigger extracti
 ## Usage
 
 - `/learn` — Review all pending instincts
-- `/learn extract` — Force extract patterns from current observations via MLX
+- `/learn extract` — Force extract patterns from current observations
 - `/learn review` — Same as `/learn`, review pending instincts
 
 ## Execution Flow

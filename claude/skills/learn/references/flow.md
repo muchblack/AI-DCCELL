@@ -73,9 +73,9 @@ If no observations exist, report and exit.
 
 Read the last 100 lines of `observations.jsonl` for the current project.
 
-#### Step 3: Send to MLX for Pattern Extraction
+#### Step 3: Extract Patterns
 
-Use `mcp__mcp-ai-bridge__mlx_analyze` with this prompt:
+Claude analyzes the observations directly, following this prompt:
 
 ```
 Analyze these Claude Code tool usage observations and extract recurring development patterns.
@@ -124,7 +124,7 @@ Immediately proceed to Mode A (review) for the newly created instincts.
 ## Instinct Lifecycle
 
 ```
-observations.jsonl → MLX extract → pending/ → Claude review → approved/ or rejected/
+observations.jsonl → Claude extract → pending/ → Claude review → approved/ or rejected/
 ```
 
 Approved instincts in `~/.claude/instincts/approved/` are loaded by Claude at session start as behavioral guidelines.

@@ -202,12 +202,11 @@ echo ""
 echo -e "${CYAN}[4/4] 環境驗證${NC}"
 HC="${SCRIPTS_DIR}/health-check.sh"
 if [[ -x "${HC}" ]]; then
-    result=$(bash "${HC}" mlx ollama 2>/dev/null) || result="{}"
-    mlx_status=$(echo "$result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('mlx',{}).get('status','skip'))" 2>/dev/null || echo "skip")
-    ollama_status=$(echo "$result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('ollama',{}).get('status','skip'))" 2>/dev/null || echo "skip")
-
-    [[ "$mlx_status" == "ok" ]] && echo -e "  ${GREEN}✓ MLX: ok${NC}" || echo -e "  ${YELLOW}⚠ MLX: ${mlx_status}${NC}"
-    [[ "$ollama_status" == "ok" ]] && echo -e "  ${GREEN}✓ Ollama: ok${NC}" || echo -e "  ${YELLOW}⚠ Ollama: ${ollama_status}${NC}"
+    result=$(bash "${HC}" codex agy 2>/dev/null) || result="{}"
+    for prov in codex agy; do
+        st=$(echo "$result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('$prov',{}).get('status','skip'))" 2>/dev/null || echo "skip")
+        [[ "$st" == "ok" ]] && echo -e "  ${GREEN}✓ ${prov}: ok${NC}" || echo -e "  ${YELLOW}⚠ ${prov}: ${st}${NC}"
+    done
 else
     echo -e "  ${YELLOW}跳過：health-check.sh 不存在${NC}"
 fi

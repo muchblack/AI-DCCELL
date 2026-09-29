@@ -22,7 +22,7 @@ chmod +x bootstrap.sh
 3. **[1c/4]** 部署 Gemini 設定（`~/.gemini/GEMINI.md`、`~/.gemini/skills/`）
 4. **[2/4]** 設定 scripts 執行權限
 5. **[3/4]** 初始化 memory 目錄（telemetry）
-6. **[4/4]** 執行 health check，驗證 MLX / Ollama / provider 連線
+6. **[4/4]** 執行 health check，驗證 Gemini / Codex / provider 連線
 
 部署後可隨時用健康檢查確認 provider 狀態：
 
@@ -50,7 +50,7 @@ claude/skills/scripts/health-check.sh
 | `scripts/retry.sh` | 指數退避重試 + jitter |
 | `scripts/watchdog.sh` | 超時殺進程（exit 124） |
 
-搭配 `/herdr-dev --resume` 與 provider 降級鏈（MLX/Ollama → Claude），中斷可從斷點續接。
+搭配 `/herdr-dev --resume` 與 provider 降級鏈（→ Claude），中斷可從斷點續接。
 
 ### 自我增殖（Multiplication）— 知識共享與擴散
 
@@ -76,7 +76,7 @@ claude/skills/scripts/health-check.sh
 |------|----------|------|
 | `designer` / `executor` | Claude | 規劃、架構、寫碼（軍機處大臣） |
 | `inspiration` | Gemini | 創意發想（僅供參考，不盲從） |
-| `reviewer` | Codex（主）→ MLX（備援） | 評分品質閘門；Codex 不可用時降級本地 MLX，Claude 必再稽核 |
+| `reviewer` | Codex | 評分品質閘門；Codex 不可用時由 Claude 直接審查 |
 
 **Peer Review 鐵律**：`designer` 在「寫碼前（Plan Review）」與「回報前（Code Review）」兩個檢查點，必須送 `reviewer` 評分（overall ≥ 7.0 且無單項 ≤ 3 才算通過）。
 
@@ -120,7 +120,7 @@ AI-DCCELL/
 - **Skills**：約 50 個（涵蓋開發工作流、程式碼審查、命理三件套、影像生成、求職、股市分析等）
 - **Agents**：9 類、共 44 個
 - **基礎腳本**：17 個（`claude/skills/scripts/`）
-- **AI Providers**：Claude、Gemini、Codex、opencode、droid ＋ Ollama（LAN）＋ MLX（本地）
+- **AI Providers**：Claude、Gemini、Codex、opencode、droid
 - **通訊協定**：Async Ask Pattern、FileOpsREQ/RES、Role-Based Routing、Linus 式 Peer Review
 
 ---
@@ -130,7 +130,6 @@ AI-DCCELL/
 - macOS（Apple Silicon 推薦）
 - Python 3.10+
 - Claude Code CLI
-- 選配：MLX Server（localhost:8090）、Ollama（LAN）
 
 ---
 

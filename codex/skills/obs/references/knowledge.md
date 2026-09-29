@@ -2,14 +2,6 @@
 
 只在處理 `compile`、`link` 或 `health` 時讀取本文件。Vault 與路徑解析沿用 `SKILL.md`；需要基本路徑簡寫或同步細節時，再讀取 [core.md](core.md)。
 
-## 可選的 MLX 輔助
-
-若 `~/.claude/skills/scripts/mlx-chat.sh` 存在且可執行，可用它協助摘要、語義配對與品質抽樣。輸入優先走 stdin 或暫存檔，避免把筆記內容插入 shell 程式碼。
-
-MLX 是建議來源，不是最終決策者。Codex 必須檢查分類、frontmatter、歸檔路徑與是否忠於原文。Helper 回傳 exit code 2 或 3、伺服器不可達，或輸出無法解析時，直接由 Codex完成工作，並簡短標註已使用降級流程。不要輸出模型的隱藏推理內容。
-
-每次送入 MLX 的材料控制在約 2,000 字；超長筆記先擷取足以保持語意的部分，不得假裝已完整分析未讀內容。
-
 ## 共通 frontmatter
 
 編譯後筆記使用：

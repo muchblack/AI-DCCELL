@@ -6,7 +6,7 @@
 #
 # 範例:
 #   watchdog.sh 180 curl -s http://localhost:8090/v1/chat/completions ...
-#   watchdog.sh 300 ollama run qwen3.5:9b "hello"
+#   watchdog.sh 300 codex exec "hello"
 
 set -uo pipefail
 

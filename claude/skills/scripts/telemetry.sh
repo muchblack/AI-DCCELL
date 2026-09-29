@@ -4,8 +4,8 @@
 #       telemetry.sh query [--skill X] [--provider X] [--last N]
 #
 # record: 記錄一筆 skill 呼叫
-#   SKILL:       skill 名稱 (e.g. dev, mlx-code, ollama-code)
-#   PROVIDER:    AI provider (e.g. mlx, ollama, gemini, claude)
+#   SKILL:       skill 名稱 (e.g. hf-image, linus-review)
+#   PROVIDER:    AI provider (e.g. hf, gemini, claude)
 #   DURATION_MS: 耗時毫秒
 #   RESULT:      ok | passable | garbage | error | timeout | fallback
 #   --fallback:  標記此次為降級呼叫

@@ -8,8 +8,7 @@
 
 依序選擇可用的 Python：
 
-1. 可執行且依賴完整的 `~/.mlx-env/bin/python`。
-2. 能成功 import `networkx`、`community`、`jinja2` 的 `python3`。
+1. 能成功 import `networkx`、`community`、`jinja2` 的 `python3`。
 
 腳本、模板或依賴缺失時，回報具體缺項，不自行安裝套件。可以提供不依賴圖形套件的基本連結統計作為替代，但不得宣稱已完成 Louvain 或 centrality 分析。
 
