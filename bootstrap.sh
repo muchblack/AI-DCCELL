@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
 # AI-DCCELL Bootstrap
-# 一鍵部署 Claude Code + CCB 多 AI 協作工作流體系
+# 一鍵部署 Claude Code 多 AI 協作工作流體系
 #
 # 功能：
 #   1. 建立 ~/.claude 下的 symlink（agents, skills, CLAUDE.md）
 #   2. 確保 scripts 有執行權限
-#   3. 建立 memory 目錄（corrections, telemetry）
+#   3. 建立 memory 目錄（telemetry）
 #   4. 執行 health-check 驗證環境
 #
 # 用法：

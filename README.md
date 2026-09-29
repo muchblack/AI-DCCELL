@@ -1,8 +1,8 @@
 # AI-DCCELL
 
-> **多 AI 協作工作流的自進化基礎設施** — 會自我再生、自我增殖、自我進化的 Claude Code + CCB 體系。
+> **多 AI 協作工作流的自進化基礎設施** — 會自我再生、自我增殖、自我進化的 Claude Code 體系。
 
-以《機動武鬥傳G 鋼彈》惡魔鋼彈 **DG 細胞**的三大理論為隱喻框架，把 Claude Code + CCB 多 AI 協作工作流，打造成一套容錯可恢復、改進可擴散、行為可演化的工程基礎設施。
+以《機動武鬥傳G 鋼彈》惡魔鋼彈 **DG 細胞**的三大理論為隱喻框架，把 Claude Code 多 AI 協作工作流，打造成一套容錯可恢復、改進可擴散、行為可演化的工程基礎設施。
 
 ---
 
@@ -21,7 +21,7 @@ chmod +x bootstrap.sh
 2. **[1b/4]** 部署 Codex 設定（`~/.codex/AGENTS.md`、`~/.codex/skills/`）
 3. **[1c/4]** 部署 Gemini 設定（`~/.gemini/GEMINI.md`、`~/.gemini/skills/`）
 4. **[2/4]** 設定 scripts 執行權限
-5. **[3/4]** 初始化 memory 目錄（corrections / telemetry）
+5. **[3/4]** 初始化 memory 目錄（telemetry）
 6. **[4/4]** 執行 health check，驗證 MLX / Ollama / provider 連線
 
 部署後可隨時用健康檢查確認 provider 狀態：
@@ -39,8 +39,8 @@ claude/skills/scripts/health-check.sh
 | DG 細胞理論 | 原始設定 | 工程實作 |
 |------------|---------|---------|
 | **自我再生** Regeneration | 核心未毀即可瞬間復原 | 健康檢查、指數退避重試、超時殺進程、狀態快照與修復 |
-| **自我增殖** Multiplication | 感染後幾何級數擴散 | Skill 骨架生成、統一 corrections pool、評分 rubric 單一來源 |
-| **自我進化** Evolution | 依環境/對手自動進化 | 呼叫遙測、效能報告、智慧路由依歷史表現選 provider |
+| **自我增殖** Multiplication | 感染後幾何級數擴散 | Skill 骨架生成、評分 rubric 單一來源 |
+| **自我進化** Evolution | 依環境/對手自動進化 | 呼叫遙測、效能報告 |
 
 ### 自我再生（Regeneration）— 容錯與自動恢復
 
@@ -50,7 +50,7 @@ claude/skills/scripts/health-check.sh
 | `scripts/retry.sh` | 指數退避重試 + jitter |
 | `scripts/watchdog.sh` | 超時殺進程（exit 124） |
 
-搭配 `/dev --resume`、`/continue` 與 provider 降級鏈（MLX/Ollama → Claude），中斷可從斷點續接。
+搭配 `/herdr-dev --resume` 與 provider 降級鏈（MLX/Ollama → Claude），中斷可從斷點續接。
 
 ### 自我增殖（Multiplication）— 知識共享與擴散
 
@@ -99,8 +99,8 @@ AI-DCCELL/
 │   └── skills/            # 約 50 個 skill 定義
 │       ├── scripts/       # 17 個共用基礎腳本（DG Cell Core）
 │       ├── docs/          # 協定文件（smart-router 等）
-│       ├── memory/        # 學習記憶（corrections / telemetry）
-│       └── ...            # dev, mlx-code, ollama-code, linus-review,
+│       ├── memory/        # 學習記憶（telemetry）
+│       └── ...            # herdr-dev, linus-review,
 │                          #   linus-analyze, tp, tr, magi, 命理三件套 等
 ├── codex/
 │   ├── AGENTS.md          # Codex 角色與 Rubric 定義
@@ -120,7 +120,7 @@ AI-DCCELL/
 - **Skills**：約 50 個（涵蓋開發工作流、程式碼審查、命理三件套、影像生成、求職、股市分析等）
 - **Agents**：9 類、共 44 個
 - **基礎腳本**：17 個（`claude/skills/scripts/`）
-- **AI Providers**：Claude、Gemini、Codex、opencode、droid（CCB）＋ Ollama（LAN）＋ MLX（本地）
+- **AI Providers**：Claude、Gemini、Codex、opencode、droid ＋ Ollama（LAN）＋ MLX（本地）
 - **通訊協定**：Async Ask Pattern、FileOpsREQ/RES、Role-Based Routing、Linus 式 Peer Review
 
 ---
@@ -130,7 +130,6 @@ AI-DCCELL/
 - macOS（Apple Silicon 推薦）
 - Python 3.10+
 - Claude Code CLI
-- CCB（Claude Code Bridge）多 AI 協作基礎設施
 - 選配：MLX Server（localhost:8090）、Ollama（LAN）
 
 ---
@@ -139,4 +138,3 @@ AI-DCCELL/
 
 - [DG 細胞理論藍圖](docs/DG%20細胞理論%20—%20AI%20工作流自進化升級藍圖.md) — 設計文件
 - [DG 細胞理論實作紀錄](docs/DG%20細胞理論實作紀錄.md) — 三大模組開發過程
-- [Claude Codex Bridge (CCB)](https://github.com/SeemSeam/claude_codex_bridge) — 多 AI 協作通訊基礎設施
