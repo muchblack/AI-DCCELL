@@ -194,7 +194,6 @@ echo ""
 echo -e "${CYAN}[3/4] Memory 目錄初始化${NC}"
 MEMORY_DIR="${SOURCE_DIR}/skills/memory"
 mkdir -p "${MEMORY_DIR}"
-touch "${MEMORY_DIR}/corrections.jsonl" 2>/dev/null || true
 touch "${MEMORY_DIR}/telemetry.jsonl" 2>/dev/null || true
 echo -e "  ${GREEN}✓ memory/ 目錄就緒${NC}"
 echo ""

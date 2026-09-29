@@ -59,8 +59,6 @@ claude/skills/scripts/health-check.sh
 |------|------|
 | `scripts/scaffold.sh` | Skill 骨架生成器（simple / intermediate / complex） |
 | `linus-review/rubric.md` | 三級評分（🟢🟡🔴）的唯一定義來源 |
-| `memory/corrections.jsonl` | 統一 corrections pool（含 metadata 篩選） |
-| `scripts/prune-corrections.sh` | 剪枝（FIFO 100 + critical 永久 + 90 天 minor 過期） |
 
 ### 自我進化（Evolution）— 效能追蹤與智慧路由
 
@@ -68,8 +66,6 @@ claude/skills/scripts/health-check.sh
 |------|------|
 | `scripts/telemetry.sh` | Skill 呼叫記錄（provider、耗時、結果、是否降級） |
 | `scripts/telemetry-report.sh` | 效能報告（成功率、耗時、降級頻率） |
-| `scripts/route-task.sh` | 智慧路由：依任務特徵 + provider 可用性 + 歷史表現，輸出 `{provider, reason, fallback}` |
-| `docs/smart-router.md` | 路由決策邏輯文件 |
 
 ---
 
