@@ -7,6 +7,11 @@ Is it thread-safe in concurrent scenarios?
 Are there security vulnerabilities such as SQL injection or XSS?
 Is sensitive information handled correctly?
 Is permission validation complete?
+Are record/tenant ids from the request checked against the current user/tenant (IDOR), rather than trusted as-is?
+Do outbound requests built from user input restrict scheme, host, and private-network targets (SSRF)?
+Are file uploads validated server-side (type, generated storage name, destination) rather than trusted by client filename/MIME?
+Does token verification pin the signature algorithm and check `exp`, `aud`, and `iss`?
+Are secrets kept out of source and committed config?
 
 #### Performance
 Are there obvious performance issues (e.g., N+1 queries, unnecessary loops)?

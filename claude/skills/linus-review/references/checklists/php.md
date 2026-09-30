@@ -43,6 +43,7 @@ Confirm attacker control and the output or execution context before reporting. F
 
 - Untrusted output rendered without context-appropriate escaping for HTML text, attributes, URLs, JavaScript, or CSS. For `.phtml` templates, verify whether the view helper already escapes the value and whether raw HTML is intentional and sanitized.
 - Authorization enforced only in a client, template, or hidden control rather than at the server-side operation; check route middleware, policies, voters, and controller guards before flagging.
+- Object-level authorization missing: a record or tenant id from the route or request (route-model binding, `find($id)`, `where('id', $request->id)`) reaches a user-owned or tenant-owned model with no policy/gate check or owner/tenant scope, letting one user read or modify another's data (IDOR). Check global scopes, policies, and `authorize()` calls before flagging.
 - State-changing browser requests missing required CSRF protection when cookie-based authentication makes cross-site invocation possible. Do not flag token-authenticated APIs that are not vulnerable to ambient credentials.
 - Redirects, response headers, or cookies built from untrusted data without validation or appropriate `Secure`, `HttpOnly`, and `SameSite` protections where those properties are required.
 - File uploads trusted by client filename, extension, or MIME header alone; verify server-side type checks, generated storage names, destination boundaries, and executable-file handling.

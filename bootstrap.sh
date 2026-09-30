@@ -138,17 +138,13 @@ else
 fi
 echo ""
 
-# === Step 1d: 外部 Skill 部署（獨立版控，不隨 agentSkill 版控走）===
+# === Step 1d: 外部 Skill 部署（git submodule，版本鎖在 agentSkill；更新用 scripts/update-vendor.sh）===
 echo -e "${CYAN}[1d/4] 外部 Skill 部署${NC}"
 OPEN_SEO_ADVISOR_DIR="${SOURCE_DIR}/skills/open-seo-advisor"
-if [[ -d "${OPEN_SEO_ADVISOR_DIR}" ]]; then
-    echo -e "  ${GREEN}✓ open-seo-advisor（已存在）${NC}"
-elif command -v git >/dev/null 2>&1; then
-    git clone --depth 1 https://github.com/mars-tw/open-seo-advisor-skill.git "${OPEN_SEO_ADVISOR_DIR}" >/dev/null 2>&1 \
-        && echo -e "  ${GREEN}✓ open-seo-advisor（已 clone）${NC}" \
-        || echo -e "  ${YELLOW}⚠ open-seo-advisor clone 失敗，略過${NC}"
+if git -C "${SCRIPT_DIR}" submodule update --init >/dev/null 2>&1; then
+    echo -e "  ${GREEN}✓ 外部 skill submodule（security-audit, open-seo-advisor）${NC}"
 else
-    echo -e "  ${YELLOW}跳過：找不到 git${NC}"
+    echo -e "  ${YELLOW}⚠ submodule 初始化失敗，請手動執行 git submodule update --init${NC}"
 fi
 
 # SKILL.md 要求 Codex 走 ~/.codex/skills/open-seo-advisor/ 才能用 $open-seo-advisor 語法

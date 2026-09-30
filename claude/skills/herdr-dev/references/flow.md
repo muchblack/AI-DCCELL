@@ -331,7 +331,7 @@ On the wait firing, `herdr agent get <worker>`:
 
    | Bucket | Path match | Security tells | DB/perf tells |
    |---|---|---|---|
-   | PHP/Laravel | `**/*.php` | raw `DB::raw`/`whereRaw` string interpolation instead of bindings or the query builder; mass-assignment vs fillable/guarded; `unserialize()` or dynamic `eval`/`include` on attacker-reachable data | Eloquent N+1 (missing `with()`), `->get()` without pagination on a possibly-large table |
+   | PHP/Laravel | `**/*.php` | raw `DB::raw`/`whereRaw` string interpolation instead of bindings or the query builder; mass-assignment vs fillable/guarded; route-model binding or `find($id)` on a user-owned/tenant-owned model with no policy/`authorize()` or owner/tenant scope; `unserialize()` or dynamic `eval`/`include` on attacker-reachable data | Eloquent N+1 (missing `with()`), `->get()` without pagination on a possibly-large table |
    | JS/TS/frontend | `**/*.{js,ts,jsx,tsx}` | `dangerouslySetInnerHTML`/`innerHTML` from unescaped input; URLs/HTML built via string concatenation; unhandled promise rejection on a path with side effects | client-side loops re-fetching per item instead of batching |
    | SQL/mapper | `**/*.sql`, `**/*mapper*.xml` | string-concatenated SQL instead of bound parameters, especially dynamic `LIKE`/`IN` clauses | missing WHERE (full-table-scan risk), missing LIMIT/pagination on a large table |
    | Go | `**/*.go` | SQL/shell/paths built from untrusted input without parameterization/escaping; `math/rand` used for tokens/session ids instead of `crypto/rand` | goroutine/resource leak on an early-return path, unreleased `sql.Rows`/lock |
@@ -339,10 +339,25 @@ On the wait firing, `herdr agent get <worker>`:
    All buckets share these **language-neutral categories** regardless of
    which rows apply:
    - **(1) Security** — server-side authz enforced (not just hidden in a
-     client/template); untrusted input reaching a query, shell, template,
-     or dynamic-eval sink without parameterization/escaping/allowlisting;
-     secrets or tokens logged or returned in error output; weak/predictable
-     randomness for tokens or session ids.
+     client/template); object-level authz: a record/tenant id taken from
+     the request is checked against the authenticated user/tenant, not
+     trusted as-is (IDOR/BOLA); untrusted input reaching a query, shell,
+     template, or dynamic-eval sink without parameterization/escaping/
+     allowlisting; outbound URLs built from untrusted input without
+     scheme/host/private-network restrictions (SSRF); file uploads trusted
+     by client name/extension/MIME instead of server-side type checks and
+     generated storage paths; token verification that skips signature
+     algorithm pinning, `exp`, `aud`, or `iss`; secrets hardcoded in source
+     or committed config, or logged/returned in error output;
+     weak/predictable randomness for tokens or session ids; the same state
+     change reachable through a second path (API vs UI, bulk/batch,
+     export/import, job/console) that checks a weaker permission or skips
+     per-item authz; check-then-act without a lock/atomic update on money,
+     quota, approval, or state-machine steps (double-spend, replayed or
+     skipped step); soft-deleted/revoked records still reachable (e.g.
+     `withTrashed`, route binding, restore re-granting access current
+     policy no longer allows); cache/queue/storage keys that omit the
+     tenant or owner.
    - **(2) Runtime execution performance** — hot-path algorithmic
      complexity, unbounded loops/recursion, blocking I/O on a request
      path without timeout, resources (files/sockets/locks/goroutines/
@@ -364,6 +379,30 @@ On the wait firing, `herdr agent get <worker>`:
    CRITICAL. Only an exploitable,
    evidenced security finding is a FIX-blocking CRITICAL; unevidenced
    suspicions belong in the findings list as 🟡, not as gates.
+   **Security finding gate** (adapted from cloudflare/security-audit-skill):
+   a security finding must name all six — lower-trust principal, the
+   input/action it controls, the intended control, the boundary crossed,
+   the affected principal/resource, and the concrete result. Missing any
+   one → not a finding. A checklist deviation, a missing defense-in-depth
+   layer when another layer already blocks the attack, same-principal
+   self-impact, or guessed deployment/proxy/IAM behavior is never a
+   finding. Classify each candidate:
+   - `confirmed` — complete source trace plus concrete result; assign
+     severity. **critical**: unauthenticated code execution, full
+     data-store access, or arbitrary account takeover. **high**: fully
+     defeats an explicit control with real consequences (auth bypass,
+     cross-tenant/cross-user read or write, stored XSS affecting others,
+     authenticated code execution). **medium**: real boundary violation
+     with limited blast radius or uncommon preconditions. **low**:
+     non-secret internals disclosed, or high effort for minimal gain.
+     High vs medium: does it *fully defeat* the control or only weaken
+     it? If you cannot state the concrete damage, it's lower than it feels.
+   - `needs_validation` — source-grounded but blocked on one fact not in
+     the repo (deployment, proxy, provider config); state that exact fact
+     and a safe check; no severity.
+   - `rejected` — disproved; omit from the verdict.
+   Mapping: `confirmed` critical/high → FIX-blocking CRITICAL;
+   `confirmed` medium/low and `needs_validation` → 🟡 findings, not gates.
    Require an explicit verdict per axis, findings ranked by severity,
    written to `.herdr-dev/tasks/<slug>/verdict.md`:
    - **(a) code quality** — taste, correctness, maintainability (Linus

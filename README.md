@@ -24,6 +24,21 @@ chmod +x bootstrap.sh
 5. **[3/4]** 初始化 memory 目錄（telemetry）
 6. **[4/4]** 執行 health check，驗證 Gemini / Codex / provider 連線
 
+### 外部 Skill（git submodule）
+
+`security-audit`（cloudflare/security-audit-skill）與 `open-seo-advisor`（mars-tw/open-seo-advisor-skill）以 submodule 鎖定版本，`bootstrap.sh` 會自動初始化。已部署的機器 pull 之後補跑：
+
+```bash
+git pull && git submodule update --init
+```
+
+更新上游版本（會先顯示 diff、確認後跑檢查再 commit，不會自動 push）：
+
+```bash
+scripts/update-vendor.sh                  # 列出目前版本
+scripts/update-vendor.sh security-audit
+```
+
 部署後可隨時用健康檢查確認 provider 狀態：
 
 ```bash

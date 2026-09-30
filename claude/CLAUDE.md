@@ -170,6 +170,9 @@ Compose file lives in `~/srv/servers/docker-compose.yml`:
 - herdr 流程內（/herdr-dev, /dispatch 進行中）：一律用本地 skill，
   不觸發 mattpocock 系列的 implement/code-review 類行為。
 - 程式碼審查：只用 /linus-review。
+- 全 repo 資安稽核（cloudflare security-audit）：只在使用者明確要求
+  「security audit／全面資安稽核」時跑 full audit mode；日常 diff 審查與
+  herdr 流程內不觸發（herdr reviewer 已內含它的判定門檻）。
 - 需求鍛造（需求模糊、要寫 spec）：用 grill-with-docs / to-spec。
 - 開需求進 Linear（不論來源是 to-spec 產出、grill-with-docs 磨出來、
   既有 issue 要拆解、或直接手動診斷出的缺陷）：一律再跑一次

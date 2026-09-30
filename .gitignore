@@ -24,5 +24,8 @@ skills/memory/telemetry.jsonl
 **/.venv/
 **/__pycache__/
 
-# 巢狀 git repo（保留獨立版控，不併入 agentSkill 歷史）
-claude/skills/open-seo-advisor/
+# claude.ai 同步進來的內建 skills（每台機器各自產生）
+claude/skills/synced/
+
+# Windows 下載附帶的 ADS 檔
+*:Zone.Identifier
