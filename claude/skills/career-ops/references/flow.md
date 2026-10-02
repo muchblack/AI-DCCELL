@@ -12,8 +12,11 @@
 ├── stories/              # STAR+R 面試故事庫
 │   └── *.md              # 每個故事一個檔案
 ├── pipeline.md           # 求職 pipeline 總覽
-└── resumes/              # 產出的客製化履歷
-    └── {company}-{role}-{date}.md
+├── resumes/              # 產出的客製化履歷
+│   └── {company}-{role}-{date}.md
+└── letters/              # 產出的自我推薦信
+    ├── {company}-{role}-{date}.md   # Markdown 版
+    └── {company}-{role}-{date}.txt  # 純文字版，直接貼上用
 ```
 
 ## 子指令
@@ -86,6 +89,36 @@
 - 不會發明經歷或誇大成果
 - 只做「選擇」和「重排」，不做「捏造」
 - 每次產出都標註基於哪個 JD
+
+### `/career-ops cover <url-or-id>`
+
+為特定職缺產出自我推薦信（cover letter）。
+
+**流程：**
+1. 取得 JD 內容（從 URL 抓取，或從 pipeline 中找已評估的職缺；104 抓不到就請使用者貼 JD 文字）
+2. 讀取 `cv.md`、`profile.yml`、`stories/`、`article-digest.md`（若有）
+3. 從 JD 挑出 2–3 個最關鍵的要求，每個要求配一段實際經歷或故事當證據；配不到的要求不硬湊，在摘要中列為缺口
+4. 依投遞平台決定語言與長度：
+   - 104／本土公司：繁體中文，約 300 字
+   - 外商／英文 JD：英文，一頁以內
+5. 寫草稿，結構：開頭一句說明應徵哪個職位、為什麼是這家公司 → 2–3 段要求對證據 → 收尾一句邀約面談
+6. **說人話潤稿（預設執行，不詢問使用者）**：用 `speak-human-tw` skill 處理草稿，走它的「跳過確認、事後摘要」模式，直接套用全部建議；保護清單與保真回讀照樣做滿。英文信同樣去 AI 套話（force multiplier、passionate about、I am excited to 這類）、破折號全篇最多 1 個
+7. **herdr 審稿（僅在 herdr 架構下）**：執行 `herdr agent list`，若同一 workspace 有 codex 與 agy pane，把潤稿後的信、JD 原文、`cv.md` 路徑交給兩者平行審稿（英文 prompt，唯讀、不准改檔，結果寫入 `letters/review_{agent}.md`）。審查重點：
+   - 事實保真：信中每個數字、公司、技術都能在 `cv.md` 或 stories 找到出處
+   - 與 JD 的對應是否成立、有沒有漏掉 JD 的關鍵要求
+   - 殘留的 AI 腔與中國用語
+   - 語氣是否符合資深職位
+   main 收到後逐條判斷：對照原始資料查證過的意見直接套用，誤判（例如比對錯檔案、把原文已有的事實當成捏造）不採用。不在 herdr 架構下就跳過這一步
+8. 同一份內容存兩個檔：
+   - `letters/{company}-{role}-{date}.md`：Markdown 版，含標題與依據的 JD 資訊，方便存檔與日後修改
+   - `letters/{company}-{role}-{date}.txt`：純文字版，只有信件本文，不含任何 Markdown 符號（`#`、`**`、`-` 清單、連結語法），段落之間空一行，可以直接貼進 104 或 Email
+9. 輸出摘要：說人話改了幾處（原句／為什麼／改成什麼）、herdr 審稿的採用與不採用清單（附理由）、JD 要求中找不到證據的缺口
+
+**注意：**
+- 與 `resume` 相同原則：只挑選和重排，不捏造經歷、不編數字
+- 缺具體成果時用「（需補充：……）」佔位，不代編
+- 每封信標註是依據哪一份 JD 寫的
+- 信件內容一律用現代口吻：白話、專業、直接，不套用軍機處大臣的語氣或稱謂（不寫「聖上」「臣」「陛下」等）。推薦信是寄給招募方的對外文件，軍機處風格只用在與使用者的對話視窗本身
 
 ### `/career-ops stories [add|list|match <url>]`
 

@@ -1,11 +1,13 @@
 ---
 name: career-ops
 description: >-
-  AI 求職助手：職缺評估（A-F 評分）、履歷客製化、面試故事庫、Pipeline 追蹤。
+  AI 求職助手：職缺評估（A-F 評分）、履歷客製化、自我推薦信、面試故事庫、Pipeline 追蹤。
   Triggers on: 求職, 職缺評估, 評估職缺, 履歷, career-ops, job evaluation,
-  evaluate job, 客製化履歷, 面試準備, interview prep, pipeline, 求職追蹤.
+  evaluate job, 客製化履歷, 推薦信, 自我推薦信, 求職信, cover letter,
+  面試準備, interview prep, pipeline, 求職追蹤.
   Examples: "/career-ops evaluate <url>",
   "/career-ops resume <url>",
+  "/career-ops cover <url>",
   "/career-ops stories",
   "/career-ops pipeline".
 argument-hint: "<subcommand> [args]"
