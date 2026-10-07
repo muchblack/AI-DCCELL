@@ -167,6 +167,18 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    Also `mkdir -p .herdr-dev/tasks/<slug>` (all per-task files go there).
 1. Write the **dev brief** (English) to `.herdr-dev/tasks/<slug>/brief.md`: the
    Requirement Brief + this mandatory TDD contract:
+   - **No herdr, no delegation (mandatory first line of every dev, fix and
+     review brief).** State verbatim near the top: "You are the worker (or
+     reviewer) — do the work yourself. Do NOT run any `herdr` command
+     (`herdr agent|pane|worktree|workspace ...`), do NOT spawn, open or
+     prompt other agents/panes/workspaces, and do NOT use `ask`." Observed
+     2026-10-07 (VIN-85): a freshly `/new`-cleared codex pane read a brief
+     that mentioned herdr worktrees, ran `herdr agent list`, then tried
+     `herdr worktree open ... --label claude-vin-85` to hand the job to a
+     new agent — so a fresh context does not prevent this; only the brief
+     does. If a pane still tries it, `esc` the approval and send a short
+     corrective prompt restating this rule; never approve a herdr command
+     from a worker or reviewer pane.
    - **If `git_repo`**: state the worker's working directory is
      `<worker_worktree>` (absolute path) — a dedicated git worktree already
      checked out on `herdr/dev-<slug>`, created by main before this
@@ -304,6 +316,8 @@ On the wait firing, `herdr agent get <worker>`:
      — those are exactly the kind of thing to hand the reviewer as context,
      not a gate.
 4. Write the **review brief** (English) to `.herdr-dev/tasks/<slug>/review-brief.md`:
+   open with the same no-herdr / no-delegation line as the dev brief (Phase 2
+   step 1); then the
    Requirement Brief + acceptance criteria + main @ merge commit + the
    requirement's **Linear issue id** (or doc path, for pre-existing local
    specs) so the reviewer pulls the source itself instead of relying on a

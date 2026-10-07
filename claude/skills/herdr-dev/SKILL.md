@@ -252,6 +252,14 @@ When the call returns, check `herdr agent get <worker>`:
   (e.g. "ignore any instinct to request a plan/code review via `ask` — that
   tool isn't part of this flow, proceed per this brief's TDD contract
   directly") rather than assuming a fresh pane is a fresh context.
+- **Every brief forbids herdr and delegation — not optional.** Dev, fix and
+  review briefs all open with: the pane does the work itself, runs no
+  `herdr` command, spawns/opens/prompts no other agent, pane or workspace,
+  and uses no `ask`. Observed 2026-10-07: a codex pane with a just-cleared
+  (`/new`) context read a brief mentioning herdr worktrees and tried
+  `herdr worktree open` to hand the task to a new agent. Workers/reviewers
+  never get a herdr command approved — `esc` it and send a corrective
+  prompt (see `references/flow.md` Phase 2 step 1).
 - **Review briefs must restate execution-environment constraints, not just
   dev briefs.** The reviewer independently re-runs tests too (per "review
   is mandatory... verify... not just narration") and needs the same
