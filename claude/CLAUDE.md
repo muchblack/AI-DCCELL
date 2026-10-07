@@ -184,3 +184,7 @@ Compose file lives in `~/srv/servers/docker-compose.yml`:
   與需求文件不受此限。
 - 結構化除錯：用 diagnosing-bugs。
 - 對話交接：用 handoff（與 .herdr/compact-briefing 互補，不取代）。
+- ui-ux-pro-max：SKILL.md 的 `${CLAUDE_PLUGIN_ROOT}` 路徑在本機（symlink
+  安裝）會失效，一律用 `python3 ~/.claude/skills/ui-ux-pro-max/scripts/search.py`，
+  不要加 `-I`（腳本需從自身目錄 import `core.py`）。`--design-system` 的版型偏行銷頁，
+  非 landing page 的專案只參考配色與字體。
