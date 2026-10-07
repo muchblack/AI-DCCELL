@@ -5,6 +5,8 @@
 #   scripts/update-vendor.sh                  # 列出所有外部 skill 與目前版本
 #   scripts/update-vendor.sh security-audit   # 更新指定的 skill
 #   scripts/update-vendor.sh open-seo-advisor
+#   scripts/update-vendor.sh ui-ux-pro-max    # 一併更新 banner-design、brand、design、design-system、slides、ui-styling
+#   scripts/update-vendor.sh find-skills
 #
 # 不會 push；確認沒問題後自行 git push。
 
@@ -17,6 +19,8 @@ cd "${ROOT}"
 VENDORS=(
     "security-audit|vendor/security-audit-skill|skills/security-audit|node --test validate-findings.test.cjs validate-coverage-ledger.test.cjs"
     "open-seo-advisor|claude/skills/open-seo-advisor|.|"
+    "ui-ux-pro-max|vendor/ui-ux-pro-max-skill|.claude/skills/ui-ux-pro-max|for s in banner-design brand design design-system slides ui-styling; do test -f ../\$s/SKILL.md || { echo \"缺少 \$s/SKILL.md\"; exit 1; }; done"
+    "find-skills|vendor/vercel-skills|skills/find-skills|"
 )
 
 list() {

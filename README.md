@@ -26,7 +26,16 @@ chmod +x bootstrap.sh
 
 ### 外部 Skill（git submodule）
 
-`security-audit`（cloudflare/security-audit-skill）與 `open-seo-advisor`（mars-tw/open-seo-advisor-skill）以 submodule 鎖定版本，`bootstrap.sh` 會自動初始化。已部署的機器 pull 之後補跑：
+下列外部 skill 以 submodule 鎖定版本（放在 `vendor/`，再以 symlink 掛到 `claude/skills/`）：
+
+| Skill | 上游 | submodule |
+|---|---|---|
+| `security-audit` | cloudflare/security-audit-skill | `vendor/security-audit-skill` |
+| `open-seo-advisor` | mars-tw/open-seo-advisor-skill | `claude/skills/open-seo-advisor` |
+| `ui-ux-pro-max`、`banner-design`、`brand`、`design`、`design-system`、`slides`、`ui-styling` | nextlevelbuilder/ui-ux-pro-max-skill | `vendor/ui-ux-pro-max-skill` |
+| `find-skills` | vercel-labs/skills | `vendor/vercel-skills` |
+
+`bootstrap.sh` 會自動初始化這些 submodule。已部署的機器 pull 之後補跑：
 
 ```bash
 git pull && git submodule update --init

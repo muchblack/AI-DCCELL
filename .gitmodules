@@ -4,3 +4,9 @@
 [submodule "claude/skills/open-seo-advisor"]
 	path = claude/skills/open-seo-advisor
 	url = https://github.com/mars-tw/open-seo-advisor-skill.git
+[submodule "vendor/ui-ux-pro-max-skill"]
+	path = vendor/ui-ux-pro-max-skill
+	url = https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git
+[submodule "vendor/vercel-skills"]
+	path = vendor/vercel-skills
+	url = https://github.com/vercel-labs/skills.git

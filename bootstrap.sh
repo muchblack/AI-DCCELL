@@ -142,7 +142,7 @@ echo ""
 echo -e "${CYAN}[1d/4] 外部 Skill 部署${NC}"
 OPEN_SEO_ADVISOR_DIR="${SOURCE_DIR}/skills/open-seo-advisor"
 if git -C "${SCRIPT_DIR}" submodule update --init >/dev/null 2>&1; then
-    echo -e "  ${GREEN}✓ 外部 skill submodule（security-audit, open-seo-advisor）${NC}"
+    echo -e "  ${GREEN}✓ 外部 skill submodule（security-audit, open-seo-advisor, ui-ux-pro-max 套組, find-skills）${NC}"
 else
     echo -e "  ${YELLOW}⚠ submodule 初始化失敗，請手動執行 git submodule update --init${NC}"
 fi
