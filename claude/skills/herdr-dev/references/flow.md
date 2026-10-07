@@ -227,6 +227,17 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    ```bash
    herdr agent prompt <worker> "Read .herdr-dev/tasks/<slug>/brief.md and execute it. Write your final report to .herdr-dev/tasks/<slug>/report.md when done." --wait --timeout 1800000
    ```
+   **Preferred when the worker will hit many approval prompts** (container
+   commands, git commits): send the prompt without `--wait`, then run
+   `scripts/approve-loop.sh` in the background — it waits, auto-approves only
+   allowlisted commands, and exits with `STATUS=…` or `NEEDS_REVIEW: <cmd>`
+   (see SKILL.md › Herdr Dispatch Pattern › `blocked`):
+   ```bash
+   herdr agent prompt <worker> "Read .herdr-dev/tasks/<slug>/brief.md and execute it. Write your final report to .herdr-dev/tasks/<slug>/report.md when done." >/dev/null
+   ~/.claude/skills/herdr-dev/scripts/approve-loop.sh <worker> <worker_worktree> "podman exec -w <container_worktree_path> <container> "
+   ```
+   On `NEEDS_REVIEW`, judge the command by hand, approve or `esc`, and
+   re-run the script. Same pattern for the reviewer pane.
 4. Reply one short line (`<worker agent> 開發中…`) and **END TURN**. The
    background call re-enters this session when it settles (idle/done/blocked)
    or times out.

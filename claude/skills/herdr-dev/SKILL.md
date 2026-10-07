@@ -154,7 +154,8 @@ When the call returns, check `herdr agent get <worker>`:
 - `blocked` → `herdr agent read <worker> --source recent-unwrapped --lines 40`;
   if it is a permission prompt, answer via `herdr agent send-keys <worker>
   <key>` (e.g. `enter`, `esc`, `y`); if it is a requirement question, ask
-  the Emperor. **This is normally a multi-round loop, not a one-shot**:
+  the Emperor. **Prefer `scripts/approve-loop.sh` for this** (see below) instead
+  of approving by hand. **This is normally a multi-round loop, not a one-shot**:
   send the key, then `herdr agent wait <worker> --timeout <ms>` again (can
   be a short foreground wait, not necessarily backgrounded) — expect several
   blocked→approve→blocked cycles in a row (observed: one per new command
@@ -167,6 +168,30 @@ When the call returns, check `herdr agent get <worker>`:
   without the project's required `podman exec` wrapper — see project
   CLAUDE.md), `esc` to cancel it and send a corrective prompt instead of
   approving and letting it fail.
+  **`scripts/approve-loop.sh` — allowlisted auto-approve (added 2026-10-07,
+  VIN-85/86).** Instead of hand-approving every `podman exec` and `git
+  commit`, dispatch with a plain `herdr agent prompt` (no `--wait`) and run
+  the script in the background — it does the waiting itself:
+  ```bash
+  herdr agent prompt <worker> "Read …/brief.md and execute it …" >/dev/null
+  ~/.claude/skills/herdr-dev/scripts/approve-loop.sh <worker> <host_worktree> \
+    "podman exec -w <container_worktree_path> <container> "
+  ```
+  It approves only (a) commands starting with the literal container prefix,
+  (b) `git -C <host_worktree> …` / `cd <host_worktree> && git …`, (c) plain
+  git `add|commit|diff|status|log|show|rev-parse|merge-base|ls-files`; it
+  refuses anything containing a `herdr` command, `rm -rf`, `curl`, `wget`,
+  or git `push|reset|checkout|switch|worktree|branch|rebase|clean|stash`.
+  Anything else → exits with `NEEDS_REVIEW: <command>` for main to judge by
+  hand (approve with `herdr pane send-keys <pane> enter` or `esc` + corrective
+  prompt), then re-run the script. Exits with `STATUS=idle|done` when the
+  pane settles — then do the normal report/verdict checks. Approvals are
+  logged to `.herdr-dev/approved-<worktree>.log`. Verified on codex's dialog
+  format (command line starts with `  $ `); other providers fall through to
+  `NEEDS_REVIEW` rather than being approved blindly. Pitfall already fixed in
+  the script: matching the bare word `herdr` blocked everything because the
+  worktree path itself contains `.herdr-dev` — it matches the `herdr `
+  command word only.
 - timed out / `agent_prompt_stalled` → read the pane; genuine progress →
   `herdr agent wait <worker> --timeout <ms>` again; stalled → treat as dead
   job: salvage on-disk work via git, re-dispatch the same brief.
