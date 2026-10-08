@@ -167,7 +167,12 @@ python3 -m venv ~/.claude/skills/qimen-dunjia/.venv
 | `chart.time_stem_visible` | 時幹（代表用戶當前狀態，**取用神的關鍵參考**）|
 | `chart.zhifu` | 值符：`{ palace, star, ... }` 嵌套對象，讀 `palace`（宮位）和 `star`（星名）|
 | `chart.zhishi` | 值使：`{ palace, door, ... }` 嵌套對象，讀 `palace`（宮位）和 `door`（門名）|
-| `chart.palaces` | 9 宮完整數組，每宮含 `palace`、`earth_stem`、`sky_stem`、`star`、`door`、`god`、`is_center`、`hosts_center` |
+| `chart.palaces` | 9 宮完整數組，每宮含 `palace`、`earth_stem`、`sky_stem`、`star`、`door`、`god`、`is_center`、`hosts_center`，另有 `stem_relation`（天地盤干生剋）、`star_element`/`door_element`、`star_palace_relation`/`door_palace_relation`（門被宮剋即門迫）|
+| `chart.door_index` / `chart.star_index` | 門/星 → 宮位反查，取用神直接查，不必遍歷九宮 |
+| `chart.day_stem` / `year_stem` / `month_stem` | 日干/年干/月干落宮（以**地盤**干定位，含 `raw_palace` 與寄坤後 `palace`）；日干為甲時取日旬首遁儀 |
+| `chart.day_kongwang` / `day_kongwang_palaces` | 日旬空（影響整日），與時旬空 `kongwang` 分開 |
+| `chart.yima` | 驛馬地支與落宮（依日支三合局）|
+| `chart.detected_patterns` | 自動偵測格局：三奇配吉門、伏吟、反吟、門迫、值符得位，各含 `nature`（吉/凶）|
 | `warnings` | 邊界提醒、寄宮提醒等 |
 
 **注意事項：**
