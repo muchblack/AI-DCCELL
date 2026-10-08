@@ -30,6 +30,8 @@ input (doc / text)
   → [main] self-review via /linus-review   (CRITICAL? → fix loop, reviewer never sees it)
   → [reviewer pane] review          (quality + spec + TDD + security + perf)
   → PASS ? report : regression RED → fix GREEN → re-review (max 2 rounds)
+  → PASS with 🟡 tuning suggestions → one tuning round → confirm review → report
+     (tuning round does NOT count toward the 2-round fix cap)
 ```
 
 Default worker = `codex`, default reviewer = `agy`; override with
@@ -335,6 +337,14 @@ When the call returns, check `herdr agent get <worker>`:
 - **Fixes go back to the worker.** On FIX, route findings back to the worker
   pane with a regression-test-first contract. Do not re-implement in main.
   Max 2 fix rounds, then escalate to the Emperor.
+- **Reviewer tuning suggestions get applied, outside the fix cap.** A PASS
+  verdict that still lists 🟡 tuning suggestions (taste, robustness,
+  ergonomics) is not done yet: main triages them, routes the adopted ones
+  back to the worker as **one tuning round**, then sends a scoped
+  confirmation review — before Phase 5 reports to Linear. The tuning round
+  is **not** one of the 2 fix rounds. Exactly one tuning round per task:
+  new 🟡 raised by the confirmation review are recorded as debt in the
+  Phase 5 report, not another round. See `references/flow.md` Phase 4.5.
 - **Ask the Emperor on requirement questions, anytime.** Scope, behavior,
   acceptance ambiguity → stop and AskUserQuestion (四段式). Implementation
   details are the worker's to decide — do not escalate those.

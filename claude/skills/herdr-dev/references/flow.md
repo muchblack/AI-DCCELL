@@ -473,7 +473,9 @@ State: `{ "step": "review_dispatched", "round": <n>, "merge_commit": "<sha>" }`
 On the reviewer wait firing (handle blocked/stalled as in Phase 3 preamble),
 read `.herdr-dev/tasks/<slug>/verdict.md`:
 
-- **PASS on all axes** → Phase 5.
+- **PASS on all axes, no 🟡 tuning suggestions** → Phase 5.
+- **PASS with 🟡 tuning suggestions** (and `tuning_round` not yet done) →
+  **Phase 4.5**. Do not report to Linear or move the issue to Done first.
 - **FIX** → route findings back to the worker pane:
   1. Write the fix brief to `.herdr-dev/tasks/<slug>/brief.md`: findings verbatim
      (ranked), unmet acceptance criteria, and the contract to add a
@@ -488,6 +490,51 @@ read `.herdr-dev/tasks/<slug>/verdict.md`:
     don't let worker and reviewer ping-pong.
 
 State per transition: `{ "step": "fix_dispatched", "round": <n> }`
+
+---
+
+## Phase 4.5: Tuning Round (reviewer's 🟡 suggestions)
+
+Triggered by a PASS verdict that lists 🟡 tuning suggestions (code taste,
+robustness, ergonomics — anything below FIX). **Does not count toward the
+2-round fix cap**, and `round` is not incremented. Runs **at most once**
+per task (`tuning_round: 1` in state).
+
+1. **Triage** each 🟡 (main, inline). Default is **adopt**. Skip only when
+   the suggestion (a) contradicts the requirement or a decision the Emperor
+   made, (b) is pure process feedback about past commits that cannot be
+   changed retroactively (e.g. "slice 3 batched tests") — carry it into the
+   next ticket's brief instead, or (c) is `needs_validation` blocked on a
+   fact outside the repo. Every skip gets a one-line reason, reported to
+   the Emperor in Phase 5 and in the Linear comment. A suggestion that would
+   change *what gets built* (scope/behavior the spec doesn't cover) →
+   AskUserQuestion before adopting it.
+2. **Tuning brief** → `.herdr-dev/tasks/<slug>/brief.md` (same opening
+   no-herdr line, same cwd/branch/base, same `owns` boundary, plus "do not
+   merge — main merges"). List the adopted suggestions verbatim. Contract:
+   a behavioral change gets a failing test first (**RED**) then the fix
+   (**GREEN**); a pure refactor with no behavior change needs no new RED —
+   the brief names which existing tests guard it, and the full suite must
+   stay green. Reuse the existing worker worktree and branch (the branch is
+   behind main's merge commit; that's fine — it is re-merged `--no-ff`).
+   Report `attempt: <n+1>` with a "tuning" label.
+3. Clear + dispatch + background wait (Phase 2 steps 2–4). END TURN.
+4. On the reply → **Phase 3 steps 1–3** as usual (verify via git, boundary
+   gate, independent test run, merge, `/linus-review`). A CRITICAL found
+   here is a normal fix round (counts toward the cap).
+5. **Confirmation review**: re-add the reviewer worktree at the new merge
+   commit (Phase 3 step 5) and dispatch a *scoped* review brief: the diff
+   is `<previous merge>..<new merge>`, the task is (a) confirm each adopted
+   🟡 is resolved, (b) check the tuning diff introduced no regression on
+   any axis. Same environment constraints and verdict format.
+6. Verdict:
+   - **PASS** → Phase 5. Any *new* 🟡 raised here are recorded as debt in
+     the Phase 5 report and the Linear comment — no second tuning round.
+   - **FIX** (the tuning broke something) → normal Phase 4 FIX handling;
+     **this one counts** toward the 2-round cap.
+
+State: `{ "step": "tuning_dispatched", "tuning_round": 1, "tuning_adopted": [...], "tuning_skipped": [{"item": "...", "reason": "..."}] }`
+→ `{ "step": "tuning_review_dispatched", "merge_commit": "<sha>" }`
 
 ---
 
@@ -507,7 +554,9 @@ State per transition: `{ "step": "fix_dispatched", "round": <n> }`
      name fails validation) with a Traditional Chinese status comment:
      processing outcome (PASS), the final merge commit sha(s) — one per
      fix round if more than one — worker commit sha(s), branch name, round
-     count, and test result summary.
+     count, and test result summary. If Phase 4.5 ran: the tuning merge
+     sha, which 🟡 were adopted, which were skipped (with reasons), and any
+     new 🟡 from the confirmation review recorded as debt.
    - `save_issue` with `id: "<issue-id>"` and `state` moved to the team's
      "Done" state (or equivalent completed-type state — check
      `list_issue_statuses` for the team if unsure of the exact name).
@@ -540,6 +589,8 @@ State per transition: `{ "step": "fix_dispatched", "round": <n> }`
      `done` → Phase 3; `working` → background wait again, END TURN;
      `blocked` → Phase 3 preamble.
    - `review_dispatched` → same check on `<reviewer>`; `done` → Phase 4.
+   - `tuning_dispatched` → same as `fix_dispatched` (worker), then Phase 4.5 step 4.
+   - `tuning_review_dispatched` → same check on `<reviewer>`; `done` → Phase 4.5 step 6.
    - `requirement_confirmed` → re-dispatch Phase 2.
    - `done` → nothing pending; report last outcome.
 3. Pane ids in state may be stale after a Herdr restart — re-run
