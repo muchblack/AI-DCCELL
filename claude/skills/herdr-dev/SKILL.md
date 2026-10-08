@@ -181,9 +181,14 @@ When the call returns, check `herdr agent get <worker>`:
   ```
   It approves only (a) commands starting with the literal container prefix,
   (b) `git -C <host_worktree> …` / `cd <host_worktree> && git …`, (c) plain
-  git `add|commit|diff|status|log|show|rev-parse|merge-base|ls-files`; it
-  refuses anything containing a `herdr` command, `rm -rf`, `curl`, `wget`,
-  or git `push|reset|checkout|switch|worktree|branch|rebase|clean|stash`.
+  git `add|commit|diff|status|log|show|rev-parse|merge-base|ls-files`, (d)
+  the exact composer-noise restore `git [-C <host_worktree>] checkout --
+  public/`; `&&` chains are split and every segment must pass. It refuses
+  any segment containing shell metacharacters (`;` `&` `|` `` ` `` `<` `>`
+  `$(`), a `herdr` command, `rm -rf`, `curl`, `wget`, or any other git
+  `push|reset|checkout|switch|worktree|branch|rebase|clean|stash`.
+  Regression tests: `bash scripts/test-approve-loop.sh` — run it after any
+  change to the allowlist.
   Anything else → exits with `NEEDS_REVIEW: <command>` for main to judge by
   hand (approve with `herdr pane send-keys <pane> enter` or `esc` + corrective
   prompt), then re-run the script. Exits with `STATUS=idle|done` when the

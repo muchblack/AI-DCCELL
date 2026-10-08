@@ -12,8 +12,12 @@
 #
 # 放行：
 #   - 以 container_prefix 開頭的指令
-#   - git -C <host_worktree> …、cd <host_worktree> && git …
+#   - git -C <host_worktree> …、cd <host_worktree> && …
 #   - 一般 git 子指令：add commit diff status log show rev-parse merge-base ls-files
+#   - 還原 composer 造成的資產雜訊：git [-C <host_worktree>] checkout -- public/
+#     （逐字比對，checkout 的其他用法照樣停下）
+#   - 以 && 串接、且每一段都符合上述規則的指令
+# 任一段含 ; & | ` < > $( 就整串停下（防止夾帶指令），容器指令也一樣
 # 一律停下（印出 NEEDS_REVIEW）：
 #   - 任何 herdr 指令、rm -rf、curl、wget
 #   - git push／reset／checkout／switch／worktree／branch／rebase／clean／stash
@@ -40,12 +44,34 @@ dangerous() {
     printf '%s' "$1" | grep -qE 'rm -rf|(^|[;&| ])herdr |curl |wget |git (push|reset|checkout|switch|worktree|branch|rebase|clean|stash)'
 }
 
-allowed() {
+# composer install 會改到 public/ 的 Filament 資產空白，brief 要求 worker 還原
+restore_public() {
+    [[ "$1" =~ ^git(\ -C\ ${WT//./\.})?\ checkout\ --\ public/?$ ]]
+}
+
+# 每一段都不得含 shell 控制字元：; & | ` < > $( 一律視為可能夾帶別的指令
+has_shell_meta() {
+    [[ "$1" =~ [\;\&\|\`\<\>] || "$1" == *'$('* ]]
+}
+
+single_allowed() {
     local cmd="$1"
+    has_shell_meta "$cmd" && return 1
+    restore_public "$cmd" && return 0
     dangerous "$cmd" && return 1
     [[ -n "$PREFIX" && "$cmd" == "$PREFIX"* ]] && return 0
-    [[ "$cmd" == "git -C $WT "* || "$cmd" == "cd $WT && git "* ]] && return 0
+    [[ "$cmd" == "git -C $WT "* ]] && return 0
     printf '%s' "$cmd" | grep -qE '^git (add|commit|diff|status|log|show|rev-parse|merge-base|ls-files)( |$)'
+}
+
+# 以 && 拆段，每段各自檢查；cd 只允許切到本 worktree
+allowed() {
+    local seg
+    while IFS= read -r seg || [ -n "$seg" ]; do
+        seg="$(printf '%s' "$seg" | sed -E 's/^ +| +$//g')"
+        [[ "$seg" == "cd $WT" ]] && continue
+        single_allowed "$seg" || return 1
+    done < <(printf '%s' "$1" | sed 's/&&/\n/g')
 }
 
 for _ in $(seq 1 200); do
