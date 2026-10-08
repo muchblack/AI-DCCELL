@@ -83,7 +83,7 @@ for _ in $(seq 1 200); do
     fi
 
     cmd=$(herdr agent read "$P" --source recent-unwrapped --lines 25 \
-        | grep -E '^\s+\$ ' | tail -1 | sed -E 's/^\s+\$ //')
+        | grep -E '^\s+\$ ' | tail -1 | sed -E 's/^[[:space:]]+\$ //')
 
     if [ -n "$cmd" ] && allowed "$cmd"; then
         herdr pane send-keys "$P" enter >/dev/null
