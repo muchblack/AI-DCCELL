@@ -179,6 +179,17 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
      does. If a pane still tries it, `esc` the approval and send a short
      corrective prompt restating this rule; never approve a herdr command
      from a worker or reviewer pane.
+   - **Dispatch id (every dev, fix, tuning and review brief).** Before
+     writing any brief, main increments `dispatch_seq` in state and puts
+     `dispatch_id: <slug>-<dispatch_seq>` on the brief's first line. The
+     brief requires the pane's output file (`report.md` / `verdict.md`) to
+     start with that exact line. On return, main accepts the file only if
+     its first line matches the id of the **latest** dispatch — anything
+     else is a leftover from an earlier ticket, round or stalled attempt,
+     never evidence. This one check replaces judging staleness by mtime,
+     title or header text (the cause of three stale `VERDICT: PASS` files
+     being trusted, 2026-09-24). A re-dispatch of an unchanged brief after a
+     stall still gets a new id.
    - **If `git_repo`**: state the worker's working directory is
      `<worker_worktree>` (absolute path) — a dedicated git worktree already
      checked out on `herdr/dev-<slug>`, created by main before this
@@ -210,7 +221,8 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    - Commit on branch `herdr/dev-<slug>`.
    - Write the final report to `.herdr-dev/tasks/<slug>/report.md` (per-task
      path — concurrent or successive tasks never overwrite each other) with
-     these fields: `status` (`DONE` | `BLOCKED`), `attempt` (1 = first
+     these fields: `dispatch_id` (first line, verbatim from the brief),
+     `status` (`DONE` | `BLOCKED`), `attempt` (1 = first
      dispatch, +1 per fix round), `result_sha` (`git rev-parse HEAD` after
      the final commit), TDD evidence table (per slice: RED command +
      expected failure, GREEN command + result), final suite result, changed
@@ -242,7 +254,7 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    background call re-enters this session when it settles (idle/done/blocked)
    or times out.
 
-State: `{ "step": "dev_dispatched", "round": 0, "base_sha": "<sha>", "owns": [...] }`
+State: `{ "step": "dev_dispatched", "round": 0, "base_sha": "<sha>", "owns": [...], "dispatch_seq": 1, "dispatch_id": "<slug>-1" }`
 
 ---
 
@@ -266,6 +278,10 @@ On the wait firing, `herdr agent get <worker>`:
   providers report idle/done even at a file-write confirmation prompt).
 
 1. **Verify against git, not the report**:
+   - `report.md` first line must equal this dispatch's `dispatch_id`
+     (Phase 2 step 1). Mismatch or missing → the worker has not written
+     this round's report yet: `agent read` the pane; still working → re-wait;
+     settled without a report → dead job (below).
    - `git log main..herdr/dev-<slug> --oneline` — **must be non-empty**. A
      worker can produce a fully correct diff, a convincing report, and
      still leave everything uncommitted (observed in practice: report
@@ -297,10 +313,16 @@ On the wait firing, `herdr agent get <worker>`:
    - Empty branch / no report file → dead job: salvage, re-dispatch.
    - Report contains a **requirement-level blocker** → AskUserQuestion,
      then re-dispatch as needed.
-   - **Repo hygiene**: `git status --porcelain` — flag untracked entries
-     outside the claimed changes (0-byte files, stray-punctuation names are
-     mis-pasted shell commands). Confirm deletion with the Emperor before
-     merging; never let them ride in via `git add -A`.
+   - **Clean worktree gate (hard).** `git -C <worker_worktree> status
+     --porcelain` must be empty before merge (non-git fallback: the shared
+     tree's status must show nothing beyond the claimed, committed
+     changes). Anything listed is either an uncommitted deliverable or
+     stray junk, and neither may be merged around: an uncommitted claimed
+     file → short follow-up prompt to commit exactly that file; stray
+     entries (0-byte files, stray-punctuation names from mis-pasted shell
+     commands) → confirm deletion with the Emperor. Never let them ride in via
+     `git add -A`. Build/test artifacts belong in `.gitignore`, not in an
+     exception list here.
 2. **Merge before review**: from main's own checkout (the repo's primary
    working tree — not the worker's worktree), `git merge --no-ff
    herdr/dev-<slug>` into main branch. Record the merge commit — the review
@@ -332,7 +354,9 @@ On the wait firing, `herdr agent get <worker>`:
    Requirement Brief + acceptance criteria + main @ merge commit + the
    requirement's **Linear issue id** (or doc path, for pre-existing local
    specs) so the reviewer pulls the source itself instead of relying on a
-   copied summary + the worker's TDD evidence + **main's own
+   copied summary + the worker's TDD evidence + the **change manifest**
+   (`git diff --stat <base_sha>..<merge-commit>`, which the reviewer must
+   open file by file, including added files) + **main's own
    `/linus-review` taste score and improvement notes from step 3** (so the
    reviewer isn't rediscovering the same things and can spend its attention
    on spec/TDD compliance — explicitly invite it to confirm, dispute, or add
@@ -344,8 +368,17 @@ On the wait firing, `herdr agent get <worker>`:
    command that fails by design. **Priority review focus — call these out
    explicitly even if the axes below don't surface them.**
 
+   **Review scope is the whole task, every round.** The verdict covers
+   `<base_sha>..<merge-commit>` (pinned base from state) against the full
+   acceptance criteria. On a re-review after a fix round, also give the
+   increment `<previous merge>..<merge-commit>` so the reviewer can confirm
+   each prior finding is resolved — but a PASS still certifies the whole
+   task, never just the patch. (Phase 4.5's scoped confirmation review is
+   the one exception, and it explicitly builds on an earlier whole-task
+   PASS.)
+
    First, **detect which stacks this diff actually touches**: `git diff
-   --name-only <parent-of-merge>..<merge-commit>` and bucket the paths by
+   --name-only <base_sha>..<merge-commit>` and bucket the paths by
    extension/location using the table below. Then write into the brief
    **only the stack-specific tells for buckets present in this diff** —
    drop every row that doesn't match, so agy gets a short, targeted
@@ -429,7 +462,37 @@ On the wait firing, `herdr agent get <worker>`:
    Mapping: `confirmed` critical/high → FIX-blocking CRITICAL;
    `confirmed` medium/low and `needs_validation` → 🟡 findings, not gates.
    Require an explicit verdict per axis, findings ranked by severity,
-   written to `.herdr-dev/tasks/<slug>/verdict.md`:
+   written to `.herdr-dev/tasks/<slug>/verdict.md` in this shape (the
+   header lines are what main checks mechanically; everything else is for
+   reading):
+   ```
+   dispatch_id: <id from the review brief>
+   reviewed_sha: <merge commit the reviewer actually checked out>
+   verdict: PASS | FIX | BLOCKED
+
+   ## Axes
+   (a) quality: PASS|FIX  (b) spec: …  (c) tdd: …  (d) security: …  (e) perf: …
+
+   ## Findings
+   | id | axis | class | path:line | evidence | fix |
+   |----|------|-------|-----------|----------|-----|
+   | F1 | b | CRITICAL | app/X.php:42 | <reachable input / failing case> | <concrete fix> |
+   | F2 | a | 🟡 | ... | ... | ... |
+
+   ## Coverage
+   files opened, acceptance criteria checked, commands actually run + results
+
+   ## Limitations
+   what could not be checked and why (zero is fine — say "none")
+   ```
+   Consistency rules main enforces on read: `PASS` contains no CRITICAL
+   row; `FIX` contains at least one CRITICAL row with evidence; `BLOCKED`
+   means required evidence was unavailable (tests could not run, worktree
+   or commit mismatch, missing access) and names the missing thing under
+   Limitations. A verdict that breaks these rules, or whose `dispatch_id`
+   / `reviewed_sha` don't match the dispatch, is not a verdict — send the
+   reviewer a one-line correction, don't interpret it. Zero findings is a
+   valid PASS; a long findings list is not a quality score. Axes:
    - **(a) code quality** — taste, correctness, maintainability (Linus
      standards: data structures, edge cases, no needless complexity).
    - **(b) spec compliance** — diff vs requirement document item by item;
@@ -464,18 +527,25 @@ On the wait firing, `herdr agent get <worker>`:
    `.herdr-dev/tasks/<slug>/review-brief.md` → `.herdr-dev/tasks/<slug>/verdict.md`).
 8. Reply one short line (`<reviewer agent> 審查中…`) and **END TURN**.
 
-State: `{ "step": "review_dispatched", "round": <n>, "merge_commit": "<sha>" }`
+State: `{ "step": "review_dispatched", "round": <n>, "merge_commit": "<sha>", "dispatch_seq": <k>, "dispatch_id": "<slug>-<k>" }`
 
 ---
 
 ## Phase 4: Handle the Verdict
 
 On the reviewer wait firing (handle blocked/stalled as in Phase 3 preamble),
-read `.herdr-dev/tasks/<slug>/verdict.md`:
+read `.herdr-dev/tasks/<slug>/verdict.md`. Accept it only if the pane is
+settled, `dispatch_id` matches the latest dispatch, `reviewed_sha` equals
+`merge_commit` in state, and the consistency rules (Phase 3 step 4) hold.
+Otherwise it is stale or malformed — re-wait or correct, never act on it.
 
 - **PASS on all axes, no 🟡 tuning suggestions** → Phase 5.
 - **PASS with 🟡 tuning suggestions** (and `tuning_round` not yet done) →
   **Phase 4.5**. Do not report to Linear or move the issue to Done first.
+- **BLOCKED** → the reviewer could not get the evidence it needs. Fix the
+  stated cause (environment wrapper, worktree/commit, permission) or ask
+  the Emperor if it is outside main's reach, then re-dispatch the same review
+  with a new `dispatch_id`. Not a fix round, and never read as PASS.
 - **FIX** → route findings back to the worker pane:
   1. Write the fix brief to `.herdr-dev/tasks/<slug>/brief.md`: findings verbatim
      (ranked), unmet acceptance criteria, and the contract to add a
@@ -489,7 +559,7 @@ read `.herdr-dev/tasks/<slug>/verdict.md`:
   - A finding that is a **requirement disagreement** → the Emperor's call;
     don't let worker and reviewer ping-pong.
 
-State per transition: `{ "step": "fix_dispatched", "round": <n> }`
+State per transition: `{ "step": "fix_dispatched", "round": <n>, "dispatch_seq": <k>, "dispatch_id": "<slug>-<k>" }`
 
 ---
 
@@ -533,8 +603,8 @@ per task (`tuning_round: 1` in state).
    - **FIX** (the tuning broke something) → normal Phase 4 FIX handling;
      **this one counts** toward the 2-round cap.
 
-State: `{ "step": "tuning_dispatched", "tuning_round": 1, "tuning_adopted": [...], "tuning_skipped": [{"item": "...", "reason": "..."}] }`
-→ `{ "step": "tuning_review_dispatched", "merge_commit": "<sha>" }`
+State: `{ "step": "tuning_dispatched", "tuning_round": 1, "dispatch_seq": <k>, "dispatch_id": "<slug>-<k>", "tuning_adopted": [...], "tuning_skipped": [{"item": "...", "reason": "..."}] }`
+→ `{ "step": "tuning_review_dispatched", "merge_commit": "<sha>", "dispatch_seq": <k+1>, "dispatch_id": "<slug>-<k+1>" }`
 
 ---
 
@@ -591,6 +661,11 @@ State: `{ "step": "tuning_dispatched", "tuning_round": 1, "tuning_adopted": [...
    - `review_dispatched` → same check on `<reviewer>`; `done` → Phase 4.
    - `tuning_dispatched` → same as `fix_dispatched` (worker), then Phase 4.5 step 4.
    - `tuning_review_dispatched` → same check on `<reviewer>`; `done` → Phase 4.5 step 6.
+   - In every `*_dispatched` case, the output file only counts if its first
+     line matches state's latest `dispatch_id`. Old state files with no
+     `dispatch_seq` (flows started before this rule): verify via git as in
+     Phase 3, then re-dispatch the pending step with a fresh id rather than
+     trusting whatever report/verdict is on disk.
    - `requirement_confirmed` → re-dispatch Phase 2.
    - `done` → nothing pending; report last outcome.
 3. Pane ids in state may be stale after a Herdr restart — re-run

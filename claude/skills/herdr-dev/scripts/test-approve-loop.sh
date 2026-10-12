@@ -46,4 +46,19 @@ t stop  'git checkout -- public/; rm -rf app'
 t stop  'git checkout -- public/ && rm -rf app'
 t stop  "cd $WT; git status"
 t stop  'python3 x.py'
+# git -C <worktree> 不得繞過子指令白名單
+t stop  "git -C $WT reset --hard HEAD~3"
+t stop  "git -C $WT push origin main"
+t stop  "git -C $WT clean -fdx"
+t stop  "git -C $WT checkout main"
+t stop  "git -C $WT config core.hooksPath /tmp/x"
+t stop  "cd $WT && git -C $WT push"
+t stop  'git diff --output=/home/u/.bashrc'
+t stop  "git -C $WT log --output /tmp/x"
+t stop  'podman exec -w /x cashier-php git -C /var/www push origin main'
+t stop  'podman exec -w /x cashier-php git -c core.x=y -C /w reset --hard'
+t allow "git -C $WT/ status"
+t allow 'podman exec -w /x cashier-php git status'
+t allow "git -C $WT diff --stat"
+t allow "git -C $WT add app/X.php && git -C $WT commit -m x"
 [ $fail = 0 ] && echo "ALL PASS"; exit $fail

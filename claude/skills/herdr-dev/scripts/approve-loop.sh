@@ -12,14 +12,15 @@
 #
 # 放行：
 #   - 以 container_prefix 開頭的指令
-#   - git -C <host_worktree> …、cd <host_worktree> && …
-#   - 一般 git 子指令：add commit diff status log show rev-parse merge-base ls-files
+#   - cd <host_worktree> && …
+#   - git 子指令：add commit diff status log show rev-parse merge-base ls-files
+#     （git -C <host_worktree> 視同一般 git，同樣只放行這些子指令）
 #   - 還原 composer 造成的資產雜訊：git [-C <host_worktree>] checkout -- public/
 #     （逐字比對，checkout 的其他用法照樣停下）
 #   - 以 && 串接、且每一段都符合上述規則的指令
 # 任一段含 ; & | ` < > $( 就整串停下（防止夾帶指令），容器指令也一樣
 # 一律停下（印出 NEEDS_REVIEW）：
-#   - 任何 herdr 指令、rm -rf、curl、wget
+#   - 任何 herdr 指令、rm -rf、curl、wget、--output（git diff/log/show 可藉此寫任意檔）
 #   - git push／reset／checkout／switch／worktree／branch／rebase／clean／stash
 #   - 不在白名單內的其他指令
 #
@@ -32,7 +33,7 @@
 
 set -u
 P="${1:?pane}"
-WT="${2:?host worktree path}"
+WT="${2:?host worktree path}"; WT="${WT%/}"
 PREFIX="${3:-}"
 LOG="$(dirname "$(dirname "$WT")")/approved-$(basename "$WT").log"
 
@@ -41,12 +42,12 @@ status() {
 }
 
 dangerous() {
-    printf '%s' "$1" | grep -qE 'rm -rf|(^|[;&| ])herdr |curl |wget |git (push|reset|checkout|switch|worktree|branch|rebase|clean|stash)'
+    printf '%s' "$1" | grep -qE 'rm -rf|(^|[;&| ])herdr |curl |wget |--output|git( -[cC] [^ ]+)* (push|reset|checkout|switch|worktree|branch|rebase|clean|stash)'
 }
 
 # composer install 會改到 public/ 的 Filament 資產空白，brief 要求 worker 還原
 restore_public() {
-    [[ "$1" =~ ^git(\ -C\ ${WT//./\.})?\ checkout\ --\ public/?$ ]]
+    [[ "$1" =~ ^git\ checkout\ --\ public/?$ ]]
 }
 
 # 每一段都不得含 shell 控制字元：; & | ` < > $( 一律視為可能夾帶別的指令
@@ -57,10 +58,12 @@ has_shell_meta() {
 single_allowed() {
     local cmd="$1"
     has_shell_meta "$cmd" && return 1
+    # git -C <本 worktree> 視同一般 git，走同一份子指令白名單；其他 -C 路徑不會符合
+    [[ "$cmd" == "git -C $WT/ "* ]] && cmd="git ${cmd#"git -C $WT/ "}"
+    [[ "$cmd" == "git -C $WT "* ]] && cmd="git ${cmd#"git -C $WT "}"
     restore_public "$cmd" && return 0
     dangerous "$cmd" && return 1
     [[ -n "$PREFIX" && "$cmd" == "$PREFIX"* ]] && return 0
-    [[ "$cmd" == "git -C $WT "* ]] && return 0
     printf '%s' "$cmd" | grep -qE '^git (add|commit|diff|status|log|show|rev-parse|merge-base|ls-files)( |$)'
 }
 

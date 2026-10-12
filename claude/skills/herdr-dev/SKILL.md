@@ -148,11 +148,13 @@ When the call returns, check `herdr agent get <worker>`:
   prompt --wait` / `agent wait` can return `done` while agy is still working,
   and the stale `.herdr-dev/verdict.md` from the PREVIOUS ticket (same file
   name, already ending in `VERDICT: PASS`) is still on disk. Before trusting a
-  verdict, all three must hold: (1) `ls -l` shows verdict.md is newer than
-  review-brief.md, (2) its title/header names THIS ticket and merge commit,
-  (3) the pane is idle (not `Editing files…`). If not, re-run `herdr agent
-  wait <reviewer>` in the background (no sleep/poll loops) and re-check.
-  Same rule for the worker's `report.md`.**
+  verdict, both must hold: (1) its first line is the `dispatch_id` main put
+  in this dispatch's brief (see `references/flow.md` Phase 2 step 1 — every
+  dispatch gets a new id, so a leftover file can never match), and (2) the
+  pane is idle (not `Editing files…`). If not, re-run `herdr agent wait
+  <reviewer>` in the background (no sleep/poll loops) and re-check. Same
+  rule for the worker's `report.md`. Timestamps and header text are not
+  evidence.**
 - `blocked` → `herdr agent read <worker> --source recent-unwrapped --lines 40`;
   if it is a permission prompt, answer via `herdr agent send-keys <worker>
   <key>` (e.g. `enter`, `esc`, `y`); if it is a requirement question, ask
@@ -180,12 +182,16 @@ When the call returns, check `herdr agent get <worker>`:
     "podman exec -w <container_worktree_path> <container> "
   ```
   It approves only (a) commands starting with the literal container prefix,
-  (b) `git -C <host_worktree> …` / `cd <host_worktree> && git …`, (c) plain
-  git `add|commit|diff|status|log|show|rev-parse|merge-base|ls-files`, (d)
+  (b) `cd <host_worktree> && …`, (c) git
+  `add|commit|diff|status|log|show|rev-parse|merge-base|ls-files` — `git -C
+  <host_worktree>` is normalized to plain `git` first, so it gets the same
+  subcommand allowlist and nothing more (before 2026-10-12 it approved any
+  `git -C <wt> …`, including `push`/`reset --hard`), (d)
   the exact composer-noise restore `git [-C <host_worktree>] checkout --
   public/`; `&&` chains are split and every segment must pass. It refuses
   any segment containing shell metacharacters (`;` `&` `|` `` ` `` `<` `>`
-  `$(`), a `herdr` command, `rm -rf`, `curl`, `wget`, or any other git
+  `$(`), a `herdr` command, `rm -rf`, `curl`, `wget`, `--output` (lets
+  `git diff/log/show` write arbitrary files), or any other git
   `push|reset|checkout|switch|worktree|branch|rebase|clean|stash`.
   Regression tests: `bash scripts/test-approve-loop.sh` — run it after any
   change to the allowlist.
@@ -269,8 +275,21 @@ When the call returns, check `herdr agent get <worker>`:
   once in state at first dispatch (`base_sha`), never a floating branch name.
 - **Per-task working files.** Brief, report, review brief and verdict live
   under `.herdr-dev/tasks/<slug>/`, not at the `.herdr-dev/` root, so tasks
-  never overwrite each other. The report carries `status`, `attempt` and
-  `result_sha`; main checks `result_sha` against the branch head.
+  never overwrite each other. The report carries `dispatch_id`, `status`,
+  `attempt` and `result_sha`; main checks `dispatch_id` against the latest
+  dispatch and `result_sha` against the branch head.
+- **Verdicts are structured and bound to what was reviewed.** `verdict.md`
+  opens with `dispatch_id`, `reviewed_sha` and `verdict: PASS | FIX |
+  BLOCKED`, then findings (id, axis, class, path, evidence, fix), coverage
+  and limitations. `BLOCKED` = the reviewer lacked evidence (env, access,
+  mismatch) — main fixes the cause and re-dispatches; it is neither PASS
+  nor a fix round. A verdict that contradicts itself (PASS with a CRITICAL
+  row) or doesn't match the dispatch is rejected, not interpreted. Every
+  review certifies the whole task (`base_sha..merge`), not just the latest
+  patch. See `references/flow.md` Phase 3 step 4.
+- **Merge only a clean worktree.** `git -C <worker_worktree> status
+  --porcelain` must be empty before merge — uncommitted deliverables get
+  committed by the worker, strays get deleted with the Emperor's OK.
 - **A long-lived pane may carry baked-in habits from a prior role that no
   brief text fully overrides** (observed: a codex pane previously run under
   a different orchestration setup tried to submit a plan review via `ask codex` mid-task — not
