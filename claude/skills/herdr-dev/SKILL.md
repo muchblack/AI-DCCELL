@@ -280,7 +280,8 @@ When the call returns, check `herdr agent get <worker>`:
   dispatch and `result_sha` against the branch head.
 - **Verdicts are structured and bound to what was reviewed.** `verdict.md`
   opens with `dispatch_id`, `reviewed_sha` and `verdict: PASS | FIX |
-  BLOCKED`, then findings (id, axis, class, path, evidence, fix), coverage
+  BLOCKED`, then findings (id, axis, class, path, evidence tagged
+  `EXTRACTED:` or `INFERRED:`, fix — only `EXTRACTED` can be CRITICAL), coverage
   and limitations. `BLOCKED` = the reviewer lacked evidence (env, access,
   mismatch) — main fixes the cause and re-dispatches; it is neither PASS
   nor a fix round. A verdict that contradicts itself (PASS with a CRITICAL

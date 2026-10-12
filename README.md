@@ -48,6 +48,16 @@ scripts/update-vendor.sh                  # 列出目前版本
 scripts/update-vendor.sh security-audit
 ```
 
+### 本地修補
+
+以下外部 skill 直接複製進 `claude/skills/`（非 submodule），並加了本地修改。重新同步上游時會被覆蓋，同步後要補回：
+
+| Skill | 上游 | 本地修改 | 日期 |
+|---|---|---|---|
+| `grill-with-docs` | mattpocock/skills | `SKILL.md` 末段：程式碼／文件事實標 `EXTRACTED: <path:line>` 或 `INFERRED: <why>`，只有 EXTRACTED 能寫進 CONTEXT.md／ADR（與 herdr-dev verdict 的 CRITICAL 須 EXTRACTED 成對） | 2026-10-12 |
+
+找回原文：`git log -p -- claude/skills/<skill>`。
+
 部署後可隨時用健康檢查確認 provider 狀態：
 
 ```bash

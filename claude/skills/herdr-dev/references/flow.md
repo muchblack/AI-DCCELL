@@ -476,8 +476,8 @@ On the wait firing, `herdr agent get <worker>`:
    ## Findings
    | id | axis | class | path:line | evidence | fix |
    |----|------|-------|-----------|----------|-----|
-   | F1 | b | CRITICAL | app/X.php:42 | <reachable input / failing case> | <concrete fix> |
-   | F2 | a | 🟡 | ... | ... | ... |
+   | F1 | b | CRITICAL | app/X.php:42 | EXTRACTED: <file:line read / command + output showing the failing case> | <concrete fix> |
+   | F2 | a | 🟡 | ... | INFERRED: <what is assumed and why it wasn't confirmed> | ... |
 
    ## Coverage
    files opened, acceptance criteria checked, commands actually run + results
@@ -486,7 +486,12 @@ On the wait firing, `herdr agent get <worker>`:
    what could not be checked and why (zero is fine — say "none")
    ```
    Consistency rules main enforces on read: `PASS` contains no CRITICAL
-   row; `FIX` contains at least one CRITICAL row with evidence; `BLOCKED`
+   row; `FIX` contains at least one CRITICAL row; every evidence cell starts
+   with `EXTRACTED:` (seen directly — a file:line the reviewer read, or a
+   command it ran and its output) or `INFERRED:` (reasoned, not observed);
+   a CRITICAL row must be `EXTRACTED` — an `INFERRED` finding is 🟡 at most
+   (this is the same "evidence, not suspicion" rule as the security gate
+   above, made checkable per row); `BLOCKED`
    means required evidence was unavailable (tests could not run, worktree
    or commit mismatch, missing access) and names the missing thing under
    Limitations. A verdict that breaks these rules, or whose `dispatch_id`

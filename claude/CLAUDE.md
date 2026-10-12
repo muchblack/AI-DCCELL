@@ -165,6 +165,10 @@ Compose file lives in `~/srv/servers/docker-compose.yml`:
 ## 外部 Skill 優先序（mattpocock/skills）
 
 已擇優安裝：grill-with-docs, to-spec, to-tickets, diagnosing-bugs, handoff, grilling。
+**本地修補（重新同步上游後必須補回）**：`grill-with-docs/SKILL.md` 末段的
+`EXTRACTED`／`INFERRED` 證據標籤規則是本地加的（2026-10-12，與 herdr-dev
+verdict 的標籤規則成對）。覆蓋上游前先 `git diff` 確認，用
+`git log -p -- claude/skills/grill-with-docs` 找回原文。清單見 README「本地修補」。
 觸發衝突時的優先序（iron rule）：
 
 - herdr 流程內（/herdr-dev, /dispatch 進行中）：一律用本地 skill，
