@@ -67,6 +67,9 @@ main (self) does this directly; no worker involved yet.
    - **Goal** — one or two sentences.
    - **Scope** — in / out, explicit.
    - **Affected layers/files** — best-effort map.
+   - **`owns`** — paths/globs the worker may change, including test files;
+     optional **`may_touch_with_reason`**. Declared here so the brief
+     review checks it; Phase 2 copies it verbatim (see Phase 2 step 1).
    - **Constraints** — stack versions, env (podman exec for PHP, host npm),
      branch `herdr/dev-<slug>`, security-sensitive paths.
    - **Acceptance criteria** — concrete, checkable bullets. The reviewer
@@ -76,66 +79,65 @@ main (self) does this directly; no worker involved yet.
    - **Test commands** — smallest targeted command per slice + full-suite.
    - **TDD exception** — normally none; if granted, the specific reason.
    - **Assumptions / Open questions.**
-5. **Jev spec-readiness pre-flight (advisory, optional, best-effort).**
-   Before the question gate below, run a same-turn check on the Brief's
-   Goal + Scope + Acceptance criteria text via Vercel AI Gateway — no pane,
-   no dispatch, same pattern as the Phase 3 `/linus-review` self-check.
-   Piloted and verified working 2026-09-23; not yet run in anger on a real
-   flow, so treat early misses as signal to retune the prompt, not proof the
-   step is wrong.
-   - Write the request body to a file first (long/multi-line spec text in a
-     shell `-d` string is quoting hell — same reasoning as the "long briefs
-     go through files" rule in SKILL.md's Dispatch Pattern):
-     ```bash
-     cat > .herdr-dev/jev-preflight-request.json <<'EOF'
-     {
-       "model": "typesafe-ai/jev",
-       "state": "<Goal + Scope + Acceptance criteria from the Brief, verbatim>",
-       "questions": {
-         "is_spec_actionable": {"type": "boolean", "instructions": "Is this requirement specific and actionable enough for a developer to implement without further clarification?"},
-         "has_unambiguous_acceptance_criteria": {"type": "boolean", "instructions": "Does this requirement include clear, checkable acceptance criteria?"}
-       }
-     }
-     EOF
-     ```
-   - Call it, reading `AI_GATEWAY_API_KEY` from the environment, else from
-     the global `~/.config/herdr-dev/.env` (works in every project; lives
-     outside any repo), with an optional per-project `.herdr-dev/.env`
-     overriding it — **never** write the key's value into a brief, report,
-     note, or anything that leaves this shell:
-     ```bash
-     set -a; source ~/.config/herdr-dev/.env 2>/dev/null; source .herdr-dev/.env 2>/dev/null; set +a
-     ```
-     ```bash
-     curl -sS --max-time 10 https://ai-gateway.vercel.sh/v1/evaluate \
-       -H "Authorization: Bearer $AI_GATEWAY_API_KEY" \
-       -H "Content-Type: application/json" \
-       -d @.herdr-dev/jev-preflight-request.json
-     ```
-   - **No key set, call errors, times out, or returns non-200 → skip this
-     step silently and proceed to step 6 as if it didn't exist.** Never
-     block or delay dispatch because a third-party service is unreachable —
-     this mirrors the graceful-fallback rule already governing this feature.
-   - Read `answers.<question>.probability` (0–1) from the response. **This
-     endpoint does not populate a separate calibrated-confidence field** —
-     `providerMetadata.typesafe.confidence` came back empty `{}` in testing
-     (2026-09-23) despite TypeSafe's own docs describing a confidence score
-     distinct from probability. Use distance from 0.5 as the uncertainty
-     proxy instead: `abs(probability - 0.5) < 0.3` on either question →
-     treat as uncertain.
-   - **This is advisory input to step 6's judgment, never a standalone
-     gate.** Uncertain or low-probability result → weigh it alongside main's
-     own read of the requirement when deciding whether to raise a question;
-     do not auto-block dispatch on this signal alone, and do not cite "Jev
-     said X" to the Emperor as the reason — name the actual ambiguity in the
-     requirement text. Confident/high-probability on both → no action,
-     proceed silently (don't clutter the brief presentation with a
-     pre-flight pass notice).
-6. **Gate on questions.** Open questions that change *what gets built* →
-   AskUserQuestion (四段式) now — fold in step 5's signal if it fired.
+5. **Brief review by the reviewer pane — before any TDD.** An ambiguous
+   brief otherwise only surfaces after a full TDD round plus code review.
+   The reviewer pane is idle at this point; use it.
+   - `mkdir -p .herdr-dev/tasks/<slug>`; save the Requirement Brief to `.herdr-dev/tasks/<slug>/requirement.md`
+     and record `brief_sha256` (`sha256sum`) in state.
+   - Write `.herdr-dev/tasks/<slug>/brief-review.md` (English): new
+     `dispatch_id` on line 1 (Phase 2 step 1 rule), the same no-herdr /
+     no-delegation line as every brief, **read-only — edit nothing but the
+     verdict file**, the source (Linear issue id or doc path — the reviewer
+     pulls it itself), the project root to read, and `requirement.md`.
+     Ask it to check, against the source and the code:
+     - every source requirement is in scope or explicitly out of scope —
+       nothing silently dropped or added;
+     - every acceptance criterion is observable and testable at a named seam;
+     - test commands exist and fit the project's execution environment
+       (restate the container wrapper, as for the review brief);
+     - `owns` covers what the change must touch, and nothing it shouldn't;
+     - no conflict with `CONTEXT.md` terms or `docs/adr/` decisions;
+     - edge cases the source implies but the brief misses.
+   - Output `.herdr-dev/tasks/<slug>/brief-verdict.md`, same shape as the
+     code verdict (Phase 3 step 4) with `brief_sha256: <sha>` in place of
+     `reviewed_sha` and `verdict: APPROVED | REVISE | BLOCKED`. Findings
+     use the same `EXTRACTED:` / `INFERRED:` evidence tags.
+   - Dispatch + background wait like Phase 2 step 3 (prompt points at
+     `brief-review.md` → `brief-verdict.md`), reply `<reviewer agent> 審需求中…`,
+     END TURN. Accept the verdict only if `dispatch_id` and `brief_sha256`
+     match.
+   - **main arbitrates every finding** — accept (edit the brief), reject
+     (one-line reason), or, if it changes *what gets built*, take it to
+     step 6 as a question. The reviewer advises; main and the Emperor decide.
+     Record dispositions in state (`brief_findings`).
+   - **One rule decides whether to review again:** the brief changed
+     beyond pure wording (any change to what it commits to — scope,
+     acceptance criteria, test commands, `owns`, `may_touch_with_reason`,
+     constraints) since the last reviewed sha (from accepted findings here, or from a step-6 answer)
+     **and** fewer than 2 brief-review rounds were used → re-dispatch the
+     revised brief (new sha, new id) with the dispositions, so rejected
+     points aren't relitigated without new evidence. Otherwise go on to
+     step 6 / step 7 — this covers APPROVED, a REVISE whose findings were
+     all rejected or turned into questions, and the round cap. Never
+     re-send an unchanged brief to fish for APPROVED, and never relabel a
+     REVISE as APPROVED. The 2-round cap is separate from the fix cap.
+     **BLOCKED** → fix the stated cause, re-dispatch; not a round.
+   - Requirement questions always go through step 6, cap or not.
+   - Approval is bound to `brief_sha256`. In step 7 main states the brief's
+     review status: `approved` (current sha has an APPROVED verdict),
+     `reviewed, findings rejected` (with reasons), or `changed after last
+     review` (listing what changed, when the cap stopped a re-review).
+   - The later code review is a separate dispatch with its own
+     self-contained brief; this round does not stand in for it.
+6. **Gate on questions.** Open questions that change *what gets built* —
+   main's own, plus brief-review findings routed here in step 5 →
+   AskUserQuestion (四段式), one decision per question.
    Implementation details → worker decides.
-7. Present the brief to the Emperor (繁中), proceed. No separate "approve
-   the brief" round-trip unless step 6 raised a real question.
+7. Present the brief to the Emperor (繁中) with its review status from
+   step 5, proceed. No separate "approve the brief" round-trip unless
+   step 6 raised a real question.
+
+State during step 5: `{ "step": "brief_review_dispatched", "brief_sha256": "<sha>", "brief_review_round": <n>, "dispatch_seq": <k>, "dispatch_id": "<slug>-<k>", "brief_findings": [{"id": "F1", "disposition": "accepted|rejected|asked", "reason": "..."}] }`
 
 State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w1:p2", "reviewer_agent": "agy", "reviewer": "w1:p3" }`
 
@@ -179,7 +181,7 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
      does. If a pane still tries it, `esc` the approval and send a short
      corrective prompt restating this rule; never approve a herdr command
      from a worker or reviewer pane.
-   - **Dispatch id (every dev, fix, tuning and review brief).** Before
+   - **Dispatch id (every brief-review, dev, fix, tuning and review brief).** Before
      writing any brief, main increments `dispatch_seq` in state and puts
      `dispatch_id: <slug>-<dispatch_seq>` on the brief's first line. The
      brief requires the pane's output file (`report.md` / `verdict.md`) to
@@ -200,10 +202,10 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
      commands (including any container-wrapped ones per project CLAUDE.md)
      run against files under this path. State the pinned `base_sha` too;
      `git merge-base HEAD <base_sha>` must equal it.
-   - **File boundary.** main declares, in the brief, an `owns:` list (paths
-     or globs the worker may change — derived from the Requirement Brief,
-     including the test files) and an optional `may_touch_with_reason:`
-     list. The whole repo is readable; only `owns` is writable. Touching a
+   - **File boundary.** The dev brief carries the `owns:` and optional
+     `may_touch_with_reason:` lists from the reviewed `requirement.md`
+     (Phase 1 step 4) verbatim — widening them later is a brief change
+     under Phase 1 step 5's re-review rule, not a dispatch-time edit. The whole repo is readable; only `owns` is writable. Touching a
      `may_touch_with_reason` path requires a one-line justification in the
      report's "boundary expansion" field; touching anything else is a
      violation, not a judgment call. If the work seems to need an
@@ -254,7 +256,7 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    background call re-enters this session when it settles (idle/done/blocked)
    or times out.
 
-State: `{ "step": "dev_dispatched", "round": 0, "base_sha": "<sha>", "owns": [...], "dispatch_seq": 1, "dispatch_id": "<slug>-1" }`
+State: `{ "step": "dev_dispatched", "round": 0, "base_sha": "<sha>", "owns": [...], "dispatch_seq": <k>, "dispatch_id": "<slug>-<k>" }` — `dispatch_seq` continues from the brief review; it never resets per phase.
 
 ---
 
@@ -671,6 +673,8 @@ State: `{ "step": "tuning_dispatched", "tuning_round": 1, "dispatch_seq": <k>, "
      `dispatch_seq` (flows started before this rule): verify via git as in
      Phase 3, then re-dispatch the pending step with a fresh id rather than
      trusting whatever report/verdict is on disk.
+   - `brief_review_dispatched` → check `<reviewer>`; `done` → Phase 1 step 5
+     (verify `brief-verdict.md`, arbitrate).
    - `requirement_confirmed` → re-dispatch Phase 2.
    - `done` → nothing pending; report last outcome.
 3. Pane ids in state may be stale after a Herdr restart — re-run

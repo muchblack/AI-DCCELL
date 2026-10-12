@@ -54,7 +54,7 @@ scripts/update-vendor.sh security-audit
 
 | Skill | 上游 | 本地修改 | 日期 |
 |---|---|---|---|
-| `grill-with-docs` | mattpocock/skills | `SKILL.md` 末段：程式碼／文件事實標 `EXTRACTED: <path:line>` 或 `INFERRED: <why>`，只有 EXTRACTED 能寫進 CONTEXT.md／ADR（與 herdr-dev verdict 的 CRITICAL 須 EXTRACTED 成對） | 2026-10-12 |
+| `grill-with-docs` | mattpocock/skills | `SKILL.md` 第一行之後全部：① 程式碼／文件事實標 `EXTRACTED: <path:line>` 或 `INFERRED: <why>`，只有 EXTRACTED 能寫進 CONTEXT.md／ADR（與 herdr-dev verdict 的 CRITICAL 須 EXTRACTED 成對）② 開場 recon＋假設清單，只問清單沒解決的 ③ 收尾交接摘要給 `/to-spec` | 2026-10-12 |
 
 找回原文：`git log -p -- claude/skills/<skill>`。
 

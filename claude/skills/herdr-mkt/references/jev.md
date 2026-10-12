@@ -1,6 +1,6 @@
 # Jev Checkpoints (advisory, never a gate)
 
-Same mechanism as herdr-dev Phase 1 step 5: a same-turn call to TypeSafe Jev
+A same-turn call to TypeSafe Jev
 via Vercel AI Gateway. No pane, no dispatch. It gives main a second signal
 at judgment points. **It never blocks, never approves, and is never cited
 as the reason** ("Jev said X"). Name the concrete problem in the text

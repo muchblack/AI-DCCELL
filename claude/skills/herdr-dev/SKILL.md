@@ -25,6 +25,7 @@ reviewed, working code, dispatched over the Herdr CLI.
 ```
 input (doc / text)
   → [main] confirm requirement    ──(question?)──▶ ask the user directly
+  → [reviewer pane] review the brief (APPROVED/REVISE, max 2 rounds; main arbitrates)
   → [worker pane] TDD develop       (RED → minimal GREEN, one slice at a time)
   → [main] verify TDD evidence via git, merge to main
   → [main] self-review via /linus-review   (CRITICAL? → fix loop, reviewer never sees it)
@@ -81,8 +82,11 @@ ids (e.g. `w1:p2`) in state, along with the agent names used. If a required
 pane is missing, tell the user which agent to start in a pane and END TURN —
 do not spawn panes yourself unless asked.
 
-**If the project is under git version control**: each dispatched pane gets
-its own `git worktree` before it starts — worker at
+**If the project is under git version control**: each development and
+code-review dispatch gets its own `git worktree` before it starts (the
+Phase 1 brief review is the one exception: it is read-only, reads
+main's own checkout, writes only its verdict file, and needs no
+worktree) — worker at
 `.herdr-dev/worktrees/worker-<slug>` on new branch `herdr/dev-<slug>`;
 reviewer at `.herdr-dev/worktrees/reviewer-<slug>` checked out (detached) at
 the merge commit. This is what actually fixes the transient
@@ -250,14 +254,15 @@ When the call returns, check `herdr agent get <worker>`:
   notes into the review brief as context for the reviewer, so it isn't
   rediscovering the same things and can spend its attention on spec/TDD
   compliance.
-- **Jev spec-readiness pre-flight is advisory only, never a gate.** Phase 1
-  step 5 (`references/flow.md`) can run a same-turn Vercel AI Gateway check
-  on the Requirement Brief before dispatch, to catch an ambiguous spec
-  before it burns a full TDD round. No API key, or the call fails/times out
-  → skip silently, never block dispatch on a third-party outage. A low or
-  uncertain result is one input to main's own judgment on whether to raise
-  a question — it can never auto-block, auto-approve, or be cited to the
-  Emperor as the reason on its own.
+- **The brief is reviewed before TDD starts.** Phase 1 step 5
+  (`references/flow.md`) sends the Requirement Brief to the reviewer pane,
+  read-only, to check scope vs the source, testable acceptance criteria,
+  runnable test commands, the `owns` boundary and glossary/ADR conflicts —
+  catching an ambiguous spec before it burns a TDD round. main arbitrates
+  each finding (accept / reject with reason / ask the Emperor); the reviewer
+  never decides scope. Max 2 rounds, separate from the fix cap. Approval is
+  bound to the brief's sha256. (Replaced the external Jev pre-flight,
+  2026-10-12.)
 - **Trust git, not narration.** A report file is a claim. Before acting:
   `git log <branch> --oneline --stat`, spot-check key claimed changes, and
   run the reported test commands independently. **Specifically check
