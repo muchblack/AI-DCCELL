@@ -261,8 +261,12 @@ When the call returns, check `herdr agent get <worker>`:
   catching an ambiguous spec before it burns a TDD round. main arbitrates
   each finding (accept / reject with reason / ask the Emperor); the reviewer
   never decides scope. Max 2 rounds, separate from the fix cap. Approval is
-  bound to the brief's sha256. (Replaced the external Jev pre-flight,
-  2026-10-12.)
+  bound to the brief's sha256. A same-turn TypeSafe Jev check runs first
+  as an advisory pre-signal: it can make main tighten the brief or point
+  the reviewer at a spot, but it never gates, never skips the reviewer
+  round, and is never cited as a reason. No key or call failure → skip
+  silently. (Reviewer round replaced the Jev-only pre-flight 2026-10-12;
+  Jev returned as a pre-signal on the direct API 2026-10-14.)
 - **Trust git, not narration.** A report file is a claim. Before acting:
   `git log <branch> --oneline --stat`, spot-check key claimed changes, and
   run the reported test commands independently. **Specifically check

@@ -41,6 +41,80 @@ python3 -I ~/.claude/skills/job104/scripts/fetch_104.py <url-or-id> \
 - 先不加 `--save-dir` 跑一次，看了公司和職位名稱再決定檔名，然後存檔。
 - 抓不到時（腳本 exit 1），請使用者貼 JD 文字，不要憑網址猜內容。
 
+## Jev 契合度評分（`look` 和 `list` 共用，輔助訊號）
+
+JD 存檔後，用 TypeSafe Jev 對「JD × 履歷」打三個分數、判斷一個職務類型，存成 `self/jd/<名稱>.jev.json`。`look` 的第 7 步拿來參考，`list` 拿來排序。
+
+- **資料說明**：這一步會把 JD 和 `resume_text.md` 送到 TypeSafe（第三方服務）。送出前刪掉 `- 姓名：` 那一行，其他照原文
+- 請求檔放 `~/documents/self/drafts/jev-<名稱>.json`，用完刪掉：
+
+```json
+{
+  "model": "jev-latest",
+  "state": {"jd": "<JD 原文>", "resume": "<resume_text.md，去掉姓名行>"},
+  "questions": {
+    "role_type": {
+      "type": "choice",
+      "instructions": "What kind of role does `jd` describe?",
+      "criteria": {
+        "development": "Mainly writing and maintaining product or platform code.",
+        "technical_support": "Customer-facing support, implementation, integration or pre-sales engineering; coding is secondary.",
+        "management": "Mainly leading people or projects; hands-on coding is a minor part.",
+        "non_engineering": "Not an engineering role."
+      }
+    },
+    "must_have_coverage": {
+      "type": "score",
+      "instructions": "How many of the required (not nice-to-have) qualifications in `jd` are backed by concrete evidence in `resume`?",
+      "criteria": [
+        "Few or none of the required qualifications are backed by `resume`.",
+        "Some are backed; several important ones have no evidence.",
+        "Most are backed; one or two have no evidence.",
+        "Every required qualification is backed by specific evidence in `resume`."
+      ]
+    },
+    "stack_fit": {
+      "type": "score",
+      "instructions": "How closely does the technology stack in `jd` match the stack used in `resume`?",
+      "criteria": [
+        "Different stack across backend, frontend and data layers.",
+        "Same general area, but the main language or framework differs.",
+        "Main language and framework match; some secondary tools differ.",
+        "Main language, framework and most named tools match."
+      ]
+    },
+    "seniority_level": {
+      "type": "score",
+      "instructions": "Compared with the experience shown in `resume`, what level does `jd` target?",
+      "criteria": [
+        "Entry or junior level, far below the experience in `resume`.",
+        "Mid level, somewhat below the experience in `resume`.",
+        "Senior level, matching the experience in `resume`.",
+        "Lead, architect or manager level beyond what `resume` shows."
+      ]
+    }
+  }
+}
+```
+
+- 呼叫：`bash ~/.claude/skills/scripts/jev.sh ~/documents/self/drafts/jev-<名稱>.json`。exit 非 0（沒有 key、逾時、錯誤）就**跳過整段**，`look` 照常輸出，`list` 那欄留空。不要每次都提醒沒 key，第一次提一句就好（key 放在 `~/.config/typesafe/.env` 的 `TYPESAFE_API_KEY`）
+- 存檔內容：`{"model", "date", "role_type", "role_probs", "must_have", "stack", "seniority", "confidence": {...}, "fit"}`，數值直接從 `answers.<id>.score`、`.choice`、`.probabilities`、`.confidence` 抄
+- 契合度用程式算，權重寫在這裡，調權重不用重打 API：
+
+  ```
+  seniority_fit = max(0, 1 - |seniority - 2| / 2)
+  fit = round(100 * (0.4 * must_have / 3 + 0.3 * stack / 3 + 0.3 * seniority_fit))
+  ```
+
+  `role_type` 不是 `development` 時，不扣分，但要在 `look` 的「⚠️ 特殊注意」寫出來
+
+**怎麼用這些分數：**
+
+- 只是第二意見。`look` 第 6 步的對照還是要逐項附履歷證據，分數不能代替證據
+- 分數跟 main 自己的判斷不一致時（例如 main 覺得必要條件幾乎都對得上，`must_have` 卻不到 1.5），回頭重讀那一段 JD；重讀後仍不同意，就以 main 的判斷為準，不改分數檔
+- 某一題 `confidence < 0.5`，代表模型自己也拿不準，`list` 那格加註 `?`
+- 對使用者呈現時寫成「契合度 72（參考）」，並附一句是哪一項拉低分數
+
 ## `look <url>`：這份工作在做什麼
 
 輸出順序固定，用繁體中文：
@@ -53,7 +127,7 @@ python3 -I ~/.claude/skills/job104/scripts/fetch_104.py <url-or-id> \
 6. **跟履歷對照**：
    - 對得上的：每一項都要附履歷裡的具體證據（公司、數字、技術）
    - 主要缺口：必要條件缺的放前面，加分條件缺的放後面
-7. **我的看法**：值不值得投、優先順序，並跟本 session 已經看過的職缺比較（薪資、職級、技術棧、遠端）。職級或薪資明顯不合時要直說
+7. **我的看法**：值不值得投、優先順序，並跟本 session 已經看過的職缺比較（薪資、職級、技術棧、遠端）。職級或薪資明顯不合時要直說。有 Jev 分數就附上契合度和拉低分數的那一項（見上方「Jev 契合度評分」）
 8. 最後一行說明 JD 存到哪裡，並問要不要寫推薦信
 
 判斷時要注意的訊號：
@@ -113,7 +187,7 @@ python3 -I ~/.claude/skills/job104/scripts/fetch_104.py <url-or-id> \
 
 ## `list`：目前看過的職缺
 
-讀 `self/jd/*.txt` 的前三行，列一張表：公司、職位、薪資、遠端、有沒有推薦信（`self/<名稱>.txt` 是否存在）。
+讀 `self/jd/*.txt` 的前三行，列一張表：公司、職位、薪資、遠端、契合度（`self/jd/<名稱>.jev.json` 的 `fit`，沒有就留空）、有沒有推薦信（`self/<名稱>.txt` 是否存在）。有契合度的依分數由高到低排，沒有的排最後。
 
 ## 原則
 

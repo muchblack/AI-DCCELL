@@ -40,43 +40,37 @@ off to `/grill-with-docs`.
 ### Step 1.2: Jev Spec-Readiness Pre-flight (advisory, optional, best-effort)
 
 Run right after the user confirms the restatement, before spending effort on
-the five layers. A cheap same-turn check via Vercel AI Gateway on whether the
-confirmed requirement is concrete enough to analyze. Same mechanism as the
-`herdr-dev` Phase 1 pre-flight; if that one is retuned, retune this to match.
+the five layers. A cheap same-turn TypeSafe Jev check (direct API) on whether
+the confirmed requirement is concrete enough to analyze. Same questions as
+`herdr-dev` Phase 1 step 5; if one is retuned, retune the other to match.
 
 **Data note**: this sends the requirement text to a third-party service. If
 the requirement contains secrets, customer data or anything the user would not
 paste into an external API, skip this step.
 
 - Write the request body to a scratch file first (long text in a shell `-d`
-  string is quoting hell):
+  string is quoting hell), then call the shared script. It reads
+  `TYPESAFE_API_KEY` (env, else `~/.config/typesafe/.env`) and never prints
+  it — **never** write the key's value into any file, brief, note or output:
   ```bash
   REQ=$(mktemp)
   cat > "$REQ" <<'EOF'
   {
-    "model": "typesafe-ai/jev",
-    "state": "<the confirmed requirement from Step 1, verbatim>",
+    "model": "jev-latest",
+    "state": {"requirement": "<the confirmed requirement from Step 1, verbatim>"},
     "questions": {
-      "is_spec_actionable": {"type": "boolean", "instructions": "Is this requirement specific and actionable enough for a developer to implement without further clarification?"},
-      "has_unambiguous_acceptance_criteria": {"type": "boolean", "instructions": "Does this requirement include clear, checkable acceptance criteria?"}
+      "is_spec_actionable": {"type": "noul", "instructions": "Is `requirement` specific and actionable enough for a developer to implement without further clarification?"},
+      "has_unambiguous_acceptance_criteria": {"type": "noul", "instructions": "Does `requirement` include clear, checkable acceptance criteria?"}
     }
   }
   EOF
+  bash ~/.claude/skills/scripts/jev.sh "$REQ"; rm -f "$REQ"
   ```
-- Call it, reading `AI_GATEWAY_API_KEY` from the environment (**never** write
-  the key's value into any file, brief, note or output):
-  ```bash
-  curl -sS --max-time 10 https://ai-gateway.vercel.sh/v1/evaluate \
-    -H "Authorization: Bearer $AI_GATEWAY_API_KEY" \
-    -H "Content-Type: application/json" \
-    -d @"$REQ"
-  rm -f "$REQ"
-  ```
-- **No key set, call errors, times out, or non-200 → skip silently and go to
+- **Non-zero exit (no key, error, timeout, non-2xx) → skip silently and go to
   the next step.** Never block or delay the analysis on a third-party outage.
-- Read `answers.<question>.probability` (0–1). The endpoint does not fill a
-  separate confidence field, so use distance from 0.5 as the uncertainty
-  proxy: `abs(probability - 0.5) < 0.3` on either question → uncertain.
+- Read `answers.<question>.noul` (0–1, probability of yes). A Noul has no
+  confidence field by design, so use distance from 0.5 as the uncertainty
+  proxy: `abs(p - 0.5) < 0.3` on either question → uncertain.
 - **Advisory only, never a gate.** Uncertain or low → it is one input to your
   own judgment. If your own read agrees the requirement is loose, name the
   actual ambiguity to the user and suggest `/grill-with-docs` before the

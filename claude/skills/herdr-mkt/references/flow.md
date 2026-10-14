@@ -5,12 +5,12 @@
 0. **Tool preflight (tell the user once, up front).** Check:
    ```bash
    set -a; source ~/.config/herdr-dev/.env 2>/dev/null; source .herdr-mkt/.env 2>/dev/null; set +a
-   [ -n "${AI_GATEWAY_API_KEY:-}" ] && echo jev=on || echo jev=off
+   bash ~/.claude/skills/scripts/jev.sh --check
    [ -n "${HF_TOKEN:-}" ] && echo images=on || echo images=off
    ```
    If either is off, tell the user before Step 0 (one short line each:
-   what gets skipped, how to enable it, e.g. put the key in
-   `~/.config/herdr-dev/.env`, or run `! export HF_TOKEN=...`). Then proceed
+   what gets skipped, how to enable it, e.g. put `TYPESAFE_API_KEY=...` in
+   `~/.config/typesafe/.env`, or run `! export HF_TOKEN=...`). Then proceed
    without waiting. Mid-flow skips stay silent; record the preflight result
    in `state.json` (`tools: {jev, images}`). The first campaign only found
    out at the end that Jev never ran and images couldn't render.

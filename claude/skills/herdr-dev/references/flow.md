@@ -82,6 +82,18 @@ main (self) does this directly; no worker involved yet.
 5. **Brief review by the reviewer pane — before any TDD.** An ambiguous
    brief otherwise only surfaces after a full TDD round plus code review.
    The reviewer pane is idle at this point; use it.
+   - **Jev pre-signal (advisory, best-effort, first round only).** Before
+     saving the brief, run the `/linus-analyze` Step 1.2 request (same two
+     Nouls) with `state.requirement` = the Brief's Goal + Scope +
+     Acceptance criteria, verbatim, via
+     `bash ~/.claude/skills/scripts/jev.sh <request.json>`. Same data note:
+     skip it if the brief carries secrets or customer data. Non-zero exit →
+     skip silently. Flagged (`noul < 0.5` or `abs(noul - 0.5) < 0.3`) →
+     main re-reads that part; if main agrees, tighten the brief now,
+     otherwise name the specific spot in `brief-review.md` as one of main's
+     attention points. Never cite Jev to the user or the reviewer, and
+     never let it replace or skip the reviewer round. Record the values
+     in state (`jev_preflight`).
    - `mkdir -p .herdr-dev/tasks/<slug>`; save the Requirement Brief to `.herdr-dev/tasks/<slug>/requirement.md`
      and record `brief_sha256` (`sha256sum`) in state.
    - Write `.herdr-dev/tasks/<slug>/brief-review.md` (English): new
@@ -137,7 +149,7 @@ main (self) does this directly; no worker involved yet.
    step 5, proceed. No separate "approve the brief" round-trip unless
    step 6 raised a real question.
 
-State during step 5: `{ "step": "brief_review_dispatched", "brief_sha256": "<sha>", "brief_review_round": <n>, "dispatch_seq": <k>, "dispatch_id": "<slug>-<k>", "brief_findings": [{"id": "F1", "disposition": "accepted|rejected|asked", "reason": "..."}] }`
+State during step 5: `{ "step": "brief_review_dispatched", "brief_sha256": "<sha>", "brief_review_round": <n>, "dispatch_seq": <k>, "dispatch_id": "<slug>-<k>", "jev_preflight": {"is_spec_actionable": <p>, "has_unambiguous_acceptance_criteria": <p>} | "skipped", "brief_findings": [{"id": "F1", "disposition": "accepted|rejected|asked", "reason": "..."}] }`
 
 State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w1:p2", "reviewer_agent": "agy", "reviewer": "w1:p3" }`
 
