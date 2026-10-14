@@ -19,10 +19,11 @@ chmod +x bootstrap.sh
 
 1. **[1/4]** 建立 `~/.claude/` 下的 symlink（`CLAUDE.md`、`agents/`、`skills/`）
 2. **[1b/4]** 部署 Codex 設定（`~/.codex/AGENTS.md`、`~/.codex/skills/`）
-3. **[1c/4]** 部署 Gemini 設定（`~/.gemini/GEMINI.md`、`~/.gemini/skills/`）
-4. **[2/4]** 設定 scripts 執行權限
-5. **[3/4]** 初始化 memory 目錄（telemetry）
-6. **[4/4]** 執行 health check，驗證 Gemini / Codex / provider 連線
+3. **[1c/4]** 部署 Gemini 設定（`~/.gemini/GEMINI.md`）
+4. **[1d/4]** 初始化外部 skill submodule，並依 `shared-skills.txt` 把通用 skill 掛給 Codex 與 agy（見下方「與 Codex／agy 共用」）
+5. **[2/4]** 設定 scripts 執行權限
+6. **[3/4]** 初始化 memory 目錄（telemetry）
+7. **[4/4]** 執行 health check，驗證 Gemini / Codex / provider 連線
 
 ### 外部 Skill（git submodule）
 
@@ -32,8 +33,13 @@ chmod +x bootstrap.sh
 |---|---|---|
 | `security-audit` | cloudflare/security-audit-skill | `vendor/security-audit-skill` |
 | `open-seo-advisor` | mars-tw/open-seo-advisor-skill | `claude/skills/open-seo-advisor` |
-| `ui-ux-pro-max`、`banner-design`、`brand`、`design`、`design-system`、`slides`、`ui-styling` | nextlevelbuilder/ui-ux-pro-max-skill | `vendor/ui-ux-pro-max-skill` |
+| `ui-ux-pro-max`、`brand`、`design`、`design-system`、`ui-styling` | nextlevelbuilder/ui-ux-pro-max-skill | `vendor/ui-ux-pro-max-skill` |
 | `find-skills` | vercel-labs/skills | `vendor/vercel-skills` |
+| `react-best-practices` | vercel-labs/agent-skills | `vendor/vercel-agent-skills` |
+
+上游套組裡的 `banner-design`、`slides` 沒有掛出來：兩者的 reference 跟 `design` 內建的版本逐字相同，`slides` 的生成腳本也在 `design-system`，掛了只會重複觸發。
+
+`react-best-practices` 的 `rules/`、`AGENTS.md` 是 symlink 指向上游；`SKILL.md` 是上游複製後把 `name` 從 `vercel-react-best-practices` 改回 `react-best-practices`（CLAUDE.md 與 agent 都用這個名字引用），`update-vendor.sh react-best-practices` 會自動重新產生。
 
 `bootstrap.sh` 會自動初始化這些 submodule。已部署的機器 pull 之後補跑：
 
@@ -47,6 +53,17 @@ git pull && git submodule update --init
 scripts/update-vendor.sh                  # 列出目前版本
 scripts/update-vendor.sh security-audit
 ```
+
+### 與 Codex／agy 共用
+
+`shared-skills.txt` 列出要共用的 skill，來源一律是 `claude/skills/<name>`，由 `scripts/sync-shared-skills.sh` 以 symlink 掛到：
+
+| CLI | 載入目錄 |
+|---|---|
+| Codex | `~/.agents/skills/` |
+| Antigravity（agy） | `~/.gemini/config/skills/`（agy 不讀全域 `~/.agents/skills`） |
+
+改完清單後執行 `scripts/sync-shared-skills.sh`，再重開 Codex／agy 的 session 才會生效。腳本只會動指向本 repo 的 symlink；CLI 自己的實體目錄（例如 `~/.codex/skills/linus-review`）會跳過，清單上用 `!codex`／`!agy` 標記不掛給哪一邊。主控派工類（herdr-dev、dispatch、ask）刻意不共用，以免 worker 自己再派工。
 
 ### 本地修補
 
@@ -140,8 +157,7 @@ AI-DCCELL/
 │   ├── AGENTS.md          # Codex 角色與 Rubric 定義
 │   └── skills/            # 16 個 Codex 端 skill
 ├── .gemini/
-│   ├── GEMINI.md          # Gemini 角色定義
-│   └── skills/            # 4 個 Gemini 端 skill
+│   └── GEMINI.md          # agy 角色定義（skill 改由 shared-skills.txt 共用）
 ├── docs/                  # DG 細胞理論藍圖 + 實作紀錄
 ├── project-template/      # 新專案範本（CLAUDE.md）
 └── sample.md              # 範例文件

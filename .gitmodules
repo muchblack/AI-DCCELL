@@ -10,3 +10,6 @@
 [submodule "vendor/vercel-skills"]
 	path = vendor/vercel-skills
 	url = https://github.com/vercel-labs/skills.git
+[submodule "vendor/vercel-agent-skills"]
+	path = vendor/vercel-agent-skills
+	url = https://github.com/vercel-labs/agent-skills.git

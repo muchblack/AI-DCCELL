@@ -140,38 +140,14 @@ echo ""
 
 # === Step 1d: 外部 Skill 部署（git submodule，版本鎖在 agentSkill；更新用 scripts/update-vendor.sh）===
 echo -e "${CYAN}[1d/4] 外部 Skill 部署${NC}"
-OPEN_SEO_ADVISOR_DIR="${SOURCE_DIR}/skills/open-seo-advisor"
 if git -C "${SCRIPT_DIR}" submodule update --init >/dev/null 2>&1; then
-    echo -e "  ${GREEN}✓ 外部 skill submodule（security-audit, open-seo-advisor, ui-ux-pro-max 套組, find-skills）${NC}"
+    echo -e "  ${GREEN}✓ 外部 skill submodule（security-audit, open-seo-advisor, ui-ux-pro-max 套組, find-skills, react-best-practices）${NC}"
 else
     echo -e "  ${YELLOW}⚠ submodule 初始化失敗，請手動執行 git submodule update --init${NC}"
 fi
 
-# SKILL.md 要求 Codex 走 ~/.codex/skills/open-seo-advisor/ 才能用 $open-seo-advisor 語法
-if [[ -d "${OPEN_SEO_ADVISOR_DIR}" ]]; then
-    CODEX_SKILLS_DIR="${HOME}/.codex/skills"
-    CODEX_SEO_DST="${CODEX_SKILLS_DIR}/open-seo-advisor"
-    mkdir -p "${CODEX_SKILLS_DIR}"
-
-    if [[ -L "${CODEX_SEO_DST}" ]]; then
-        current="$(readlink "${CODEX_SEO_DST}")"
-        if [[ "${current}" == "${OPEN_SEO_ADVISOR_DIR}" ]]; then
-            echo -e "  ${GREEN}✓ open-seo-advisor → Codex（已正確）${NC}"
-        else
-            rm "${CODEX_SEO_DST}"
-            ln -s "${OPEN_SEO_ADVISOR_DIR}" "${CODEX_SEO_DST}"
-            echo -e "  ${GREEN}✓ open-seo-advisor → Codex${NC}"
-        fi
-    elif [[ -e "${CODEX_SEO_DST}" ]]; then
-        mv "${CODEX_SEO_DST}" "${CODEX_SEO_DST}.bak.$(date +%Y%m%d-%H%M%S)"
-        echo -e "  ${YELLOW}備份：Codex open-seo-advisor${NC}"
-        ln -s "${OPEN_SEO_ADVISOR_DIR}" "${CODEX_SEO_DST}"
-        echo -e "  ${GREEN}✓ open-seo-advisor → Codex${NC}"
-    else
-        ln -s "${OPEN_SEO_ADVISOR_DIR}" "${CODEX_SEO_DST}"
-        echo -e "  ${GREEN}✓ open-seo-advisor → Codex${NC}"
-    fi
-fi
+# 依 shared-skills.txt 把通用 skill 掛給 Codex（~/.agents/skills）與 agy（~/.gemini/config/skills）
+"${SCRIPT_DIR}/scripts/sync-shared-skills.sh" | sed 's/^/  /'
 echo ""
 
 # === Step 2: Scripts 執行權限 ===

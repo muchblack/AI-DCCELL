@@ -1,0 +1,50 @@
+# 與 Codex、Antigravity（agy）共用的 skill 清單
+# 來源一律是 claude/skills/<name>，由 scripts/sync-shared-skills.sh 掛到：
+#   codex → ~/.agents/skills/
+#   agy   → ~/.gemini/config/skills/
+#
+# 格式：<skill 名稱> [!codex] [!agy]
+#   !codex / !agy 表示不掛給該 CLI（通常是它有自己的版本）
+#
+# 刻意不共用：
+#   herdr-dev、herdr-mkt、dispatch、ask、infinite-gratitude — 主控派工用，worker 載入會自己再派工
+#   to-tickets — 發布 Linear 票由使用者自己跑
+#   instinct-status、learn、memory、peon-ping — 依賴 Claude Code hook
+#   php-exec、db、clone、branch、commit、push、worklog、obs、obs-telegram、
+#   stock、stock-analyze、career-ops、job104、remote-sudo — 個人環境／流程專用，codex 有自己的一份
+
+# UI/UX
+ui-ux-pro-max
+ui-styling
+design-system
+design
+brand
+mockup-to-code
+mandi
+gsap-core
+gsap-react
+react-best-practices
+open-seo-advisor
+
+# 開發通用
+linus-review !codex
+linus-analyze
+diagnosing-bugs
+domain-modeling
+grilling
+grill-with-docs
+to-spec
+handoff
+security-audit
+openapi-gen
+find-skills
+
+# 文件與內容
+markitdown
+speak-human-tw
+hf-image
+
+# 命理
+bazi
+ziwei-doushu
+qimen-dunjia

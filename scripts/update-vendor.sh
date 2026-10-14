@@ -5,8 +5,9 @@
 #   scripts/update-vendor.sh                  # 列出所有外部 skill 與目前版本
 #   scripts/update-vendor.sh security-audit   # 更新指定的 skill
 #   scripts/update-vendor.sh open-seo-advisor
-#   scripts/update-vendor.sh ui-ux-pro-max    # 一併更新 banner-design、brand、design、design-system、slides、ui-styling
+#   scripts/update-vendor.sh ui-ux-pro-max    # 一併更新 brand、design、design-system、ui-styling
 #   scripts/update-vendor.sh find-skills
+#   scripts/update-vendor.sh react-best-practices  # 會重新產生 claude/skills/react-best-practices/SKILL.md
 #
 # 不會 push；確認沒問題後自行 git push。
 
@@ -19,8 +20,10 @@ cd "${ROOT}"
 VENDORS=(
     "security-audit|vendor/security-audit-skill|skills/security-audit|node --test validate-findings.test.cjs validate-coverage-ledger.test.cjs"
     "open-seo-advisor|claude/skills/open-seo-advisor|.|"
-    "ui-ux-pro-max|vendor/ui-ux-pro-max-skill|.claude/skills/ui-ux-pro-max|for s in banner-design brand design design-system slides ui-styling; do test -f ../\$s/SKILL.md || { echo \"缺少 \$s/SKILL.md\"; exit 1; }; done"
+    "ui-ux-pro-max|vendor/ui-ux-pro-max-skill|.claude/skills/ui-ux-pro-max|for s in brand design design-system ui-styling; do test -f ../\$s/SKILL.md || { echo \"缺少 \$s/SKILL.md\"; exit 1; }; done"
     "find-skills|vendor/vercel-skills|skills/find-skills|"
+    # 上游 name 是 vercel-react-best-practices，複製一份改回 react-best-practices，免得 /react-best-practices 引用失效
+    "react-best-practices|vendor/vercel-agent-skills|skills/react-best-practices|sed 's/^name: vercel-react-best-practices\$/name: react-best-practices/' SKILL.md > \"\${ROOT}/claude/skills/react-best-practices/SKILL.md\" && grep -q '^name: react-best-practices\$' \"\${ROOT}/claude/skills/react-best-practices/SKILL.md\""
 )
 
 list() {
@@ -84,5 +87,7 @@ if [[ -n "${check}" ]]; then
 fi
 
 git add "${path}"
+# 檢查步驟產生的本地檔（例如 react-best-practices 的 SKILL.md）一併 commit
+[[ -d "claude/skills/${name}" && ! -L "claude/skills/${name}" ]] && git add "claude/skills/${name}"
 git commit -m "更新外部 skill ${name}：${old:0:7} → ${new:0:7}"
 echo "已 commit，確認後 git push"
