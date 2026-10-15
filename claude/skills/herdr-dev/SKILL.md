@@ -136,11 +136,28 @@ Long briefs go through files, not CLI args (no shell-quoting hell):
 #    a provider-specific slash command.
 herdr agent read <worker> --source recent-unwrapped --lines 30
 
-# 3. Submit + wait in one call (atomic paste+Enter, waits for the first
-#    settled idle/done/blocked state). Run this in the background — it can
-#    take a long time and re-enters this session when it fires.
-herdr agent prompt <worker> "Read .herdr-dev/tasks/<slug>/brief.md and execute it. Write your final report to .herdr-dev/tasks/<slug>/report.md when done." --wait --timeout 1800000
+# 3. Submit WITHOUT --wait, then wait with scripts/wait-result.sh in the
+#    background. It returns ONLY when the result file's first line is this
+#    dispatch's id and the pane has settled — early idle/done flickers are
+#    swallowed in the background instead of waking main.
+herdr agent prompt <reviewer> "Read .herdr-dev/tasks/<slug>/review-brief.md and execute it. Write verdict.md when done." >/dev/null
+~/.claude/skills/herdr-dev/scripts/wait-result.sh <reviewer> .herdr-dev/tasks/<slug>/verdict.md <dispatch_id>
+# worker: add --approve so allowlisted commands are auto-approved meanwhile
+~/.claude/skills/herdr-dev/scripts/wait-result.sh <worker> .herdr-dev/tasks/<slug>/report.md <dispatch_id> \
+  --approve <host_worktree> "podman exec -w <container_worktree_path> <container> "
 ```
+
+**Always wait with `wait-result.sh`, never with a bare `agent prompt --wait` /
+`agent wait` / `approve-loop.sh`** (2026-10-15, VIN-127～129). Each of those
+returns on the first idle/done/blocked flicker; agy and codex flicker often,
+and every early return costs main a full-context turn just to learn "still
+working" — that was ~15–20 wasted turns over three tickets and a large share
+of the Claude 5h quota. `wait-result.sh` prints exactly one line:
+`RESULT_READY` → read the file and continue; `NEEDS_REVIEW: <cmd>` → judge the
+command (below), approve or `esc`, re-run the script; `BLOCKED` → `agent read`
+the pane; `SETTLED_NO_RESULT` → the pane stopped ~2 min without writing this
+dispatch's file: dead job, salvage + re-dispatch; `TIMEOUT` (90 min) → read
+the pane. Tests: `bash scripts/test-wait-result.sh`.
 
 When the call returns, check `herdr agent get <worker>`:
 - `idle`/`done` → read `.herdr-dev/tasks/<slug>/report.md`, verify via git, continue.
@@ -155,10 +172,9 @@ When the call returns, check `herdr agent get <worker>`:
   verdict, both must hold: (1) its first line is the `dispatch_id` main put
   in this dispatch's brief (see `references/flow.md` Phase 2 step 1 — every
   dispatch gets a new id, so a leftover file can never match), and (2) the
-  pane is idle (not `Editing files…`). If not, re-run `herdr agent wait
-  <reviewer>` in the background (no sleep/poll loops) and re-check. Same
-  rule for the worker's `report.md`. Timestamps and header text are not
-  evidence.**
+  pane is idle (not `Editing files…`). `scripts/wait-result.sh` enforces
+  both before returning. Same rule for the worker's `report.md`. Timestamps
+  and header text are not evidence.**
 - `blocked` → `herdr agent read <worker> --source recent-unwrapped --lines 40`;
   if it is a permission prompt, answer via `herdr agent send-keys <worker>
   <key>` (e.g. `enter`, `esc`, `y`); if it is a requirement question, ask
@@ -179,11 +195,13 @@ When the call returns, check `herdr agent get <worker>`:
   **`scripts/approve-loop.sh` — allowlisted auto-approve (added 2026-10-07,
   VIN-85/86).** Instead of hand-approving every `podman exec` and `git
   commit`, dispatch with a plain `herdr agent prompt` (no `--wait`) and run
-  the script in the background — it does the waiting itself:
+  `wait-result.sh … --approve <host_worktree> "<container_prefix>"` in the
+  background — it calls approve-loop.sh in a loop until the report for this
+  dispatch exists (approve-loop alone exits on the first idle flicker):
   ```bash
   herdr agent prompt <worker> "Read …/brief.md and execute it …" >/dev/null
-  ~/.claude/skills/herdr-dev/scripts/approve-loop.sh <worker> <host_worktree> \
-    "podman exec -w <container_worktree_path> <container> "
+  ~/.claude/skills/herdr-dev/scripts/wait-result.sh <worker> .herdr-dev/tasks/<slug>/report.md <dispatch_id> \
+    --approve <host_worktree> "podman exec -w <container_worktree_path> <container> "
   ```
   It approves only (a) commands starting with the literal container prefix,
   (b) `cd <host_worktree> && …`, (c) git

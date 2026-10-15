@@ -178,6 +178,15 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    bind-mount (see project CLAUDE.md), confirm the mount covers this path
    before dispatching — if it doesn't, flag it to the Emperor rather than
    silently falling back to the shared tree.
+   **Dependency dirs: real copy, never a symlink.** A worktree has no
+   gitignored `vendor/` (or `node_modules/`). For PHP give it a real copy:
+   `cp -Rc vendor <worktree>/vendor` (APFS clone — instant, no extra disk).
+   A `vendor` symlink makes Composer's `$baseDir` resolve to the main
+   checkout, so `App\` and `Tests\` silently load main's classes and the
+   worker's PHP changes are never exercised (VIN-128, 2026-10-15: RED never
+   turned GREEN). Before dispatch, verify inside the container:
+   `php -r 'require "vendor/autoload.php"; echo (new ReflectionClass(<any app class>::class))->getFileName();'`
+   must print a path under the worktree. Same for the reviewer worktree.
    Also `mkdir -p .herdr-dev/tasks/<slug>` (all per-task files go there).
 1. Write the **dev brief** (English) to `.herdr-dev/tasks/<slug>/brief.md`: the
    Requirement Brief + this mandatory TDD contract:
@@ -263,24 +272,24 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    proceed directly. If stale context is visible, no documented
    cross-provider clear exists — restart via `herdr agent start <name>
    --kind <kind> --pane <id>` on a plain shell, or ask the Emperor.
-3. Dispatch + wait, atomic, run in background (can take a long time):
-   ```bash
-   herdr agent prompt <worker> "Read .herdr-dev/tasks/<slug>/brief.md and execute it. Write your final report to .herdr-dev/tasks/<slug>/report.md when done." --wait --timeout 1800000
-   ```
-   **Preferred when the worker will hit many approval prompts** (container
-   commands, git commits): send the prompt without `--wait`, then run
-   `scripts/approve-loop.sh` in the background — it waits, auto-approves only
-   allowlisted commands, and exits with `STATUS=…` or `NEEDS_REVIEW: <cmd>`
-   (see SKILL.md › Herdr Dispatch Pattern › `blocked`):
+3. Dispatch without `--wait`, then wait with `scripts/wait-result.sh` in the
+   background (one call, returns once — see SKILL.md › Herdr Dispatch
+   Pattern). Worker gets `--approve` so allowlisted commands are approved
+   while it waits:
    ```bash
    herdr agent prompt <worker> "Read .herdr-dev/tasks/<slug>/brief.md and execute it. Write your final report to .herdr-dev/tasks/<slug>/report.md when done." >/dev/null
-   ~/.claude/skills/herdr-dev/scripts/approve-loop.sh <worker> <worker_worktree> "podman exec -w <container_worktree_path> <container> "
+   ~/.claude/skills/herdr-dev/scripts/wait-result.sh <worker> .herdr-dev/tasks/<slug>/report.md <dispatch_id> \
+     --approve <worker_worktree> "podman exec -w <container_worktree_path> <container> "
    ```
-   On `NEEDS_REVIEW`, judge the command by hand, approve or `esc`, and
-   re-run the script. Same pattern for the reviewer pane.
+   Reviewer dispatches (brief review, code review, confirmation review) use
+   the same script without `--approve`, pointed at `brief-verdict.md` /
+   `verdict.md`. On `NEEDS_REVIEW`, judge the command by hand, approve or
+   `esc`, and re-run the script. Never fall back to a bare `--wait` /
+   `agent wait` / `approve-loop.sh` wait: each early idle flicker becomes a
+   wasted full-context main turn.
 4. Reply one short line (`<worker agent> 開發中…`) and **END TURN**. The
-   background call re-enters this session when it settles (idle/done/blocked)
-   or times out.
+   background call re-enters this session exactly once, with one of
+   `RESULT_READY | NEEDS_REVIEW | BLOCKED | SETTLED_NO_RESULT | TIMEOUT`.
 
 State: `{ "step": "dev_dispatched", "round": 0, "base_sha": "<sha>", "owns": [...], "dispatch_seq": <k>, "dispatch_id": "<slug>-<k>" }` — `dispatch_seq` continues from the brief review; it never resets per phase.
 
@@ -688,6 +697,13 @@ State: `{ "step": "tuning_dispatched", "tuning_round": 1, "dispatch_seq": <k>, "
    Phase 5 completion — leave its worktrees in place until the Emperor
    decides the outcome.
 5. State: `{ "step": "done" }`. Clean up `.herdr-dev/*.md` working files.
+6. **One ticket per session.** After reporting, recommend the Emperor start
+   the next ticket in a fresh session (state, notepad and Linear carry the
+   context; `/handoff` if anything is left mid-air) rather than chaining it
+   here. Every main turn re-reads the whole conversation, so a session that
+   already carries one ticket's briefs, verdicts and tool output makes every
+   turn of the next ticket cost more (2026-10-15: three tickets plus
+   planning in one session drained the Claude 5h quota).
 
 ---
 
