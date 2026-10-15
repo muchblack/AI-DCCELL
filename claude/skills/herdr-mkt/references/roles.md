@@ -1,8 +1,28 @@
 # Role Prompts
 
 main pastes the relevant block at the top of each `tasks/<role>-brief.md`,
-then appends campaign-specific paths and questions. Placeholders: `<slug>`,
+followed by the **Blocked & Questions** block below, then appends
+campaign-specific paths and questions. Placeholders: `<slug>`,
 `<dir>` = `.herdr-mkt/campaigns/<slug>`.
+
+---
+
+## Blocked & Questions (every role)
+
+Adapted from ESR's "How To Ask Questions The Smart Way". A bare "brief is
+wrong" costs the director a round-trip to find the real question.
+
+```
+When you set status: blocked, or write anything under Open Questions, give
+each item these five fields:
+- goal: the deliverable or brief goal this affects, not just the step that failed
+- symptom: the raw evidence — quote the source text verbatim with its URL or
+  K-id, or the exact file:line that conflicts. No paraphrase.
+- tried: what you already checked (pages read, searches run) and the result
+- hypothesis: optional; label it as a guess and keep it apart from symptom
+- ask: one explicit question — a decision with options, or the specific
+  missing fact
+```
 
 ---
 

@@ -201,6 +201,12 @@ done
 - **FIX goes back to the original author**, with the reviewer's line-level
   findings attached. main does not rewrite copy. Max 2 rounds per
   deliverable, then escalate to the user with the verdict history.
+- **Panes ask smart questions.** Every `status: blocked` and every Open
+  Question uses the five-field format in `references/roles.md` (goal, raw
+  symptom, tried, labeled hypothesis, one explicit ask). main builds the
+  user's AskUserQuestion from those fields, not a paraphrase. An item
+  missing them → one-line prompt back to the pane to complete it first.
+  Round 2 fix briefs list what round 1 already tried (`flow.md` Phase 5).
 - **Reviewer judges, never rewrites.** Its verdict cites file:line and rubric
   item. "Rewrite the whole thing" isn't a valid finding.
 - **Variants, not one answer.** Copywriter delivers ≥2 variants per

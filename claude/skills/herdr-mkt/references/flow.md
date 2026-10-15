@@ -157,6 +157,10 @@ findings:
    The copywriter edits the **polished** `copy/<f>.md`, not `.raw/`. Phase 4
    then snapshots and polishes again under the new round number.
    NITs go to `delivery.md` as optional notes, no round consumed.
+   **Round 2 fix briefs also carry an "already tried" section**: what the
+   author changed in round 1 for each finding still open, and why the
+   reviewer still flags it (the finding plus its target line). Without it
+   the author tends to resubmit a variant of the rejected change.
 4. Round > 2 for any deliverable → stop, show the user the verdict history
    and ask: accept as-is / give direction / drop deliverable.
 
