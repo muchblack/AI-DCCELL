@@ -9,11 +9,16 @@ description: >-
   verdicts back to the original author (max 2 rounds). Every copy file is
   polished by speak-human-tw (auto-apply + summary) before review; Jev gives
   advisory signals at brief, strategy and copy checkpoints. Content production
-  only — never publishes. Triggers on: herdr mkt, 行銷團隊, AI 行銷, 跑行銷,
+  only — never publishes. Brand modes (init / quick / weekly) run one
+  long-term brand from the cwd: brand-voice.md, content calendar, drafts/.
+  Triggers on: herdr mkt, 行銷團隊, AI 行銷, 跑行銷,
   行銷活動, 做檔活動, campaign, marketing team, 行銷企劃, 產文案,
-  社群貼文企劃. Examples: "/herdr-mkt briefs/autumn-sale.md",
+  社群貼文企劃, 發 Threads, 寫一篇 Threads, IG 貼文, 靈感轉貼文, 圖配文,
+  每週排程, 本週選題. Examples: "/herdr-mkt briefs/autumn-sale.md",
   "/herdr-mkt briefs/x.md --lite", "/herdr-mkt --resume",
-  "/herdr-mkt briefs/x.md --researcher=w5:p3 --reviewer=w5:p5".
+  "/herdr-mkt briefs/x.md --researcher=w5:p3 --reviewer=w5:p5",
+  "/herdr-mkt init", "/herdr-mkt quick \"週末看展很喜歡那面牆\" --image=wall.jpg",
+  "/herdr-mkt weekly".
 metadata:
   short-description: "Herdr marketing team: brief → research → strategy → copy/visual → review loop"
   status: draft
@@ -42,18 +47,39 @@ brief.md
 ```
 /herdr-mkt <brief-path | linear-issue-id> [--lite] [--researcher=<pane>] [--copywriter=<pane>] [--visual=<pane>] [--reviewer=<pane>]
 /herdr-mkt --resume
+
+# brand modes: cwd is the brand workspace
+/herdr-mkt init
+/herdr-mkt quick "<idea or link>" [--image=<path>] [--channel=threads|ig] [--copywriter=<pane>]
+/herdr-mkt weekly [--copywriter=<pane>] [--reviewer=<pane>]
 ```
 
 Role flags take a pane id (`w5:p3`) or an agent name (`agy`); an agent name
 resolves to the first matching pane in this project's cwd that isn't already
 bound to another role.
 
-## Step 0 — Brief Gate (always first)
+| Mode | Use | Panes | Reviewer |
+|------|-----|-------|----------|
+| campaign (default) | one campaign from a brief | full or `--lite` | yes |
+| `init` | create brand files in cwd | none | — |
+| `quick` | one idea (or photo) → one draft | main + copywriter | no, the user reviews |
+| `weekly` | topic pool → user picks → batch drafts | main + copywriter + reviewer | yes |
+
+Brand modes: `references/modes.md` (preflight, image question, image-first,
+draft format). Channel rules: `references/channels/<channel>.md`.
+
+## Step 0 — Brief Gate (campaign mode, always first)
+
+Brand modes skip this gate: quick has no brief, and weekly generates its own
+from `brand-voice.md` (`modes.md`).
 
 1. Brief path / Linear id given → read it, check against
    `references/brief-template.md`. Required fields: product, goal (one
    measurable outcome), audience, channels, deliverables list, brand voice,
    forbidden claims / legal constraints, deadline.
+   If cwd has `brand-voice.md`, brand voice and forbidden claims default
+   from it (core + the channel sections the brief uses); the brief may
+   override them.
 2. Missing required fields → AskUserQuestion (四段式), one field per
    question. Never invent a goal, audience or claim on the user's behalf.
    All fields present → run Jev J1 (`references/jev.md`); a flag only

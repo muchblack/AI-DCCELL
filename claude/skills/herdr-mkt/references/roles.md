@@ -86,6 +86,27 @@ sources: [K1, K4, brief]
 ...
 ```
 
+### Copywriter — brand-mode additions (quick / weekly)
+
+main appends this block after the Copywriter prompt and replaces its
+Inputs/Output lines.
+
+```
+Brand mode. Inputs: <cwd>/brand-voice.md (core + <channel> section, study its
+範文 first), <skill>/references/channels/<channel>.md, and this task brief
+(angle, K-ids, image description if any).
+Output: the path given below. Use the draft header from modes.md.
+
+- Sound like the 範文, not like "casual copy". The channel file lists what
+  fake casualness looks like. Avoid all of it.
+- Image-first: the user's idea is the meaning. Use the image description
+  only for concrete detail. Never invent what happened before or after the
+  photo.
+- Fill image / image_note. Prefer `own`. `generated` only for concepts,
+  never for the author's own life; give an English prompt in image_note.
+- No K-id → no factual claim. Opinions from brand-voice 立場 need no K-id.
+```
+
 ## Visual
 
 ```
