@@ -244,6 +244,20 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
      `result_sha` is a claim to be checked, not proof — see Phase 3.
    - If no test can express the behavior and no TDD exception was granted,
      stop and write the blocker to the report before touching production code.
+   - **Blocker format (every `status: BLOCKED` report, and any question the
+     pane asks main).** Adapted from ESR's "How To Ask Questions The Smart
+     Way". A bare "X doesn't work" costs main a round-trip to pry the
+     real question out. Five fields:
+     - **goal** — the acceptance criterion or slice being worked on, not
+       just the step that failed (lets main suggest a different route);
+     - **symptom** — the exact command and its raw output, trimmed to the
+       relevant ~20 lines, unparaphrased;
+     - **tried** — what was already attempted and each result, so main
+       does not suggest it again;
+     - **hypothesis** — optional, explicitly labeled as a guess, kept
+       separate from the symptom;
+     - **ask** — one explicit question: a decision with options, or the
+       specific missing fact.
 2. **Check for stale context**: `herdr agent read <worker> --source
    recent-unwrapped --lines 30`. Empty/no unrelated prior conversation →
    proceed directly. If stale context is visible, no documented
@@ -326,7 +340,10 @@ On the wait firing, `herdr agent get <worker>`:
      re-dispatch with the missing TDD requirement.
    - Empty branch / no report file → dead job: salvage, re-dispatch.
    - Report contains a **requirement-level blocker** → AskUserQuestion,
-     then re-dispatch as needed.
+     then re-dispatch as needed. Build the question from the blocker's
+     goal/symptom/ask fields (Phase 2 step 1), not a paraphrase. A blocker
+     missing them → one-line prompt asking the worker to complete the
+     format before escalating.
    - **Clean worktree gate (hard).** `git -C <worker_worktree> status
      --porcelain` must be empty before merge (non-git fallback: the shared
      tree's status must show nothing beyond the claimed, committed
@@ -570,6 +587,10 @@ Otherwise it is stale or malformed — re-wait or correct, never act on it.
      (ranked), unmet acceptance criteria, and the contract to add a
      regression test reproducing each behavioral finding (**RED**) before
      fixing it (**GREEN**), re-commit on the same branch, same report format.
+     **Round 2 also carries an "already tried" section**: the round-1 fix
+     commits and why the reviewer rejected them (the finding plus its
+     evidence). Without it the worker tends to re-apply a variant of the
+     rejected fix.
   2. Clear + dispatch + background wait (Phase 2 steps 2–4). END TURN.
   3. On the fix reply → **return to Phase 3** (verify → merge → re-review).
   - **Round cap**: after **2 fix rounds** still failing → stop, escalate to

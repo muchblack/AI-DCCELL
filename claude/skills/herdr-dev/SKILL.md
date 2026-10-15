@@ -382,6 +382,10 @@ When the call returns, check `herdr agent get <worker>`:
 - **Ask the Emperor on requirement questions, anytime.** Scope, behavior,
   acceptance ambiguity → stop and AskUserQuestion (四段式). Implementation
   details are the worker's to decide — do not escalate those.
+- **Panes ask smart questions too.** A worker/reviewer blocker states
+  goal, raw symptom, what was tried, labeled hypothesis, and one explicit
+  ask (`references/flow.md` Phase 2 step 1). A fix round 2 brief lists
+  what round 1 already tried, so it isn't retried.
 - **Check for stale context before each dispatch.** `herdr agent read
   <worker> --source recent-unwrapped --lines 30` before prompting. Empty/no
   unrelated prior conversation → prompt directly. If stale unrelated context
