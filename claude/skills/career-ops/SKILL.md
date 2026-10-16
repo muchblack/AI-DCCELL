@@ -13,6 +13,7 @@ description: >-
 argument-hint: "<subcommand> [args]"
 metadata:
   short-description: AI 求職助手（評估 + 履歷 + 面試 + 追蹤）
+disable-model-invocation: true
 ---
 
 # Career-Ops：AI 求職助手

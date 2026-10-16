@@ -9,6 +9,7 @@ description: >-
   "/stock-analyze 2026-03-28 國際財經".
 metadata:
   short-description: 雙專家平行分析 + 綜合決策摘要
+disable-model-invocation: true
 ---
 
 # Stock-Analyze — 雙視角股市深度分析

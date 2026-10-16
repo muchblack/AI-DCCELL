@@ -7,6 +7,7 @@ description: >-
   Examples: "/instinct-status", "/instinct-status code-style".
 metadata:
   short-description: 顯示已學習的 instincts 狀態
+disable-model-invocation: true
 ---
 
 # Instinct Status: View Learned Development Patterns

@@ -8,6 +8,7 @@ description: >-
   Examples: "/learn", "/learn review", "/learn extract".
 metadata:
   short-description: 審查/萃取開發模式 instincts
+disable-model-invocation: true
 ---
 
 # Learn: Continuous Learning Pattern Management

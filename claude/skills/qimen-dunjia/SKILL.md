@@ -5,6 +5,7 @@ description: >
   奇門排盤、奇門解盤、奇門擇吉、方位選擇、趨吉避凶，或要求“用奇門”分析一件具體事情時，
   必須使用本技能。正式排盤前先做結構化訪談，再調用腳本完成固定計算，最後再做解讀與建議。
 compatibility: Requires Python 3.11+, lunar_python, and tzdata; run scripts/qimen_cli.py for all fixed calculations.
+disable-model-invocation: true
 ---
 
 # 奇門遁甲技能

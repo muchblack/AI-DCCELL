@@ -3,6 +3,7 @@ name: obs-telegram
 description: 把 myNote Telegram bot 在 myMini 上收到的 Inbox Item，透過 SSH rsync 拉回 Mac 並放進 Obsidian vault 的收件匣，交給既有的 /obs compile 處理。Triggers on: telegram inbox 同步, obs-telegram, 拉 inbox, 拉 telegram 筆記, sync inbox from mymini, myNote 同步, pull inbox.
 metadata:
   short-description: myMini → Mac 的 Telegram Inbox Item 同步
+disable-model-invocation: true
 ---
 
 # obs-telegram — myMini → Mac 的 Telegram Inbox Item 同步

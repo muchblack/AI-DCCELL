@@ -3,6 +3,7 @@ name: infinite-gratitude
 description: 多 agent 平行研究：把主題拆成多個研究方向（GitHub、HuggingFace、論文、競品、最佳實踐等），平行派出 subagent 蒐集，彙整成報告，並依新發現的後續問題再派一輪。Triggers on: 無限貓報恩, infinite gratitude, 平行研究, 多 agent 研究, 幫我全面調查, 研究這個主題, multi-agent research. Examples: "/infinite-gratitude 寵物 AI 辨識", "/infinite-gratitude RAG best practices --depth deep", "/infinite-gratitude React state management --agents 3".
 metadata:
   short-description: 多 agent 平行研究，可依後續問題多輪深入
+disable-model-invocation: true
 ---
 
 # 無限貓報恩（Infinite Gratitude）
