@@ -10,39 +10,72 @@ description: >-
 
 Execute PHP/Laravel commands inside the Podman `php-fpm` container via `podman exec`, bridging host Claude Code to containerized PHP runtime.
 
-Host does NOT have PHP/Composer installed — all PHP commands MUST go through the container. Node.js is the opposite: runs directly on host, no `podman exec` needed.
+Host does NOT have PHP/Composer installed — all PHP commands MUST go through the container. Node.js (v22) is the opposite: runs directly on host, no `podman exec` needed.
 
-## Container Details
+## Containers
 
-- Container: `php-fpm` (PHP 8.4)
-- Host path `/Users/vincenttseng/code/php/` → container `/var/www/html/php/`
+- `php-fpm`: PHP 8.4 + Composer only. No AI tools, no Node.js.
+- `nginx`: reverse proxy, talks to PHP-FPM via Unix socket.
+- `mariadb`: dev database, port 3306.
+- `redis`: cache, port 6379.
+- Podman VM: ~3.7GB RAM, 6 CPUs; containers have mem_limit enforced.
+
+## Path Mapping
+
+Host `~/code/php/` is mounted under container `/var/www/html/`. The exact
+mapping differs per machine (some map `~/code/php/{path}` → `/var/www/html/{path}`,
+others → `/var/www/html/php/{path}`). Don't guess — check once:
+
+```bash
+podman inspect php-fpm --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
+```
 
 ## Execution Pattern
 
 ```bash
 # PHP (container)
-podman exec -w /var/www/html/php/<project> php-fpm <command>
+podman exec -w /var/www/html/<project> php-fpm <command>
 
 # Interactive (tinker)
-podman exec -it -w /var/www/html/php/<project> php-fpm php artisan tinker
+podman exec -it -w /var/www/html/<project> php-fpm php artisan tinker
 
 # Node.js (host direct)
-cd /Users/vincenttseng/code/php/<project> && npm <command>
+cd ~/code/php/<project> && npm <command>
 ```
 
 ## Common Tasks
 
 | Task | Command |
 |------|---------|
-| Artisan | `podman exec -w /var/www/html/php/{project} php-fpm php artisan {cmd}` |
-| Composer | `podman exec -w /var/www/html/php/{project} php-fpm composer {cmd}` |
-| Tests | `podman exec -w /var/www/html/php/{project} php-fpm php artisan test` |
-| Fresh migrate | `podman exec -w /var/www/html/php/{project} php-fpm php artisan migrate:fresh --seed` |
+| Artisan | `podman exec -w /var/www/html/{project} php-fpm php artisan {cmd}` |
+| Composer | `podman exec -w /var/www/html/{project} php-fpm composer {cmd}` |
+| Tests | `podman exec -w /var/www/html/{project} php-fpm php artisan test` |
+| Fresh migrate | `podman exec -w /var/www/html/{project} php-fpm php artisan migrate:fresh --seed` |
 | Vite dev | `cd ~/code/php/{project} && npm run dev` |
 | Vite build | `cd ~/code/php/{project} && npm run build` |
 
-## Error Handling
+## Gotchas
 
-- Container not running → `cd ~/podman && podman-compose up -d`
-- Permission error → add `--user root` to `podman exec`
-- Interactive commands (tinker) → use `-it` flag
+- herdr agent sessions sandbox `$HOME` — prefix podman commands with
+  `HOME=<real home>` (e.g. `HOME=/Users/huai-chitzeng`) or they fail with
+  "Cannot connect to Podman".
+- Piping stdin into `podman exec` (heredoc) needs `-i`, otherwise the target
+  file is silently created empty.
+- Interactive commands (tinker) need `-it`.
+- Permission error → add `--user root`.
+
+## Container Management
+
+Compose file: `~/srv/servers/docker-compose.yml` (older machines: `~/podman`).
+
+- Start: `cd ~/srv/servers && podman-compose up -d`
+- Stop: `cd ~/srv/servers && podman-compose down`
+- Rebuild: `cd ~/srv/servers && podman-compose up -d --build`
+- Stats: `podman stats --no-stream`
+
+## MariaDB
+
+- Host: `127.0.0.1:3306`, root / `1qaz@WSX`
+- From containers: `mariadb:3306` (Laravel `.env`: `DB_HOST=mariadb`)
+- `DB_CONNECTION=mariadb` (Laravel 11+, NOT mysql)
+- Backup: `podman exec mariadb mariadb-dump -u root -p'1qaz@WSX' --all-databases`

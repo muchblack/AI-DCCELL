@@ -57,12 +57,6 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 | `/linus-review` | Daily taste check → 🟢🟡🔴 three-tier judgment |
 | `/react-best-practices` | React/Next.js performance optimization (40+ rules) |
 
-**Frontend Development**:
-| Agent | Trigger |
-|-------|---------|
-| `frontend-developer` | Frontend implementation, visual iteration (3-round protocol) |
-| `pragmatic-ui-architect` | State-driven component design, component contract definition |
-
 **Collaboration & Delegation**:
 | Skill | Trigger |
 |-------|---------|
@@ -78,7 +72,6 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 | Agent / Skill | Trigger |
 |---------------|---------|
 | `laravel-simplifier` | PHP/Laravel code |
-| `backend-architect` | System architecture & API design |
 | `/hf-image` | HF Inference API 圖片生成（text-to-image, image-to-image） |
 
 ## Notepad 持久化
@@ -110,61 +103,9 @@ Context 壓縮後，若收到 `[COMPACT RECOVERY]` 提示，立即 `Read(".herdr
 
 ## Podman Development Environment
 
-### Architecture
-
-- **PHP-FPM container** (`php-fpm`): PHP 8.4 + Composer only. No AI tools, no Node.js.
-- **Nginx container** (`nginx`): Reverse proxy, connects to PHP-FPM via Unix socket.
-- **MariaDB container** (`mariadb`): Dev database, port 3306.
-- **Redis container** (`redis`): Cache, port 6379.
-- **Node.js**: Runs on host directly (v22), NOT inside container.
-- **Podman VM**: 3.7GB RAM (3814 MB), 6 CPUs. Containers have mem_limit enforced.
-
-### PHP Command Execution (MANDATORY: via podman exec)
-
-Host does NOT have PHP/Composer installed. ALL PHP commands MUST use:
-
-```
-podman exec -w /var/www/html/{project_path} php-fpm {command}
-```
-
-**Path mapping**: Host `/Users/huai-chitzeng/code/php/{path}` → Container `/var/www/html/{path}`
-(e.g. `code/php/my/newmetalwork2` → `/var/www/html/my/newmetalwork2`)
-
-In herdr agent sessions `$HOME` is sandboxed — prefix podman commands with
-`HOME=/Users/huai-chitzeng` or they fail with "Cannot connect to Podman".
-When piping stdin into `podman exec` (heredoc), add `-i` or the file is
-silently created empty.
-
-| Task     | Command                                                                 |
-| -------- | ----------------------------------------------------------------------- |
-| Artisan  | `podman exec -w /var/www/html/{project} php-fpm php artisan {cmd}`      |
-| Composer | `podman exec -w /var/www/html/{project} php-fpm composer {cmd}`         |
-| Test     | `podman exec -w /var/www/html/{project} php-fpm php artisan test`       |
-| Tinker   | `podman exec -it -w /var/www/html/{project} php-fpm php artisan tinker` |
-
-### Node.js Commands (Host Direct)
-
-npm/yarn run directly on host. No podman exec needed:
-
-```
-cd /Users/huai-chitzeng/code/php/{project} && npm {command}
-```
-
-### Container Management
-
-Compose file lives in `~/srv/servers/docker-compose.yml`:
-
-- Start: `cd ~/srv/servers && podman-compose up -d`
-- Stop: `cd ~/srv/servers && podman-compose down`
-- Rebuild: `cd ~/srv/servers && podman-compose up -d --build`
-- Stats: `podman stats --no-stream`
-
-### MariaDB
-
-- Host connection: 127.0.0.1:3306, root/1qaz@WSX
-- Container connection: mariadb:3306 (use DB_HOST=mariadb in Laravel .env)
-- DB_CONNECTION=mariadb (Laravel 11+, NOT mysql)
-- Backup: `podman exec mariadb mariadb-dump -u root -p'1qaz@WSX' --all-databases`
+Host 沒裝 PHP/Composer：所有 PHP 指令（artisan、composer、phpunit、tinker）一律經
+`/php-exec` 用 `podman exec` 進 `php-fpm` container 執行；Node.js 則直接在 host 跑。
+路徑對應、herdr 注意事項、container 管理、MariaDB 連線都在 `/php-exec` 裡。
 
 ## 外部 Skill 優先序（mattpocock/skills）
 
