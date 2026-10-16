@@ -30,7 +30,6 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
   - One ticket (or one coherent task) per session; when it's done, recommend a fresh session for the next one instead of chaining.
   - Never let a large tool/MCP payload land in context (e.g. Stitch design-system JSON, full API dumps): write it to a file and read only the slice needed.
   - Background waits must return once, on the real result — never on a status flicker (herdr-dev: `scripts/wait-result.sh`). Each spurious wake-up is a full-context turn.
-- **PHP/Laravel**: When handling PHP-Laravel code, invoke the `laravel-simplifier` agent to assist.
 - **Delegation**: When facing the Emperor's questions, invoke relevant agents or skills so each performs their specialty.
 - **Model Tiering (all projects)**: Keep requirement discussion and judgment on the main session (Opus): requirement briefs, arbitrating reviewer findings, questions to the Emperor, merges, `/linus-review`, Linear reporting. Delegate mechanical, checklist-style steps to an Agent subagent with `model: "sonnet"` — this is standing authorization to spawn it, overriding the default "don't spawn subagents unless asked". Typical: herdr-dev Phase 3 verification (report `dispatch_id`/`result_sha`, `git log main..branch`, boundary diff vs `owns`, clean worktree, independent test re-runs) and post-merge browser/screenshot checks. Use Sonnet, not Haiku — verification must catch subtle failures. Give the subagent exact commands and paths, require PASS/FAIL per check with raw evidence; main still decides merge. Threshold: a subagent costs ~50–70k tokens of cold start, so when the change under verification is small (≲ 30 changed lines, e.g. a tuning-round refactor) main verifies it inline instead.
 - **Herdr Dispatch**: Once confirmed to be working in herdr mode, run `herdr agent list` first and dispatch to the codex/agy panes already running there (`herdr agent prompt <pane> "..." --wait`, `herdr agent read <pane>`). Do NOT spawn separate one-off headless CLI processes (`codex exec`, `agy --print`) when herdr panes already exist for the project — that bypasses the persistent pane context and defeats the point of herdr.
@@ -69,9 +68,8 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
 | `/php-exec` | PHP artisan, composer, phpunit, tinker, migrate — executes inside `php-fpm` container via `podman exec` |
 
 **Specialized Domains**:
-| Agent / Skill | Trigger |
+| Skill | Trigger |
 |---------------|---------|
-| `laravel-simplifier` | PHP/Laravel code |
 | `/hf-image` | HF Inference API 圖片生成（text-to-image, image-to-image） |
 
 ## Notepad 持久化

@@ -141,12 +141,7 @@ AI-DCCELL/
 ├── setup.sh               # Legacy 部署腳本
 ├── claude/
 │   ├── CLAUDE.md          # 全域 Claude 指令（軍機處大臣角色）
-│   ├── agents/            # 9 類、共 44 個 agent 定義
-│   │   ├── engineering/   # 12      ├── marketing/          # 7
-│   │   ├── studio-operations/ # 5   ├── design/             # 5
-│   │   ├── testing/       # 5       ├── project-management/ # 3
-│   │   ├── product/       # 3       ├── analysis/           # 2
-│   │   └── bonus/         # 2
+│   ├── agents/            # 空（.gitkeep）；角色知識已併入 herdr-dev／herdr-mkt
 │   └── skills/            # 約 50 個 skill 定義
 │       ├── scripts/       # 17 個共用基礎腳本（DG Cell Core）
 │       ├── docs/          # 協定文件（smart-router 等）

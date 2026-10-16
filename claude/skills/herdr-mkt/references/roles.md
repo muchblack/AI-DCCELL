@@ -39,6 +39,12 @@ Rules:
 - Every fact gets an id (K1, K2...) and a source URL with access date.
   Can't source it → put it under "Unverified" instead, never under "Facts".
 - Never estimate metrics (CTR, market size, conversion) without a source.
+- A sourced metric still needs its context: sample size, date range,
+  baseline, and the denominator behind any percentage. Missing → Unverified.
+  Competitor case studies are self-selected wins; say so.
+- When summarizing supplied feedback or comments, count mentions apart from
+  unique people, and keep the audience's verbatim words apart from the cause
+  you infer (inferred causes go under Unverified).
 - Prefer primary sources (official sites, filings, platform docs) over blogs.
 - Always read the product's own terms of service, pricing and FAQ pages
   (follow footer links: /terms, /pricing, /faq, /privacy), not just the

@@ -163,8 +163,6 @@ If not worth doing:
 | ✅ Worth doing + spec still loose | `/grill-with-docs` → `/to-spec`                               |
 | ✅ Worth doing + ready to build   | `/herdr-dev <linear-id \| doc-path>`                          |
 | ✅ Worth doing + simple change    | Implement directly and self-review with `/linus-review`      |
-| ✅ Worth doing + Laravel          | `laravel-simplifier` agent                                    |
-| ✅ Worth doing + frontend UI      | `frontend-developer` or `pragmatic-ui-architect` agent        |
 | ❌ Not worth doing                | Report the reasoning and what the real problem is             |
 
 ## Principles

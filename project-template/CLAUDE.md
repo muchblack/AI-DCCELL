@@ -17,15 +17,12 @@
 ### 前端開發
 | Agent / Skill | 說明 |
 |---------------|------|
-| `pragmatic-ui-architect` agent | 狀態驅動元件設計、契約定義、邊界審查 |
-| `frontend-developer` agent | 前端實作、三輪視覺迭代協作 |
 | `/react-best-practices` | React/Next.js 效能優化 40+ 規則 |
 
-### 後端 / 專業
-| Agent | 說明 |
+### 開發流程
+| Skill | 說明 |
 |-------|------|
-| `laravel-simplifier` agent | PHP/Laravel 程式碼精簡 |
-| `backend-architect` agent | 系統架構與 API 設計 |
+| `/herdr-dev` | 需求驅動開發：worker TDD → reviewer 審查；依任務類型帶入 `task-checks.md` 檢查項 |
 
 ### 協作
 | Skill | 說明 |

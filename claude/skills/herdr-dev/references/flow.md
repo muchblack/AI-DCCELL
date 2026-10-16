@@ -77,6 +77,11 @@ main (self) does this directly; no worker involved yet.
    - **Test seams** — public behavior boundaries; prefer existing seams and
      the highest practical integration boundary.
    - **Test commands** — smallest targeted command per slice + full-suite.
+   - **Task-specific checks** — pick only the sections of
+     `references/task-checks.md` the requirement or touched code triggers,
+     and paste them here. This brief travels whole into the dev brief
+     (Phase 2) and the review brief (Phase 3), so Worker and Reviewer lines
+     reach their pane with no extra step. They add no scope or ownership.
    - **TDD exception** — normally none; if granted, the specific reason.
    - **Assumptions / Open questions.**
 5. **Brief review by the reviewer pane — before any TDD.** An ambiguous
