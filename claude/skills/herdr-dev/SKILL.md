@@ -339,6 +339,12 @@ When the call returns, check `herdr agent get <worker>`:
   `herdr worktree open` to hand the task to a new agent. Workers/reviewers
   never get a herdr command approved — `esc` it and send a corrective
   prompt (see `references/flow.md` Phase 2 step 1).
+- **Every dev, fix and tuning brief requires the built-in edit tool for file
+  writes** — no shell heredoc / `python3 -` / `sed -i` writes, and no file
+  write chained with a test command. Observed 2026-10-16 (VIN-115): codex's
+  `cat > f <<'EOF' … && podman exec …` dialogs can't be parsed by
+  approve-loop.sh, so each TDD slice needed a manual approval plus false
+  `NEEDS_REVIEW` wake-ups. Exact wording: `references/flow.md` Phase 2 step 1.
 - **Review briefs must restate execution-environment constraints, not just
   dev briefs.** The reviewer independently re-runs tests too (per "review
   is mandatory... verify... not just narration") and needs the same

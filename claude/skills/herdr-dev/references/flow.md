@@ -207,6 +207,19 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
      does. If a pane still tries it, `esc` the approval and send a short
      corrective prompt restating this rule; never approve a herdr command
      from a worker or reviewer pane.
+   - **Write files with the built-in edit tool (mandatory line in every dev,
+     fix and tuning brief).** State verbatim: "Create and edit files with
+     your built-in file-editing tool (e.g. apply_patch). Do NOT write files
+     through shell heredocs (`cat > file <<'EOF'`), `python3 - <<'PY'`, `sed
+     -i` or similar, and do NOT chain a file write with a test command in one
+     shell call — edit first, then run the test command on its own." Observed
+     2026-10-16 (VIN-115): codex wrote every TDD slice as `cat > … <<'EOF' …
+     && podman exec … php artisan test` or a `python3 - <<'PY'` patch script.
+     approve-loop.sh cannot parse those dialogs (`NEEDS_REVIEW: <no command
+     line found>`), so every slice needed a manual approval and the wait
+     script woke main on several false alarms. The tuning round, briefed
+     with this line, used the edit tool and only needed approval for `npm run
+     build`.
    - **Dispatch id (every brief-review, dev, fix, tuning and review brief).** Before
      writing any brief, main increments `dispatch_seq` in state and puts
      `dispatch_id: <slug>-<dispatch_seq>` on the brief's first line. The
@@ -600,7 +613,8 @@ Otherwise it is stale or malformed — re-wait or correct, never act on it.
   1. Write the fix brief to `.herdr-dev/tasks/<slug>/brief.md`: findings verbatim
      (ranked), unmet acceptance criteria, and the contract to add a
      regression test reproducing each behavioral finding (**RED**) before
-     fixing it (**GREEN**), re-commit on the same branch, same report format.
+     fixing it (**GREEN**), re-commit on the same branch, same report format,
+     and the same no-herdr and built-in-edit-tool lines as the dev brief.
      **Round 2 also carries an "already tried" section**: the round-1 fix
      commits and why the reviewer rejected them (the finding plus its
      evidence). Without it the worker tends to re-apply a variant of the
@@ -634,7 +648,7 @@ per task (`tuning_round: 1` in state).
    change *what gets built* (scope/behavior the spec doesn't cover) →
    AskUserQuestion before adopting it.
 2. **Tuning brief** → `.herdr-dev/tasks/<slug>/brief.md` (same opening
-   no-herdr line, same cwd/branch/base, same `owns` boundary, plus "do not
+   no-herdr line, same built-in-edit-tool line, same cwd/branch/base, same `owns` boundary, plus "do not
    merge — main merges"). List the adopted suggestions verbatim. Contract:
    a behavioral change gets a failing test first (**RED**) then the fix
    (**GREEN**); a pure refactor with no behavior change needs no new RED —
