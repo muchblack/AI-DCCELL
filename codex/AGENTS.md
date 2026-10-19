@@ -97,3 +97,14 @@ When analyzing requirements or problems, use the parallel exploration framework:
 - 方案 B：[改法] — 好處是 [Y]
 - 推薦：[選擇] — 因為 [原因]
 ```
+
+## Shell Safety: PHP one-liners
+
+Never inline PHP containing `=>` on the command line (`php artisan tinker --execute=`, `php -r`):
+one quoting slip turns `=>` into a shell `>` redirect and leaves stray empty files
+(`null`, `true\`, `email`, …) in the project root. Pipe the code via a quoted heredoc
+(note `-i`, required for stdin):
+
+    HOME=/Users/huai-chitzeng podman exec -i -w /var/www/html/{project} php-fpm php artisan tinker <<'PHP'
+    App\Models\Members::where('id', 1)->update(['email' => null]);
+    PHP
