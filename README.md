@@ -25,6 +25,12 @@ chmod +x bootstrap.sh
 6. **[3/4]** 初始化 memory 目錄（telemetry）
 7. **[4/4]** 執行 health check，驗證 Gemini / Codex / provider 連線
 
+### 手動設定（bootstrap 不處理）
+
+`~/.claude/settings.json` 不在本 repo 管理，新機器要自己補：
+
+- **`"autoCompactWindow": 400000`**：context 超過 40 萬 token 就自動 compact。依 2026-10 近 30 天的 transcript 模擬，可以少讀約 22% 的 context token；受影響的只有少數超長 session，但它們每一輪都要重讀整段對話，所以影響很大。`/autocompact` 會存到 `modelSettings.<model>`，優先於這個全域值。
+
 ### 外部 Skill（git submodule）
 
 下列外部 skill 以 submodule 鎖定版本（放在 `vendor/`，再以 symlink 掛到 `claude/skills/`）：
