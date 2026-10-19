@@ -61,6 +61,10 @@ cd ~/code/php/<project> && npm <command>
   "Cannot connect to Podman".
 - Piping stdin into `podman exec` (heredoc) needs `-i`, otherwise the target
   file is silently created empty.
+- Never inline PHP containing `=>` on the command line (`tinker --execute=`,
+  `php -r`): a quoting slip turns `=>` into a shell `>` redirect and leaves
+  stray empty files (`null`, `true\`, …) in the project root. Pipe it via a
+  quoted heredoc: `podman exec -i -w ... php-fpm php artisan tinker <<'PHP' ... PHP`.
 - Interactive commands (tinker) need `-it`.
 - Permission error → add `--user root`.
 
