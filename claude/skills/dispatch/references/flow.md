@@ -90,7 +90,10 @@ After the user confirms:
 
 **5.2 Herdr subtasks**: for each one, write a focused brief to a scratch file
 (subtask description, only the context needed, expected output format, and a
-reply file path). Then, for each pane:
+reply file path). Default reply contract unless the subtask needs prose: first
+line = the answer or verdict; then findings as `path:line — note` bullets; then
+open risks. No restating the brief, no process narration; long evidence goes in
+a separate file cited by path. Then, for each pane:
 
 ```bash
 herdr agent read <pane> --source recent-unwrapped --lines 30   # stale context?

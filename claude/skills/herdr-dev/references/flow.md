@@ -259,6 +259,14 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    - Repeat per slice; do not batch all tests before all implementation.
    - Test public behavior, not private methods.
    - Run the relevant full suite after the final GREEN.
+   - **Stop at acceptance (verify-and-stop).** Once every acceptance
+     criterion has a passing test and the full suite is green, commit and
+     write the report — stop there. No cleanup, renames, extra tests,
+     comment polish or refactors beyond the brief; list anything worth
+     doing under the report's `follow-ups` field instead.
+   - **Keep raw output on disk, not in the report.** Tee every suite run to
+     `.herdr-dev/tasks/<slug>/logs/<step>.log`. The report quotes only the
+     summary line plus the first failure (≤20 lines) and cites the log path.
    - Commit on branch `herdr/dev-<slug>`.
    - Write the final report to `.herdr-dev/tasks/<slug>/report.md` (per-task
      path — concurrent or successive tasks never overwrite each other) with
@@ -267,7 +275,9 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
      dispatch, +1 per fix round), `result_sha` (`git rev-parse HEAD` after
      the final commit), TDD evidence table (per slice: RED command +
      expected failure, GREEN command + result), final suite result, changed
-     files, branch name, boundary expansion (`none` or per-file reason).
+     files, branch name, boundary expansion (`none` or per-file reason),
+     `follow-ups` (`none` or one line each). The report is a receipt, not a
+     narrative: no restating the brief, no process story.
      `result_sha` is a claim to be checked, not proof — see Phase 3.
    - If no test can express the behavior and no TDD exception was granted,
      stop and write the blocker to the report before touching production code.
