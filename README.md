@@ -73,7 +73,13 @@ scripts/update-vendor.sh security-audit
 |---|---|---|---|
 | `grill-with-docs` | mattpocock/skills | `SKILL.md` 第一行之後全部：① 程式碼／文件事實標 `EXTRACTED: <path:line>` 或 `INFERRED: <why>`，只有 EXTRACTED 能寫進 CONTEXT.md／ADR（與 herdr-dev verdict 的 CRITICAL 須 EXTRACTED 成對）② 開場 recon＋假設清單，只問清單沒解決的 ③ 收尾交接摘要給 `/to-spec` | 2026-10-12 |
 
-找回原文：`git log -p -- claude/skills/<skill>`。
+找回原文：`git log -p -- claude/skills/<skill>`。覆蓋上游前先 `git diff` 確認本地修改還在。
+
+`ui-ux-pro-max` 是 vendor symlink，skill 本體不能改，注意事項記在這裡：
+
+- `SKILL.md` 用的 `${CLAUDE_PLUGIN_ROOT}` 路徑在本機（symlink 安裝）會失效，一律用 `python3 ~/.claude/skills/ui-ux-pro-max/scripts/search.py`。
+- 不要加 `-I`：腳本需從自身目錄 import `core.py`。
+- `--design-system` 的版型偏行銷頁，非 landing page 的專案只參考配色與字體。
 
 部署後可隨時用健康檢查確認 provider 狀態：
 

@@ -342,6 +342,11 @@ On the wait firing, `herdr agent get <worker>`:
   finished and not just sitting at an unrendered approval dialog (some
   providers report idle/done even at a file-write confirmation prompt).
 
+Step 1's checks are mechanical — per the global Model Tiering rule, hand
+them to a Sonnet subagent (report `dispatch_id`/`result_sha`, `git log
+main..branch`, boundary diff vs `owns`, clean worktree, independent test
+re-runs), unless the change is ≲ 30 lines; main still decides the merge.
+
 1. **Verify against git, not the report**:
    - `report.md` first line must equal this dispatch's `dispatch_id`
      (Phase 2 step 1). Mismatch or missing → the worker has not written

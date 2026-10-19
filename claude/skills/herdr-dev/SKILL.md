@@ -419,4 +419,9 @@ When the call returns, check `herdr agent get <worker>`:
 
 State lives in `.herdr-dev/state.json` so background waits survive turns.
 
+Notepad lifecycle (`.herdr/notepad.md`, what to record is in the global
+CLAUDE.md): a new task run clears it; main appends during work; a PreCompact
+step is meant to merge it into `.herdr/compact-briefing.md`; on task
+completion archive it to `.herdr/history/`.
+
 For the full step-by-step execution flow, see `references/flow.md`.
