@@ -150,6 +150,26 @@ fi
 "${SCRIPT_DIR}/scripts/sync-shared-skills.sh" | sed 's/^/  /'
 echo ""
 
+# === Step 1e: herdr-dev 跨專案踩坑紀錄（獨立的 lessons 分支，company／main 共用）===
+echo -e "${CYAN}[1e/4] herdr-dev 踩坑紀錄${NC}"
+LESSONS_DIR="${TARGET_DIR}/herdr-lessons"
+# single-branch clone 的 fetch refspec 不含 lessons，補上才能追蹤與 pull
+LESSONS_REFSPEC="+refs/heads/lessons:refs/remotes/origin/lessons"
+if ! git -C "${SCRIPT_DIR}" config --get-all remote.origin.fetch \
+    | grep -qxF -e "${LESSONS_REFSPEC}" -e "+refs/heads/*:refs/remotes/origin/*"; then
+    git -C "${SCRIPT_DIR}" config --add remote.origin.fetch "${LESSONS_REFSPEC}"
+fi
+if [[ -d "${LESSONS_DIR}" ]]; then
+    git -C "${LESSONS_DIR}" pull --ff-only -q 2>/dev/null || true
+    echo -e "  ${GREEN}✓ ${LESSONS_DIR}（已存在，已更新）${NC}"
+elif git -C "${SCRIPT_DIR}" fetch -q origin 2>/dev/null \
+    && git -C "${SCRIPT_DIR}" worktree add -q "${LESSONS_DIR}" lessons 2>/dev/null; then
+    echo -e "  ${GREEN}✓ ${LESSONS_DIR} → lessons 分支${NC}"
+else
+    echo -e "  ${YELLOW}⚠ 無法建立，請手動執行：git -C ${SCRIPT_DIR} worktree add ${LESSONS_DIR} lessons${NC}"
+fi
+echo ""
+
 # === Step 2: Scripts 執行權限 ===
 echo -e "${CYAN}[2/4] Scripts 執行權限${NC}"
 SCRIPTS_DIR="${SOURCE_DIR}/skills/scripts"

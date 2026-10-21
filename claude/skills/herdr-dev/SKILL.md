@@ -420,8 +420,14 @@ When the call returns, check `herdr agent get <worker>`:
 State lives in `.herdr-dev/state.json` so background waits survive turns.
 
 Notepad lifecycle (`.herdr/notepad.md`, what to record is in the global
-CLAUDE.md): a new task run clears it; main appends during work; a PreCompact
-step is meant to merge it into `.herdr/compact-briefing.md`; on task
-completion archive it to `.herdr/history/`.
+CLAUDE.md): a new task run clears it; main appends during work; on task
+completion its recurring pitfalls are distilled into `.herdr/lessons.md`
+(this project) or, de-identified, into `~/.claude/herdr-lessons/lessons.md`
+(any project on the same stack; its own `lessons` branch, shared by the
+`company` and `main` branches), and the rest archived to `.herdr/history/`
+(`references/flow.md` Phase 5 step 6).
+Phase 1 pastes the matching lessons into the brief's **Known pitfalls**, so
+both panes get them. No hook writes `.herdr/compact-briefing.md`; after a
+compaction, re-read state.json and the notepad instead.
 
 For the full step-by-step execution flow, see `references/flow.md`.

@@ -83,6 +83,19 @@ main (self) does this directly; no worker involved yet.
      (Phase 2) and the review brief (Phase 3), so Worker and Reviewer lines
      reach their pane with no extra step. They add no scope or ownership.
    - **TDD exception** — normally none; if granted, the specific reason.
+   - **Known pitfalls** — read the project's `.herdr/lessons.md` (if it
+     exists) and the cross-project `~/.claude/herdr-lessons/lessons.md`, both
+     written by Phase 5 step 6. Refresh the cross-project file first:
+     `git -C ~/.claude/herdr-lessons pull --ff-only -q`. Directory missing →
+     create it once by running `bootstrap.sh` step 1e's commands (or the
+     whole idempotent `bash ~/agentSkill/bootstrap.sh`). Any of this fails → use what is
+     on disk or skip it; never block the brief on it. Paste only the lines that match: project
+     lines by layer, file or command; cross-project lines by their stack tags
+     against the stack found in step 2. Verbatim, project line first when
+     two say the same thing; none match → `none`. Like
+     task-specific checks, this travels whole into the dev and review briefs,
+     so both panes see the trap before they step in it. Pitfalls add no
+     scope or ownership.
    - **Assumptions / Open questions.**
 5. **Brief review by the reviewer pane — before any TDD.** An ambiguous
    brief otherwise only surfaces after a full TDD round plus code review.
@@ -731,7 +744,45 @@ State: `{ "step": "tuning_dispatched", "tuning_round": 1, "dispatch_seq": <k>, "
    Phase 5 completion — leave its worktrees in place until the Emperor
    decides the outcome.
 5. State: `{ "step": "done" }`. Clean up `.herdr-dev/*.md` working files.
-6. **One ticket per session.** After reporting, recommend the Emperor start
+6. **Distill lessons, then archive the notepad.** Without this step a pitfall
+   found on one ticket is cleared with the notepad and the next ticket's
+   panes hit it again. Sources: `.herdr/notepad.md` pitfall entries
+   (problem + root cause + fix) and fix-round findings that were confirmed
+   real (state `round` > 0). Keep only what would recur on another ticket;
+   a ticket-specific detail is not a lesson. Route each by what its trigger
+   names:
+   - **A tool, framework or command** (Composer, Laravel, Podman, Vite, an
+     AI pane's habit with a language or tool) → cross-project
+     `~/.claude/herdr-lessons/lessons.md`, under its stack section
+     (`## <stack>`), as
+     `- [YYYY-MM-DD] [<stack tags>] <trigger> — <pitfall> → <fix>`.
+     **De-identify before writing** — this file is version-controlled and
+     read by every project: no project, company, client or product names, no
+     ticket ids, no hostnames, URLs, credentials or customer data, no
+     project paths (tool-generic paths like `vendor/` are fine). Rewrite
+     domain names into generic ones ("an order service", "a money column").
+     If the lesson makes no sense once de-identified, it is a project
+     lesson. Same pitfall already listed → append `×N+1` to that line
+     instead of a new one. Cap 60 lines; over the cap, drop the oldest line
+     without a `×` mark. The file lives on its own `lessons` branch (a
+     worktree of the skills repo, shared by the `company` and `main`
+     branches). After writing, commit it there
+     (`git -C ~/.claude/herdr-lessons commit -qam "lessons：<一行摘要>"`)
+     and show the user the added lines; push
+     (`git pull --rebase -q && git push -q` in that directory) only after
+     the user confirms. `.gitattributes` sets `merge=union`, so appends
+     from two machines merge without conflict. Directory still missing
+     (Phase 1's setup failed) → write nothing there and tell the user.
+   - **This project's code or domain** → `.herdr/lessons.md` as
+     `- [YYYY-MM-DD <slug>] <trigger: layer/file/command> — <pitfall> → <fix>`.
+     Drop lines the new one replaces or whose trigger no longer exists in
+     the code. Cap 30 lines; over the cap, drop the oldest.
+   - **The herdr-dev flow itself** (a brief rule, a herdr quirk) → propose a
+     skill edit to the user instead — the dated rules in this file came
+     from exactly that.
+   Nothing recurring → write nothing; never pad. Tell the user in one line
+   what was added where. Then move the notepad to `.herdr/history/<slug>.md`.
+7. **One ticket per session.** After reporting, recommend the Emperor start
    the next ticket in a fresh session (state, notepad and Linear carry the
    context; `/handoff` if anything is left mid-air) rather than chaining it
    here. Every main turn re-reads the whole conversation, so a session that

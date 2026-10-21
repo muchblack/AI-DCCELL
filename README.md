@@ -21,15 +21,25 @@ chmod +x bootstrap.sh
 2. **[1b/4]** 部署 Codex 設定（`~/.codex/AGENTS.md`、`~/.codex/skills/`）
 3. **[1c/4]** 部署 Gemini 設定（`~/.gemini/GEMINI.md`）
 4. **[1d/4]** 初始化外部 skill submodule，並依 `shared-skills.txt` 把通用 skill 掛給 Codex 與 agy（見下方「與 Codex／agy 共用」）
-5. **[2/4]** 設定 scripts 執行權限
-6. **[3/4]** 初始化 memory 目錄（telemetry）
-7. **[4/4]** 執行 health check，驗證 Gemini / Codex / provider 連線
+5. **[1e/4]** 把 `lessons` 分支掛成 `~/.claude/herdr-lessons/`（見下方「herdr-dev 跨專案踩坑紀錄」）
+6. **[2/4]** 設定 scripts 執行權限
+7. **[3/4]** 初始化 memory 目錄（telemetry）
+8. **[4/4]** 執行 health check，驗證 Gemini / Codex / provider 連線
 
 ### 手動設定（bootstrap 不處理）
 
 `~/.claude/settings.json` 不在本 repo 管理，新機器要自己補：
 
 - **`"autoCompactWindow": 400000`**：context 超過 40 萬 token 就自動 compact。依 2026-10 近 30 天的 transcript 模擬，可以少讀約 22% 的 context token；受影響的只有少數超長 session，但它們每一輪都要重讀整段對話，所以影響很大。`/autocompact` 會存到 `modelSettings.<model>`，優先於這個全域值。
+
+### herdr-dev 跨專案踩坑紀錄（`lessons` 分支）
+
+herdr-dev 每張票結束時，會把跟工具、框架有關的坑去識別化後寫進 `~/.claude/herdr-lessons/lessons.md`；下一張票開始時，再依技術棧挑出相關的條目放進 brief，讓 worker 和 reviewer 事先知道。專案專屬的坑則寫在各專案的 `.herdr/lessons.md`。
+
+- 這份紀錄放在獨立的 `lessons` 分支，不在 `company` 或 `main` 裡，所以兩條分支累積的經驗是同一份，不用 cherry-pick。
+- `~/.claude/herdr-lessons/` 是這個 repo 的 git worktree。新機器 pull 之後跑一次 `./bootstrap.sh` 就會建好（step 1e，可重複執行）；沒跑也沒關係，herdr-dev 第一次用到時會自己建立。
+- 每次寫入都會 commit 到 `lessons` 分支，你確認新增的條目後才 push。`.gitattributes` 設了 `merge=union`，兩台機器同時新增條目也不會衝突。
+- 規則細節（去識別化、格式、上限 60 行）見 `claude/skills/herdr-dev/references/flow.md` Phase 5 step 6。
 
 ### 外部 Skill（git submodule）
 
