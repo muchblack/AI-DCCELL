@@ -289,7 +289,10 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
      the final commit), TDD evidence table (per slice: RED command +
      expected failure, GREEN command + result), final suite result, changed
      files, branch name, boundary expansion (`none` or per-file reason),
-     `follow-ups` (`none` or one line each). The report is a receipt, not a
+     `follow-ups` (`none` or one line each), `pitfalls` (`none`, or one line
+     each as `<trigger: tool/file/command> — <pitfall> → <fix>` for a trap
+     that cost a retry and could recur; do not write any lessons file
+     yourself). The report is a receipt, not a
      narrative: no restating the brief, no process story.
      `result_sha` is a claim to be checked, not proof — see Phase 3.
    - If no test can express the behavior and no TDD exception was granted,
@@ -747,7 +750,8 @@ State: `{ "step": "tuning_dispatched", "tuning_round": 1, "dispatch_seq": <k>, "
 6. **Distill lessons, then archive the notepad.** Without this step a pitfall
    found on one ticket is cleared with the notepad and the next ticket's
    panes hit it again. Sources: `.herdr/notepad.md` pitfall entries
-   (problem + root cause + fix) and fix-round findings that were confirmed
+   (problem + root cause + fix), the `pitfalls` field of every accepted
+   worker report, and fix-round findings that were confirmed
    real (state `round` > 0). Keep only what would recur on another ticket;
    a ticket-specific detail is not a lesson. Route each by what its trigger
    names:

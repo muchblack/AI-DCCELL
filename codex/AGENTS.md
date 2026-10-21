@@ -108,3 +108,16 @@ one quoting slip turns `=>` into a shell `>` redirect and leaves stray empty fil
     HOME=/Users/huai-chitzeng podman exec -i -w /var/www/html/{project} php-fpm php artisan tinker <<'PHP'
     App\Models\Members::where('id', 1)->update(['email' => null]);
     PHP
+
+## Shared Pitfall Log
+
+`~/.claude/herdr-lessons/lessons.md` holds de-identified tool/framework pitfalls shared by every
+project and AI agent (format and rules: its header). File missing → skip this section.
+
+- **Task from a herdr brief** (first line `dispatch_id:`): the brief's `Known pitfalls` already
+  carries the relevant lines. Never write the log; report new traps in the report's `pitfalls` field.
+- **Direct session**: before coding, read the lines whose stack tags match this project. When you
+  fix a tool/framework-level trap that cost a retry and could recur elsewhere, show the user a
+  de-identified line (no project, company, client names, ticket ids, hosts, URLs or paths) and only
+  after they confirm, append it under its `## <stack>` section and
+  `git -C ~/.claude/herdr-lessons commit -qam "lessons：<summary>"`. Never push; the user does.

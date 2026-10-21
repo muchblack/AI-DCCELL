@@ -39,6 +39,7 @@ herdr-dev 每張票結束時，會把跟工具、框架有關的坑去識別化�
 - 這份紀錄放在獨立的 `lessons` 分支，不在 `company` 或 `main` 裡，所以兩條分支累積的經驗是同一份，不用 cherry-pick。
 - `~/.claude/herdr-lessons/` 是這個 repo 的 git worktree。新機器 pull 之後跑一次 `./bootstrap.sh` 就會建好（step 1e，可重複執行）；沒跑也沒關係，herdr-dev 第一次用到時會自己建立。
 - 每次寫入都會 commit 到 `lessons` 分支，你確認新增的條目後才 push。`.gitattributes` 設了 `merge=union`，兩台機器同時新增條目也不會衝突。
+- Codex 也接上了（`codex/AGENTS.md`「Shared Pitfall Log」）：當 herdr worker 時不寫檔，把坑填在 report 的 `pitfalls` 欄位交給 main 整理；直接用 codex 開發時，開工前讀相關條目，解掉可重複發生的坑後先給你確認，再寫入並 commit（不 push）。
 - 規則細節（去識別化、格式、上限 60 行）見 `claude/skills/herdr-dev/references/flow.md` Phase 5 step 6。
 
 ### 外部 Skill（git submodule）
