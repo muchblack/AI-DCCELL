@@ -89,6 +89,7 @@ scripts/update-vendor.sh security-audit
 | Skill | 上游 | 本地修改 | 日期 |
 |---|---|---|---|
 | `grill-with-docs` | mattpocock/skills | `SKILL.md` 第一行之後全部：① 程式碼／文件事實標 `EXTRACTED: <path:line>` 或 `INFERRED: <why>`，只有 EXTRACTED 能寫進 CONTEXT.md／ADR（與 herdr-dev verdict 的 CRITICAL 須 EXTRACTED 成對）② 開場 recon＋假設清單，只問清單沒解決的 ③ 收尾交接摘要給 `/to-spec` | 2026-10-12 |
+| `to-tickets` | mattpocock/skills | `SKILL.md`：每張票給嚴重度（Critical/High/Medium/Low，來源已有分級就沿用並依序對應），直接寫進 Linear `priority`（1 Urgent／2 High／3 Medium／4 Low），不另建或套用嚴重度 label；label 只留 `ready-for-agent` | 2026-10-23 |
 
 找回原文：`git log -p -- claude/skills/<skill>`。覆蓋上游前先 `git diff` 確認本地修改還在。
 
