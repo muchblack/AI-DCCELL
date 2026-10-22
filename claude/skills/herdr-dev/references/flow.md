@@ -102,11 +102,16 @@ main (self) does this directly; no worker involved yet.
    The reviewer pane is idle at this point; use it.
    - **Jev pre-signal (advisory, best-effort, first round only).** Before
      saving the brief, run the `/linus-analyze` Step 1.2 request (same two
-     Nouls) with `state.requirement` = the Brief's Goal + Scope +
-     Acceptance criteria, verbatim, via
-     `bash ~/.claude/skills/scripts/jev.sh <request.json>`. Same data note:
-     skip it if the brief carries secrets or customer data. Non-zero exit →
-     skip silently. Flagged (`noul < 0.5` or `abs(noul - 0.5) < 0.3`) →
+     Nouls) — the JSON body lives in
+     `~/.claude/skills/linus-analyze/references/flow.md` Step 1.2, not in
+     its SKILL.md — with `state.requirement` = the Brief's Goal + Scope +
+     Acceptance criteria, via `bash ~/.claude/skills/scripts/jev.sh
+     <request.json>` (request file in the scratchpad, not the repo).
+     **De-identify first** (Emperor's order, 2026-10-22): strip project,
+     product and company names, ticket ids, file names and line refs,
+     class/function names, user paths, hostnames and credentials, then grep
+     the payload for leftovers before sending. Secrets or customer data in
+     the brief → skip. Non-zero exit or permission denied → skip silently. Flagged (`noul < 0.5` or `abs(noul - 0.5) < 0.3`) →
      main re-reads that part; if main agrees, tighten the brief now,
      otherwise name the specific spot in `brief-review.md` as one of main's
      attention points. Never cite Jev to the user or the reviewer, and
@@ -325,6 +330,13 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    ~/.claude/skills/herdr-dev/scripts/wait-result.sh <worker> .herdr-dev/tasks/<slug>/report.md <dispatch_id> \
      --approve <worker_worktree> "podman exec -w <container_worktree_path> <container> "
    ```
+   The prefix is matched **literally** against the command the pane shows,
+   and only one prefix is accepted. Use the exact form the worker will
+   type: codex runs a project test wrapper script as `bash <script> …`, so
+   the prefix must be `"bash <abs-script-path> <worker_worktree> "`, not
+   `"<abs-script-path> …"` (2026-10-22, VIN-162: the bare form caused a
+   false `NEEDS_REVIEW` on the first RED run). Name the exact invocation in
+   the brief's test commands so worker and prefix agree.
    Reviewer dispatches (brief review, code review, confirmation review) use
    the same script without `--approve`, pointed at `brief-verdict.md` /
    `verdict.md`. On `NEEDS_REVIEW`, judge the command by hand, approve or
