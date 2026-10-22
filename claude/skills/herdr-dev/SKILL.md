@@ -226,7 +226,11 @@ When the call returns, check `herdr agent get <worker>`:
   `NEEDS_REVIEW` rather than being approved blindly. Pitfall already fixed in
   the script: matching the bare word `herdr` blocked everything because the
   worktree path itself contains `.herdr-dev` — it matches the `herdr `
-  command word only.
+  command word only. Second fixed pitfall (2026-10-22, VIN-161): codex
+  wraps a long command over several dialog lines; the script used to read
+  only the `$ ` line, so a prefix ending in a space never matched (false
+  `NEEDS_REVIEW`) and a wrapped tail escaped the allowlist. It now joins
+  continuation lines up to the blank/option line before checking.
 - timed out / `agent_prompt_stalled` → read the pane; genuine progress →
   `herdr agent wait <worker> --timeout <ms>` again; stalled → treat as dead
   job: salvage on-disk work via git, re-dispatch the same brief.

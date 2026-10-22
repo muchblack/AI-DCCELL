@@ -77,6 +77,15 @@ allowed() {
     done < <(printf '%s' "$1" | sed 's/&&/\n/g')
 }
 
+# 取最後一個 "  $ " 指令列，並把 codex 折行的續行（直到空行或選項列）併回同一條，
+# 否則只會檢查第一行，續行夾帶的內容不經白名單（2026-10-22）
+extract_cmd() {
+    awk '/^[[:space:]]+\$ /{c=$0; sub(/^[[:space:]]+\$ /,"",c); on=1; next}
+         on && /^[[:space:]]*($|›|[0-9]+\.)/{on=0; next}
+         on{l=$0; sub(/^[[:space:]]+/,"",l); c=c " " l}
+         END{print c}'
+}
+
 for _ in $(seq 1 200); do
     st=$(status)
     if [ "$st" != "blocked" ]; then
@@ -85,8 +94,7 @@ for _ in $(seq 1 200); do
         [ "$st" = "blocked" ] || { echo "STATUS=$st"; exit 0; }
     fi
 
-    cmd=$(herdr agent read "$P" --source recent-unwrapped --lines 25 \
-        | grep -E '^\s+\$ ' | tail -1 | sed -E 's/^[[:space:]]+\$ //')
+    cmd=$(herdr agent read "$P" --source recent-unwrapped --lines 25 | extract_cmd)
 
     if [ -n "$cmd" ] && allowed "$cmd"; then
         herdr pane send-keys "$P" enter >/dev/null

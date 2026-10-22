@@ -61,4 +61,13 @@ t allow "git -C $WT/ status"
 t allow 'podman exec -w /x cashier-php git status'
 t allow "git -C $WT diff --stat"
 t allow "git -C $WT add app/X.php && git -C $WT commit -m x"
+# codex 對話框把長指令折成多行：必須併回整條再判斷，不能只看 "$ " 那一行
+e(){ got=$(printf '%b' "$2" | extract_cmd)
+     [ "$got" = "$1" ] || { echo "FAIL extract want [$1] got [$got]"; fail=1; }; }
+e 'bash run.sh /wt /logs/a.log tests/x.py' '  Reason: x\n\n  $ bash run.sh /wt\n  /logs/a.log tests/x.py\n\n› 1. Yes, proceed (y)\n'
+e 'git status' '  $ git status\n\n› 1. Yes, proceed (y)\n'
+e 'git status' '  $ old cmd\n\n  $ git status\n› 1. Yes, proceed (y)\n'
+PREFIX="bash run.sh $WT "
+t allow "$(printf '  $ bash run.sh %s\n  /logs/a.log tests/x.py\n\n' "$WT" | extract_cmd)"
+t stop  "$(printf '  $ bash run.sh %s\n  /logs/a.log; rm -rf ~\n\n' "$WT" | extract_cmd)"
 [ $fail = 0 ] && echo "ALL PASS"; exit $fail
