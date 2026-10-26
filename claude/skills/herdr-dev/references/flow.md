@@ -252,7 +252,12 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    - **If `git_repo`**: state the worker's working directory is
      `<worker_worktree>` (absolute path) — a dedicated git worktree already
      checked out on `herdr/dev-<slug>`, created by main before this
-     dispatch. The worker's job is to **verify** cwd/branch/base match this
+     dispatch. **Say explicitly that the pane starts in the main checkout
+     and must `cd <worker_worktree>` first** (cd-ing into the existing
+     worktree is expected, not a switch) — a bare "cwd: <path>, verify"
+     made codex compare its startup cwd literally and report BLOCKED
+     without doing anything (2026-10-26, VIN-174). Same line in review
+     briefs for `<reviewer_worktree>`. Then the worker's job is to **verify** cwd/branch/base match this
      brief (`pwd`, `git status`, `git log -1`) and stop with a blocker in
      the report if they don't — never to run `git worktree add/switch`
      itself, and never to `cd` back to the main checkout or re-clone. All
@@ -282,9 +287,13 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
      write the report — stop there. No cleanup, renames, extra tests,
      comment polish or refactors beyond the brief; list anything worth
      doing under the report's `follow-ups` field instead.
-   - **Keep raw output on disk, not in the report.** Tee every suite run to
-     `.herdr-dev/tasks/<slug>/logs/<step>.log`. The report quotes only the
-     summary line plus the first failure (≤20 lines) and cites the log path.
+   - **Run test/build commands plainly — no `| tee`, no `;`/`&&` chains.**
+     The report quotes only the summary line plus the first failure (≤20
+     lines). Do not ask for logs on disk: "tee every run to logs/" made
+     codex write `set -o pipefail; podman exec … | tee …`, which
+     approve-loop.sh refuses (metacharacters), so every run woke main for a
+     manual approval (2026-10-26, VIN-174: ~6 wake-ups; the tuning round
+     without tee needed none).
    - Commit on branch `herdr/dev-<slug>`.
    - Write the final report to `.herdr-dev/tasks/<slug>/report.md` (per-task
      path — concurrent or successive tasks never overwrite each other) with
