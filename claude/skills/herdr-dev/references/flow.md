@@ -210,6 +210,11 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    turned GREEN). Before dispatch, verify inside the container:
    `php -r 'require "vendor/autoload.php"; echo (new ReflectionClass(<any app class>::class))->getFileName();'`
    must print a path under the worktree. Same for the reviewer worktree.
+   **Build artifacts too:** if the main checkout has a gitignored
+   `public/build/` (Vite), `cp -Rc public/build <worktree>/public/build`
+   for both worker and reviewer worktrees — without it every test that
+   renders an Inertia page fails with `Vite manifest not found` (VIN-175,
+   2026-10-26: 11 unrelated failures, worker reported BLOCKED).
    Also `mkdir -p .herdr-dev/tasks/<slug>` (all per-task files go there).
 1. Write the **dev brief** (English) to `.herdr-dev/tasks/<slug>/brief.md`: the
    Requirement Brief + this mandatory TDD contract:
