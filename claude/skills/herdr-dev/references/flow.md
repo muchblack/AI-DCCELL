@@ -215,6 +215,12 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    for both worker and reviewer worktrees — without it every test that
    renders an Inertia page fails with `Vite manifest not found` (VIN-175,
    2026-10-26: 11 unrelated failures, worker reported BLOCKED).
+   **And the env file:** if the main checkout has a gitignored `.env`,
+   `cp .env <worktree>/.env` for both worker and reviewer worktrees —
+   without it Laravel has no `APP_KEY`, every HTTP test fails with `No
+   application encryption key has been specified`, the RED is meaningless,
+   and codex tried to work around it with `podman exec -e APP_KEY=…`, which
+   approve-loop.sh's prefix doesn't match (VIN-109, 2026-10-26).
    Also `mkdir -p .herdr-dev/tasks/<slug>` (all per-task files go there).
 1. Write the **dev brief** (English) to `.herdr-dev/tasks/<slug>/brief.md`: the
    Requirement Brief + this mandatory TDD contract:
