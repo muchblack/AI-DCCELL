@@ -171,7 +171,6 @@ claude/skills/scripts/health-check.sh
 ```
 AI-DCCELL/
 ├── bootstrap.sh           # 一鍵部署（Claude + Codex + Gemini）
-├── setup.sh               # Legacy 部署腳本
 ├── claude/
 │   ├── CLAUDE.md          # 全域 Claude 指令
 │   ├── agents/            # 空（.gitkeep）；角色知識已併入 herdr-dev／herdr-mkt
@@ -186,8 +185,7 @@ AI-DCCELL/
 ├── .gemini/
 │   └── GEMINI.md          # agy 角色定義（skill 改由 shared-skills.txt 共用）
 ├── docs/                  # DG 細胞理論藍圖 + 實作紀錄
-├── project-template/      # 新專案範本（CLAUDE.md）
-└── sample.md              # 範例文件
+└── project-template/      # 新專案範本（CLAUDE.md）
 ```
 
 ---
