@@ -3,14 +3,19 @@
 
   pulse.py check <run_dir> [--spot N]   檢查 raw/*.json，印 FAIL/WARN 與抽查網址；有 FAIL 則 exit 1
   pulse.py html <report.md>             把 report.md 轉成同目錄 report.html
+  pulse.py trends <run_dir> [--provider serpapi|google]  取得搜尋熱度並寫入 trends.json
   pulse.py selftest                     自我檢查
 """
 import json
+import os
 import random
 import re
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
+from datetime import date, datetime, timedelta, timezone
+from urllib.parse import urlencode, urlparse
+from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
 
 # 平台名 → 允許的網域（後綴比對）。媒體類（kind=media）不比對網域。
 PLATFORM_DOMAINS = {
@@ -180,6 +185,148 @@ def cmd_html(md_path):
     return 0
 
 
+TREND_REGIONS = {"zh-tw": "TW", "zh-cn": "", "en": "US", "ja": "JP", "ko": "KR"}
+
+
+def send_serpapi(params):
+    with urlopen("https://serpapi.com/search.json?" + urlencode(params), timeout=30) as response:
+        return json.load(response)
+
+
+def explore_url(data, params):
+    url = data.get("search_metadata", {}).get("google_trends_url", "")
+    if urlparse(url).path == "/trends/explore":
+        return url
+    query = {k: params[k] for k in ("date", "geo", "q") if params.get(k)}
+    return "https://trends.google.com/trends/explore?" + urlencode(query)
+
+
+def fetch_serpapi(verify, timeframe, key, send):
+    regions = {}
+    keywords = verify.get("keywords", {})
+    selected = {r: keywords[r][:5] for r in TREND_REGIONS if isinstance(keywords.get(r), list) and keywords[r]}
+    primary = (selected.get("en") or next(iter(selected.values())))[0]
+
+    def request(kind, q, geo, unit):
+        params = {"engine": "google_trends", "q": q, "data_type": kind, "date": timeframe, "api_key": key}
+        if geo:
+            params["geo"] = geo
+        for attempt in range(2):
+            try:
+                data = send(params)
+                break
+            except (OSError, URLError) as e:
+                reason = str(e)
+                if isinstance(e, HTTPError):
+                    try:
+                        reason = json.load(e).get("error", reason)
+                    except (OSError, ValueError, AttributeError):
+                        pass
+                if attempt == 1:
+                    data = {"error": reason}
+            except ValueError as e:
+                data = {"error": str(e)}
+                break
+        if "error" in data:
+            unit["status"] = "error"
+            unit["reason"] += ("；" if unit["reason"] else "") + f"{kind}：{data['error']}"
+            return {}
+        search_id = data.get("search_metadata", {}).get("id")
+        if search_id:
+            unit["search_ids"].append(search_id)
+        if kind in ("TIMESERIES", "GEO_MAP_0"):
+            unit["explore_url"] = explore_url(data, params)
+        return data
+
+    for region, words in selected.items():
+        unit = {"geo": TREND_REGIONS[region], "keywords": words, "status": "ok", "reason": "",
+                "search_ids": [], "explore_url": "", "timeline": [], "peak": None, "rising": [], "top": []}
+        regions[region] = unit
+        if region == "zh-cn":
+            unit.update(status="skipped", reason="Google 在中國無資料")
+            continue
+        data = request("TIMESERIES", ",".join(words), unit["geo"], unit)
+        for point in data.get("interest_over_time", {}).get("timeline_data", []):
+            unit["timeline"].append({
+                "date": datetime.fromtimestamp(int(point["timestamp"]), timezone.utc).date().isoformat(),
+                "values": {v["query"]: int(v["extracted_value"]) for v in point.get("values", [])},
+                "partial": bool(point.get("partial_data"))})
+        peaks = [{"date": p["date"], "keyword": word, "value": p["values"][word]}
+                 for p in unit["timeline"] for word in words if word in p["values"]]
+        if peaks:
+            unit["peak"] = min(peaks, key=lambda p: (-p["value"], p["date"], words.index(p["keyword"])))
+        related = request("RELATED_QUERIES", words[0], unit["geo"], unit).get("related_queries", {})
+        rising, top = related.get("rising", []), related.get("top", [])
+        unit["rising"] = None if rising is None else [{"query": v["query"], "value": v["value"]} for v in rising[:10]]
+        unit["top"] = None if top is None else [{"query": v["query"], "value": int(v["extracted_value"])} for v in top[:10]]
+    worldwide = {"keyword": primary, "status": "ok", "reason": "", "search_ids": [], "explore_url": ""}
+    countries = request("GEO_MAP_0", primary, "", worldwide).get("interest_by_region", [])
+    worldwide["top_countries"] = None if countries is None else [{"country": v["location"], "value": int(v["extracted_value"])}
+                                  for v in sorted(countries, key=lambda v: -int(v["extracted_value"]))[:10]]
+    units = [u for u in regions.values() if u["status"] != "skipped"] + [worldwide]
+    successes = sum(u["status"] == "ok" for u in units)
+    status = "ok" if successes == len(units) else "partial" if successes else "unavailable"
+    reason = "" if successes else "所有查詢都失敗：" + units[0]["reason"]
+    return {"status": status, "reason": reason, "regions": regions, "worldwide": worldwide}
+
+
+def fetch_google(verify, timeframe, key, send):
+    return {"status": "unavailable", "reason": "官方 API 尚未實作"}
+
+
+TREND_PROVIDERS = {"serpapi": fetch_serpapi, "google": fetch_google}
+
+
+def redact_trends(value, key):
+    if isinstance(value, str):
+        value = re.sub(r"([?&])api_key=[^&\s\"'<>]*&?", lambda m: m[1] if m[0].endswith("&") else "", value)
+        return value.replace(key, "[REDACTED]") if key else value
+    if isinstance(value, dict):
+        return {redact_trends(k, key): redact_trends(v, key) for k, v in value.items()}
+    if isinstance(value, list):
+        return [redact_trends(v, key) for v in value]
+    return value
+
+
+def cmd_trends(run_dir, provider="serpapi", key=None, send=None):
+    key = os.environ.get("SERPAPI_API_KEY", "") if key is None else key
+    out = Path(run_dir, "trends.json")
+    result = {"status": "unavailable", "reason": "", "source": provider, "scale": "per_request_0_100",
+              "fetched_at": datetime.now().astimezone().isoformat(), "timeframe": "today 3-m", "regions": {}, "worldwide": {}}
+    if provider == "google":
+        result.update(TREND_PROVIDERS[provider]({}, result["timeframe"], key, send))
+    elif not key:
+        result["reason"] = "未設定 SERPAPI_API_KEY"
+    else:
+        try:
+            verify = json.loads(Path(run_dir, "verify.json").read_text(encoding="utf-8"))
+            if not isinstance(verify, dict):
+                raise ValueError("verify.json 必須是物件")
+            if not isinstance(verify.get("keywords", {}), dict):
+                raise ValueError("verify.json keywords 必須是物件")
+        except (OSError, ValueError) as e:
+            result["reason"] = f"verify.json 無法讀取或 JSON 無效：{e}"
+        else:
+            try:
+                event = verify.get("event_date", "")
+                if not DATE_RE.fullmatch(event):
+                    raise ValueError
+                result["timeframe"] = f"{date.fromisoformat(event) - timedelta(days=30)} {date.today()}"
+            except (TypeError, ValueError):
+                pass
+            if not any(isinstance(verify.get("keywords", {}).get(r), list) and verify["keywords"][r] for r in TREND_REGIONS):
+                result["reason"] = "verify.json 沒有關鍵字"
+            else:
+                result.update(TREND_PROVIDERS[provider](verify, result["timeframe"], key, send or send_serpapi))
+    try:
+        out.write_text(json.dumps(redact_trends(result, key), ensure_ascii=False), encoding="utf-8")
+    except OSError as e:
+        print(redact_trends(f"無法寫入 trends.json：{e}", key))
+        return 1
+    print(redact_trends(f"{result['status']}: {out}", key))
+    return 0
+
+
 def selftest():
     good = {
         "platforms": [{"platform": "PTT", "coverage": "full"}, {"platform": "Plurk", "coverage": "blocked", "reason": "登入牆"}],
@@ -209,6 +356,130 @@ def selftest():
     assert autolink("見 https://a.tw/x?y=1（796 推）") == "見 <https://a.tw/x?y=1>（796 推）"
     assert autolink("[t](https://a.tw/x) `site:https://b.tw`") == "[t](https://a.tw/x) `site:https://b.tw`"
     assert autolink("**A**\n- x\n- y") == "**A**\n\n- x\n- y"
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        calls = []
+        assert cmd_trends(tmp, key="", send=lambda p: calls.append(p)) == 0
+        result = json.loads(Path(tmp, "trends.json").read_text())
+        assert result["status"] == "unavailable" and result["reason"] == "未設定 SERPAPI_API_KEY" and not calls
+        verify = {"event_date": "2026-10-01", "keywords": {
+            "zh-tw": ["甲", "乙"], "zh-cn": ["甲"], "en": ["A"], "ja": ["あ"], "ko": ["가"]}}
+        Path(tmp, "verify.json").write_text(json.dumps(verify), encoding="utf-8")
+        def fake(params):
+            calls.append(params)
+            return {
+                "search_metadata": {"id": str(len(calls)), "google_trends_url": "https://trends.google.com/trends/explore?test=1"},
+                "interest_over_time": {"timeline_data": [
+                    {"timestamp": "1790899200", "values": [{"query": "甲", "extracted_value": 100}, {"query": "乙", "extracted_value": 100}]},
+                    {"timestamp": "1790812800", "partial_data": True, "values": [{"query": "甲", "extracted_value": 100}]}]},
+                "related_queries": {"rising": [{"query": "新詞", "value": "Breakout"}, {"query": "詞", "value": "+110%"}],
+                                    "top": [{"query": "熱門", "extracted_value": 99}]},
+                "interest_by_region": [{"location": str(i), "extracted_value": i} for i in range(12)]}
+        cmd_trends(tmp, key="secret-marker", send=fake)
+        result = json.loads(Path(tmp, "trends.json").read_text())
+        assert result["status"] == "ok", "正常假資料應成功"
+        tw = result["regions"]["zh-tw"]
+        assert tw["timeline"] == [
+            {"date": "2026-10-02", "values": {"甲": 100, "乙": 100}, "partial": False},
+            {"date": "2026-10-01", "values": {"甲": 100}, "partial": True}]
+        assert tw["peak"] == {"date": "2026-10-01", "keyword": "甲", "value": 100}
+        assert tw["rising"] == [{"query": "新詞", "value": "Breakout"}, {"query": "詞", "value": "+110%"}]
+        assert tw["top"] == [{"query": "熱門", "value": 99}]
+        assert result["worldwide"]["top_countries"] == [{"country": str(i), "value": i} for i in range(11, 1, -1)]
+        assert tw["search_ids"] == ["1", "2"] and result["worldwide"]["search_ids"] == ["9"]
+        assert tw["explore_url"] == "https://trends.google.com/trends/explore?test=1"
+        assert result["regions"]["zh-cn"]["status"] == "skipped" and result["regions"]["zh-cn"]["reason"] == "Google 在中國無資料"
+        assert len(calls) == 9 and [p.get("geo") for p in calls] == ["TW", "TW", "US", "US", "JP", "JP", "KR", "KR", None]
+        assert calls[-1]["q"] == "A" and calls[0]["q"] == "甲,乙"
+        assert result["timeframe"] == f"2026-09-01 {date.today()}"
+        def failing(params):
+            if params.get("geo") == "TW" and params["data_type"] == "TIMESERIES":
+                return {"error": "額度不足"}
+            return fake(params)
+        cmd_trends(tmp, key="secret-marker", send=failing)
+        result = json.loads(Path(tmp, "trends.json").read_text())
+        assert result["status"] == "partial" and result["regions"]["zh-tw"]["reason"] == "TIMESERIES：額度不足", "失敗需保留原文"
+        attempts = []
+        def timeout(params):
+            if params.get("geo") == "TW" and params["data_type"] == "TIMESERIES":
+                attempts.append(params)
+                raise TimeoutError("逾時 https://serpapi.com/search.json?api_key=secret-marker&q=test")
+            return fake(params)
+        cmd_trends(tmp, key="secret-marker", send=timeout)
+        result = json.loads(Path(tmp, "trends.json").read_text())
+        assert len(attempts) == 2 and result["regions"]["zh-tw"]["status"] == "error"
+        assert "secret-marker" not in Path(tmp, "trends.json").read_text(), "輸出必須遮蔽金鑰"
+        def unsupported(params):
+            data = fake(params)
+            data["related_queries"] = {"rising": None, "top": None}
+            data["interest_by_region"] = None
+            data["search_metadata"]["google_trends_url"] = "https://trends.google.com/trends/api/explore?internal=1"
+            return data
+        cmd_trends(tmp, key="secret-marker", send=unsupported)
+        result = json.loads(Path(tmp, "trends.json").read_text())
+        assert result["regions"]["zh-tw"]["rising"] is None and result["regions"]["zh-tw"]["top"] is None and result["worldwide"]["top_countries"] is None
+        import subprocess
+        completed = subprocess.run([sys.executable, __file__, "trends", tmp, "--provider", "google"], capture_output=True, text=True)
+        assert completed.returncode == 0, "google 指令入口應成功寫檔"
+        result = json.loads(Path(tmp, "trends.json").read_text())
+        assert result["status"] == "unavailable" and result["reason"] == "官方 API 尚未實作" and result["source"] == "google"
+        from urllib.parse import parse_qs
+        expected = {"date": [f"2026-09-01 {date.today()}"], "geo": ["TW"], "q": ["甲,乙"]}
+        cmd_trends(tmp, key="secret-marker", send=unsupported)
+        result = json.loads(Path(tmp, "trends.json").read_text())
+        assert parse_qs(urlparse(result["regions"]["zh-tw"]["explore_url"]).query) == expected
+        assert urlparse(result["worldwide"]["explore_url"]).path == "/trends/explore"
+        assert parse_qs(urlparse(result["worldwide"]["explore_url"]).query) == {"date": expected["date"], "q": ["A"]}
+        def absent_url(params):
+            data = fake(params)
+            del data["search_metadata"]["google_trends_url"]
+            return data
+        cmd_trends(tmp, key="secret-marker", send=absent_url)
+        result = json.loads(Path(tmp, "trends.json").read_text())
+        assert parse_qs(urlparse(result["regions"]["zh-tw"]["explore_url"]).query) == expected
+        assert redact_trends("https://a.test/?q=x&api_key=other&date=y secret-marker", "secret-marker") == "https://a.test/?q=x&date=y [REDACTED]"
+        assert result["regions"]["zh-tw"]["peak"]["keyword"] == "甲"
+        verify.pop("event_date")
+        verify["keywords"] = {"zh-tw": ["甲", "乙", "丙", "丁", "戊", "己"]}
+        Path(tmp, "verify.json").write_text(json.dumps(verify), encoding="utf-8")
+        calls.clear()
+        cmd_trends(tmp, key="secret-marker", send=fake)
+        result = json.loads(Path(tmp, "trends.json").read_text())
+        assert result["timeframe"] == "today 3-m" and calls[0]["q"] == "甲,乙,丙,丁,戊" and calls[-1]["q"] == "甲"
+        assert list(result["regions"]) == ["zh-tw"]
+        assert result["regions"]["zh-tw"]["peak"]["keyword"] == "甲"
+        calls.clear()
+        def all_fail(params):
+            calls.append(params)
+            return {"error": "金鑰無效 secret-marker"}
+        cmd_trends(tmp, key="secret-marker", send=all_fail)
+        result = json.loads(Path(tmp, "trends.json").read_text())
+        assert result["status"] == "unavailable" and result["reason"].startswith("所有查詢都失敗：") and len(calls) == 3
+        tw = result["regions"]["zh-tw"]
+        assert tw["timeline"] == [] and tw["peak"] is None and tw["rising"] == [] and tw["top"] == [] and tw["search_ids"] == []
+        assert "secret-marker" not in Path(tmp, "trends.json").read_text()
+        import io
+        def http_error(params):
+            calls.append(params)
+            raise HTTPError("https://a.test/?api_key=secret-marker", 429, "quota", {}, io.BytesIO(b'{"error":"quota secret-marker"}'))
+        calls.clear()
+        cmd_trends(tmp, key="secret-marker", send=http_error)
+        result = json.loads(Path(tmp, "trends.json").read_text())
+        assert len(calls) == 6 and "quota [REDACTED]" in result["reason"]
+        assert "secret-marker" not in Path(tmp, "trends.json").read_text()
+        calls.clear()
+        for content in ('{}', '{', '[]'):
+            Path(tmp, "verify.json").write_text(content)
+            assert cmd_trends(tmp, key="secret-marker", send=fake) == 0
+            result = json.loads(Path(tmp, "trends.json").read_text())
+            assert result["status"] == "unavailable" and not calls
+        Path(tmp, "verify.json").unlink()
+        assert cmd_trends(tmp, key="secret-marker", send=fake) == 0 and not calls
+        assert cmd_trends(tmp, provider="google", key="secret-marker", send=fake) == 0 and not calls
+        for args in (["trends"], ["trends", tmp, "--provider", "unknown"], ["trends", "--provider", "google"]):
+            completed = subprocess.run([sys.executable, __file__, *args], capture_output=True, text=True)
+            assert completed.returncode == 2 and "pulse.py trends" in completed.stdout
+        assert cmd_trends(Path(tmp, "missing"), key="secret-marker", send=fake) != 0
     print("selftest OK")
     return 0
 
@@ -220,6 +491,13 @@ if __name__ == "__main__":
         sys.exit(cmd_check(a[1], spot))
     if a[:1] == ["html"] and len(a) == 2:
         sys.exit(cmd_html(a[1]))
+    if a[:1] == ["trends"]:
+        if len(a) == 2 and not a[1].startswith("--"):
+            sys.exit(cmd_trends(a[1]))
+        if len(a) == 4 and not a[1].startswith("--") and a[2] == "--provider" and a[3] in TREND_PROVIDERS:
+            sys.exit(cmd_trends(a[1], a[3]))
+        print(__doc__)
+        sys.exit(2)
     if a[:1] == ["selftest"]:
         sys.exit(selftest())
     print(__doc__)

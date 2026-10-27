@@ -28,6 +28,9 @@ metadata:
 | `--since` | 只收此日之後的討論；預設＝事件日 |
 | `--update <slug>` | 追蹤既有話題，見文末 |
 
+搜尋熱度需設定環境變數 `SERPAPI_API_KEY`，每份報告約用 9 次 SerpApi 額度（四區各 2 次＋全球 1 次），沒有省額度開關。未設定或查詢失敗仍繼續產出報告。
+腳本用法：`python3 S trends RUN [--provider serpapi|google]`，預設 `serpapi`；`google` 目前只會寫出尚未實作的狀態。
+
 ## 產出
 
 `RUN = <cwd>/pulse/<slug>-<YYYYMMDD>/`（slug：英文小寫、連字號，例 `blue-archive-nexon`）
@@ -35,6 +38,7 @@ metadata:
 ```
 brief-a.md / brief-b.md   派給 agy 的任務書（英文）
 verify.json + verify.done 階段 A
+trends.json              階段 A.5 搜尋熱度（含來源、比例尺、狀態與原因）
 raw/<region>.json + raw.done   階段 B（地區 key：zh-tw, zh-cn, en, ja, ko, media）
 check.md                  階段 C 查證紀錄
 report.md / report.html   最終報告
@@ -78,7 +82,14 @@ YouTube 跨區：官方直播／PV 留言區常是第一手反應，留言**依�
 
 檢查點（主對話讀 `verify.json`）：
 - `status: not_found` → 停，向皇上回報查無此事與已查來源，不跑 B。
-- `confirmed`／`partial` → 不打擾皇上，直接進 B。`partial` 要在報告第 2 節寫明哪部分未證實。
+- `confirmed`／`partial` → 不打擾皇上，直接進 A.5。`partial` 要在報告第 2 節寫明哪部分未證實。
+
+### A.5 搜尋熱度（主對話）
+1. 執行 `python3 S trends RUN`，數字由腳本直接抓取，不交給 agy 抄錄。
+2. 讀 `trends.json` 各區的 `rising`，挑出和話題相關的詞補進 brief-b 關鍵字表，不全部照抄。`rising` 是 `null`（來源不支援）就跳過；先檢查各區 `status`，失敗請求的 `[]` 不代表沒有搜尋結果。
+3. `status: unavailable` 不用停下來，直接進 B；報告註明本次無資料。`partial` 則保留成功資料並說明缺漏。
+
+`trends.json` 寫出就 exit 0（包含 `unavailable`）；只有無法寫檔才回非 0。期間為事件日前 30 天至今天，事件日缺漏或無法解析時用最近 3 個月。
 
 ### B. 逐平台收集（agy，各區依序）
 寫 `brief-b.md`（範本 B：填入地區、平台、關鍵字、since），等 `raw.done`。
@@ -107,16 +118,25 @@ YouTube 跨區：官方直播／PV 留言區常是第一手反應，留言**依�
 1. 一句話總結
 2. 事件查證（第一手來源、屬實程度）
 3. 時間軸
-4. 媒體觀點（評分、主要論點）
-5. 各地區社群反應（每區 2–3 個重點，附原文引述）
-6. 族群分析（老玩家／新玩家／海外玩家／二創圈…依話題而定）
-7. 跨區域對比表；媒體與社群的落差
-8. 擴散路徑
-9. 謠言、澄清與詐騙
-10. 平台覆蓋狀況（full / partial / blocked + 原因）
-11. 待觀察事項（附預定日期）
+4. 搜尋熱度
+5. 媒體觀點（評分、主要論點）
+6. 各地區社群反應（每區 2–3 個重點，附原文引述）
+7. 族群分析（老玩家／新玩家／海外玩家／二創圈…依話題而定）
+8. 跨區域對比表；媒體與社群的落差
+9. 擴散路徑
+10. 謠言、澄清與詐騙
+11. 平台覆蓋狀況（full / partial / blocked + 原因）
+12. 待觀察事項（附預定日期）
 附錄：取樣與來源清單（完整網址）、搜尋指令清單、未證實條目
 ```
+
+第 4 節依 `trends.json` 撰寫：
+- 各區用 `peak` 寫高峰日期，對照第 3 節時間軸事件；用 `timeline` 說明走勢，不把高峰值當成目前熱度。`peak: null` 就說明沒有可用高峰。
+- 列出 `worldwide.top_countries` 全球熱度排名前幾名國家、值得注意的 `rising`，各區附 `explore_url`，註明資料來源 `source`。`rising`／`top`／`top_countries` 為 `null` 表示來源不支援，跳過該項；`[]` 需先看所屬單位 `status`，失敗與沒有結果分開說明。
+- 依 `scale` 註記：`per_request_0_100` 寫「0–100 是相對指數，地區之間不可比較」，不同請求之間亦不可直接比較；`consistent` 依來源實際支援範圍說明能比較哪些資料。兩者都加上「中國無資料，韓國和日本的 Google 市佔偏低，只能當參考」。
+- 頂層 `unavailable` 時本節只寫一行「本次無法取得 Google Trends 資料（原因；來源：source）」。
+
+第 11 節的平台覆蓋表加上一列 Google Trends：`ok` → `full`、`partial` → `partial`、`unavailable` → `blocked`，附上原因。
 
 ## 範本 A（英文；填入 TOPIC / RUN / ID / REGIONS / CATEGORY）
 
@@ -186,8 +206,8 @@ LAST step, only after every region file is written: write RUN/raw.done whose fir
 
 1. 找 `pulse/<slug>-*/` 最新一份為 PREV。
 2. 新建 RUN；跳過 A（沿用 PREV 的 `verify.json`，但 brief-b 要求先查有無新官方公告並更新 timeline）。
-3. brief-b 帶入 PREV `raw/*.json` 的 `queries`，`SINCE` = PREV 的報告日期。
-4. 報告第 1 節之後插入「與上次（YYYY-MM-DD）相比的變化」：新事件、風向轉變、新謠言、已澄清事項。
+3. 一樣執行 A.5 重抓搜尋熱度，再將相關上升搜尋補進 brief-b；brief-b 帶入 PREV `raw/*.json` 的 `queries`，`SINCE` = PREV 的報告日期。
+4. 報告第 1 節之後插入「與上次（YYYY-MM-DD）相比的變化」：新事件、風向轉變、新謠言、已澄清事項，以及搜尋熱度比較（高峰日期、目前熱度相對於上次高峰的變化）。`scale: per_request_0_100` 時，兩次期間不同、各自正規化，數值不能直接相減，只比較高峰日期與走勢方向；缺資料就說明無法比較。
 
 ## 鐵則
 
