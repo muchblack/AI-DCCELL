@@ -15,7 +15,7 @@ from pathlib import Path
 from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlencode, urlparse
 from urllib.request import urlopen
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 
 # 平台名 → 允許的網域（後綴比對）。媒體類（kind=media）不比對網域。
 PLATFORM_DOMAINS = {
@@ -201,42 +201,67 @@ def explore_url(data, params):
     return "https://trends.google.com/trends/explore?" + urlencode(query)
 
 
+def normalize_trends(data, kind, words):
+    if kind == "TIMESERIES":
+        timeline = [{
+            "date": datetime.fromtimestamp(int(p["timestamp"]), timezone.utc).date().isoformat(),
+            "values": {v["query"]: int(v["extracted_value"]) for v in p.get("values", [])},
+            "partial": bool(p.get("partial_data"))}
+            for p in data.get("interest_over_time", {}).get("timeline_data", [])]
+        peaks = [{"date": p["date"], "keyword": word, "value": p["values"][word]}
+                 for p in timeline for word in words if word in p["values"]]
+        peak = min(peaks, key=lambda p: (-p["value"], p["date"], words.index(p["keyword"]))) if peaks else None
+        return {"timeline": timeline, "peak": peak}
+    if kind == "RELATED_QUERIES":
+        related = data.get("related_queries", {})
+        rising, top = related.get("rising", []), related.get("top", [])
+        return {
+            "rising": None if rising is None else [{"query": v["query"], "value": v["value"]} for v in rising[:10]],
+            "top": None if top is None else [{"query": v["query"], "value": int(v["extracted_value"])} for v in top[:10]]}
+    countries = data.get("interest_by_region", [])
+    return {"top_countries": None if countries is None else [
+        {"country": v["location"], "value": int(v["extracted_value"])}
+        for v in sorted(countries, key=lambda v: -int(v["extracted_value"]))[:10]]}
+
+
 def fetch_serpapi(verify, timeframe, key, send):
     regions = {}
     keywords = verify.get("keywords", {})
     selected = {r: keywords[r][:5] for r in TREND_REGIONS if isinstance(keywords.get(r), list) and keywords[r]}
     primary = (selected.get("en") or next(iter(selected.values())))[0]
 
-    def request(kind, q, geo, unit):
+    def request(kind, q, geo, unit, words=()):
         params = {"engine": "google_trends", "q": q, "data_type": kind, "date": timeframe, "api_key": key}
         if geo:
             params["geo"] = geo
+        if kind in ("TIMESERIES", "GEO_MAP_0"):
+            unit["explore_url"] = explore_url({}, params)
         for attempt in range(2):
             try:
                 data = send(params)
                 break
-            except (OSError, URLError) as e:
+            except Exception as e:
                 reason = str(e)
                 if isinstance(e, HTTPError):
                     try:
                         reason = json.load(e).get("error", reason)
-                    except (OSError, ValueError, AttributeError):
+                    except Exception:
                         pass
                 if attempt == 1:
                     data = {"error": reason}
-            except ValueError as e:
-                data = {"error": str(e)}
-                break
-        if "error" in data:
+        try:
+            if "error" in data:
+                raise ValueError(data["error"])
+            fields = normalize_trends(data, kind, words)
+            search_id = data.get("search_metadata", {}).get("id")
+            if kind in ("TIMESERIES", "GEO_MAP_0"):
+                fields["explore_url"] = explore_url(data, params)
+            if search_id:
+                unit["search_ids"].append(search_id)
+            unit.update(fields)
+        except Exception as e:
             unit["status"] = "error"
-            unit["reason"] += ("；" if unit["reason"] else "") + f"{kind}：{data['error']}"
-            return {}
-        search_id = data.get("search_metadata", {}).get("id")
-        if search_id:
-            unit["search_ids"].append(search_id)
-        if kind in ("TIMESERIES", "GEO_MAP_0"):
-            unit["explore_url"] = explore_url(data, params)
-        return data
+            unit["reason"] += ("；" if unit["reason"] else "") + f"{kind}：{e}"
 
     for region, words in selected.items():
         unit = {"geo": TREND_REGIONS[region], "keywords": words, "status": "ok", "reason": "",
@@ -245,24 +270,10 @@ def fetch_serpapi(verify, timeframe, key, send):
         if region == "zh-cn":
             unit.update(status="skipped", reason="Google 在中國無資料")
             continue
-        data = request("TIMESERIES", ",".join(words), unit["geo"], unit)
-        for point in data.get("interest_over_time", {}).get("timeline_data", []):
-            unit["timeline"].append({
-                "date": datetime.fromtimestamp(int(point["timestamp"]), timezone.utc).date().isoformat(),
-                "values": {v["query"]: int(v["extracted_value"]) for v in point.get("values", [])},
-                "partial": bool(point.get("partial_data"))})
-        peaks = [{"date": p["date"], "keyword": word, "value": p["values"][word]}
-                 for p in unit["timeline"] for word in words if word in p["values"]]
-        if peaks:
-            unit["peak"] = min(peaks, key=lambda p: (-p["value"], p["date"], words.index(p["keyword"])))
-        related = request("RELATED_QUERIES", words[0], unit["geo"], unit).get("related_queries", {})
-        rising, top = related.get("rising", []), related.get("top", [])
-        unit["rising"] = None if rising is None else [{"query": v["query"], "value": v["value"]} for v in rising[:10]]
-        unit["top"] = None if top is None else [{"query": v["query"], "value": int(v["extracted_value"])} for v in top[:10]]
-    worldwide = {"keyword": primary, "status": "ok", "reason": "", "search_ids": [], "explore_url": ""}
-    countries = request("GEO_MAP_0", primary, "", worldwide).get("interest_by_region", [])
-    worldwide["top_countries"] = None if countries is None else [{"country": v["location"], "value": int(v["extracted_value"])}
-                                  for v in sorted(countries, key=lambda v: -int(v["extracted_value"]))[:10]]
+        request("TIMESERIES", ",".join(words), unit["geo"], unit, words)
+        request("RELATED_QUERIES", words[0], unit["geo"], unit)
+    worldwide = {"keyword": primary, "status": "ok", "reason": "", "search_ids": [], "explore_url": "", "top_countries": []}
+    request("GEO_MAP_0", primary, "", worldwide)
     units = [u for u in regions.values() if u["status"] != "skipped"] + [worldwide]
     successes = sum(u["status"] == "ok" for u in units)
     status = "ok" if successes == len(units) else "partial" if successes else "unavailable"
@@ -458,6 +469,12 @@ def selftest():
         tw = result["regions"]["zh-tw"]
         assert tw["timeline"] == [] and tw["peak"] is None and tw["rising"] == [] and tw["top"] == [] and tw["search_ids"] == []
         assert "secret-marker" not in Path(tmp, "trends.json").read_text()
+        for unit, expected_query in (
+            (tw, {"date": ["today 3-m"], "geo": ["TW"], "q": ["甲,乙,丙,丁,戊"]}),
+            (result["worldwide"], {"date": ["today 3-m"], "q": ["甲"]}),
+        ):
+            assert urlparse(unit["explore_url"]).path == "/trends/explore", "失敗請求仍需 explore 連結"
+            assert parse_qs(urlparse(unit["explore_url"]).query) == expected_query
         import io
         def http_error(params):
             calls.append(params)
@@ -467,6 +484,40 @@ def selftest():
         result = json.loads(Path(tmp, "trends.json").read_text())
         assert len(calls) == 6 and "quota [REDACTED]" in result["reason"]
         assert "secret-marker" not in Path(tmp, "trends.json").read_text()
+        from http.client import IncompleteRead
+        attempts.clear()
+        def incomplete(params):
+            if params.get("geo") == "TW" and params["data_type"] == "TIMESERIES":
+                attempts.append(params)
+                raise IncompleteRead(b"")
+            return fake(params)
+        assert cmd_trends(tmp, key="secret-marker", send=incomplete) == 0
+        result = json.loads(Path(tmp, "trends.json").read_text())
+        assert len(attempts) == 2 and result["regions"]["zh-tw"]["status"] == "error"
+        assert result["status"] == "partial" and "TIMESERIES" in result["regions"]["zh-tw"]["reason"]
+        for kind, payload in (
+            ("RELATED_QUERIES", {"related_queries": None}),
+            ("TIMESERIES", {"interest_over_time": {"timeline_data": [{}]}}),
+            ("RELATED_QUERIES", {"related_queries": {"top": [{"query": "缺數值"}]}}),
+            ("GEO_MAP_0", {"interest_by_region": [{"location": "缺數值"}]}),
+        ):
+            attempts.clear()
+            def malformed(params):
+                if params["data_type"] == kind:
+                    attempts.append(params)
+                    return payload
+                return fake(params)
+            assert cmd_trends(tmp, key="secret-marker", send=malformed) == 0
+            result = json.loads(Path(tmp, "trends.json").read_text())
+            unit = result["worldwide"] if kind == "GEO_MAP_0" else result["regions"]["zh-tw"]
+            assert len(attempts) == 1 and unit["status"] == "error" and kind in unit["reason"]
+            assert result["status"] == "partial"
+            if kind == "RELATED_QUERIES":
+                assert unit["rising"] == [] and unit["top"] == [] and unit["peak"] is not None
+            elif kind == "TIMESERIES":
+                assert unit["timeline"] == [] and unit["peak"] is None and unit["rising"]
+            else:
+                assert unit["top_countries"] == []
         calls.clear()
         for content in ('{}', '{', '[]'):
             Path(tmp, "verify.json").write_text(content)

@@ -205,7 +205,7 @@ LAST step, only after every region file is written: write RUN/raw.done whose fir
 ## --update 追蹤模式
 
 1. 找 `pulse/<slug>-*/` 最新一份為 PREV。
-2. 新建 RUN；跳過 A（沿用 PREV 的 `verify.json`，但 brief-b 要求先查有無新官方公告並更新 timeline）。
+2. 新建 RUN，先將 `PREV/verify.json` 複製為 `RUN/verify.json`，再執行 A.5；跳過 A，brief-b 要求先查有無新官方公告並更新 timeline。
 3. 一樣執行 A.5 重抓搜尋熱度，再將相關上升搜尋補進 brief-b；brief-b 帶入 PREV `raw/*.json` 的 `queries`，`SINCE` = PREV 的報告日期。
 4. 報告第 1 節之後插入「與上次（YYYY-MM-DD）相比的變化」：新事件、風向轉變、新謠言、已澄清事項，以及搜尋熱度比較（高峰日期、目前熱度相對於上次高峰的變化）。`scale: per_request_0_100` 時，兩次期間不同、各自正規化，數值不能直接相減，只比較高峰日期與走勢方向；缺資料就說明無法比較。
 
