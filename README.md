@@ -22,11 +22,20 @@ chmod +x bootstrap.sh
 3. **[1c/4]** 部署 Gemini 設定（`~/.gemini/GEMINI.md`）
 4. **[1d/4]** 初始化外部 skill submodule，並依 `shared-skills.txt` 把通用 skill 掛給 Codex 與 agy（見下方「與 Codex／agy 共用」）
 5. **[1e/4]** 把 `lessons` 分支掛成 `~/.claude/herdr-lessons/`（見下方「herdr-dev 跨專案踩坑紀錄」）
-6. **[2/4]** 設定 scripts 執行權限
-7. **[3/4]** 初始化 memory 目錄（telemetry）
-8. **[4/4]** 執行 health check，驗證 Gemini / Codex / provider 連線
+6. **[1f/4]** 建立 SerpApi 金鑰檔 `~/.config/serpapi/.env`（權限 600），供 `topic-pulse` 的搜尋熱度（Google Trends）使用。檔案已存在就只重設權限；不存在時取環境變數 `SERPAPI_API_KEY`，沒有就在終端機詢問（不回顯，可留空跳過）
+7. **[2/4]** 設定 scripts 執行權限
+8. **[3/4]** 初始化 memory 目錄（telemetry）
+9. **[4/4]** 執行 health check，驗證 Gemini / Codex / provider 連線
 
 ### 手動設定（bootstrap 不處理）
+
+**SerpApi 金鑰載入**：bootstrap 只建金鑰檔，不改 `~/.bashrc`。要讓 shell 讀到金鑰，自己在 `~/.bashrc` 加一行（沒加的話 bootstrap 會提醒）：
+
+```bash
+[ -f ~/.config/serpapi/.env ] && set -a && . ~/.config/serpapi/.env && set +a
+```
+
+沒有金鑰時 `topic-pulse` 照常產出報告，只是搜尋熱度那節會標成 unavailable。
 
 `~/.claude/settings.json` 不在本 repo 管理，新機器要自己補：
 
@@ -143,17 +152,17 @@ claude/skills/scripts/health-check.sh
 
 ---
 
-## 角色體系：軍機處與 Human-in-the-Loop
+## 角色分工：herdr-dev 與 Human-in-the-Loop
 
-體系雖高度自動化，**最終否決權永遠在使用者（朕）手上**。各 AI 對應一個抽象角色，skill 只引用角色、不綁死 provider：
+體系雖高度自動化，**需求、範圍與最終決定都在使用者手上**。開發預設走 `/herdr-dev`，各 AI 在 herdr pane 裡分工：
 
-| 角色 | Provider | 職責 |
+| 角色 | 預設 Provider | 職責 |
 |------|----------|------|
-| `designer` / `executor` | Claude | 規劃、架構、寫碼（軍機處大臣） |
-| `inspiration` | Gemini | 創意發想（僅供參考，不盲從） |
-| `reviewer` | Codex | 評分品質閘門；Codex 不可用時由 Claude 直接審查 |
+| main | Claude Code（本 session） | 確認需求、寫 brief、仲裁審查意見、merge、`/linus-review` 自審、回報 Linear |
+| worker | codex（`--worker` 可換） | 在獨立 worktree 依 TDD（RED → GREEN）開發並 commit |
+| reviewer | agy（`--reviewer` 可換） | 開工前審 brief；merge 後審品質、規格、TDD 證據、資安、效能 |
 
-**Peer Review 鐵律**：`designer` 在「寫碼前（Plan Review）」與「回報前（Code Review）」兩個檢查點，必須送 `reviewer` 評分（overall ≥ 7.0 且無單項 ≤ 3 才算通過）。
+**審查關卡**：brief 先給 reviewer 看過才開工；merge 後 main 先用 `/linus-review` 自審，有 CRITICAL 就退回 worker，沒有才送 reviewer。reviewer 判 FIX 時，worker 先補失敗的回歸測試再修，最多 2 輪。細節見 `claude/skills/herdr-dev/`。
 
 ---
 
@@ -164,17 +173,16 @@ AI-DCCELL/
 ├── bootstrap.sh           # 一鍵部署（Claude + Codex + Gemini）
 ├── setup.sh               # Legacy 部署腳本
 ├── claude/
-│   ├── CLAUDE.md          # 全域 Claude 指令（軍機處大臣角色）
+│   ├── CLAUDE.md          # 全域 Claude 指令
 │   ├── agents/            # 空（.gitkeep）；角色知識已併入 herdr-dev／herdr-mkt
-│   └── skills/            # 約 50 個 skill 定義
-│       ├── scripts/       # 17 個共用基礎腳本（DG Cell Core）
-│       ├── docs/          # 協定文件（smart-router 等）
+│   └── skills/            # 52 個 skill 定義
+│       ├── scripts/       # 14 個共用基礎腳本（DG Cell Core）
 │       ├── memory/        # 學習記憶（telemetry）
-│       └── ...            # herdr-dev, linus-review,
-│                          #   linus-analyze, tp, tr, magi, 命理三件套 等
+│       └── ...            # herdr-dev, herdr-mkt, linus-review, linus-analyze,
+│                          #   topic-pulse, 命理三件套 等
 ├── codex/
 │   ├── AGENTS.md          # Codex 角色與 Rubric 定義
-│   └── skills/            # 16 個 Codex 端 skill
+│   └── skills/            # 12 個 Codex 端 skill
 ├── .gemini/
 │   └── GEMINI.md          # agy 角色定義（skill 改由 shared-skills.txt 共用）
 ├── docs/                  # DG 細胞理論藍圖 + 實作紀錄
@@ -186,17 +194,16 @@ AI-DCCELL/
 
 ## 體系數據
 
-- **Skills**：約 50 個（涵蓋開發工作流、程式碼審查、命理三件套、影像生成、求職、股市分析等）
-- **Agents**：9 類、共 44 個
-- **基礎腳本**：17 個（`claude/skills/scripts/`）
-- **AI Providers**：Claude、Gemini、Codex、opencode、droid
-- **通訊協定**：Async Ask Pattern、FileOpsREQ/RES、Role-Based Routing、Linus 式 Peer Review
+- **Skills**：52 個（涵蓋開發工作流、程式碼審查、輿情分析、命理三件套、影像生成、求職、股市分析等）
+- **基礎腳本**：14 個（`claude/skills/scripts/`）
+- **AI Providers**：Claude、Codex、agy（Antigravity）、opencode、droid
+- **通訊協定**：herdr pane 派工（brief／report／verdict 檔案交接）、Linus 式審查
 
 ---
 
 ## 環境需求
 
-- macOS（Apple Silicon 推薦）
+- macOS 或 Linux（含 WSL2）
 - Python 3.10+
 - Claude Code CLI
 
