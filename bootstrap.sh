@@ -170,6 +170,32 @@ else
 fi
 echo ""
 
+# === Step 1f: SerpApi 金鑰（topic-pulse 搜尋熱度；金鑰不進版控，執行時輸入）===
+echo -e "${CYAN}[1f/4] SerpApi 金鑰${NC}"
+SERPAPI_ENV="${HOME}/.config/serpapi/.env"
+mkdir -p "$(dirname "${SERPAPI_ENV}")"
+if [[ -s "${SERPAPI_ENV}" ]]; then
+    chmod 600 "${SERPAPI_ENV}"
+    echo -e "  ${GREEN}✓ ${SERPAPI_ENV}（已存在）${NC}"
+else
+    key="${SERPAPI_API_KEY:-}"
+    if [[ -z "${key}" && -t 0 ]]; then
+        read -rsp "  輸入 SERPAPI_API_KEY（留空跳過）：" key
+        echo ""
+    fi
+    if [[ -n "${key}" ]]; then
+        (umask 077 && printf 'SERPAPI_API_KEY=%s\n' "${key}" > "${SERPAPI_ENV}")
+        echo -e "  ${GREEN}✓ ${SERPAPI_ENV}（權限 600）${NC}"
+    else
+        echo -e "  ${YELLOW}⚠ 未設定：topic-pulse 搜尋熱度會標 unavailable；之後重跑 bootstrap.sh 補上${NC}"
+    fi
+    unset key
+fi
+if [[ -s "${SERPAPI_ENV}" ]] && ! grep -qF ".config/serpapi/.env" "${HOME}/.bashrc" 2>/dev/null; then
+    echo -e "  ${YELLOW}⚠ ~/.bashrc 尚未載入，請加入：[ -f ~/.config/serpapi/.env ] && set -a && . ~/.config/serpapi/.env && set +a${NC}"
+fi
+echo ""
+
 # === Step 2: Scripts 執行權限 ===
 echo -e "${CYAN}[2/4] Scripts 執行權限${NC}"
 SCRIPTS_DIR="${SOURCE_DIR}/skills/scripts"
