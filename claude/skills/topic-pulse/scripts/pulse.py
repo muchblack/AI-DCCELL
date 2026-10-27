@@ -211,6 +211,7 @@ li.q{list-style:none;margin-left:-1.2em}
 figure.quote{margin:12px 0;padding:14px 16px;background:var(--sf);border:1px solid var(--line);border-radius:10px}
 figure.quote blockquote{margin:0 0 8px;padding:0;border:0;background:none;font-size:1.02rem}
 figure.quote figcaption{font-size:.82rem;color:var(--mut)}
+figure.quote .tr{margin:0 0 8px;font-size:.92rem;color:var(--mut)}
 .groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
 .groups div{border-top:2px solid var(--acc);padding-top:10px}.groups h3{margin:0 0 4px}.groups p{margin:0;font-size:.92rem;color:var(--mut)}
 .path{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 4px;align-items:center;font-size:.9rem}
@@ -326,9 +327,13 @@ def _timeline(sec):
 
 
 def _quotes(sec):
-    # 「- 來源（平台）：「原文」[連結](url)」單引文條目 → 引用卡片；一條多段引文的維持原樣
-    return re.sub(r'<li>([^<：「]{1,60})：「([^」]+)」<a href="([^"]+)">[^<]*</a></li>',
-                  r'<li class="q"><figure class="quote"><blockquote>\2</blockquote><figcaption>\1・<a href="\3">原文</a></figcaption></figure></li>', sec)
+    # 「- 來源（平台）：「原文」譯：譯文 [連結](url)」單引文條目 → 引用卡片（譯文可省）；一條多段引文的維持原樣
+    def card(m):
+        src, quote, tr, url = m.groups()
+        tr = f'<p class="tr">譯：{tr}</p>' if tr else ""
+        return (f'<li class="q"><figure class="quote"><blockquote>{quote}</blockquote>{tr}'
+                f'<figcaption>{src}・<a href="{url}">原文</a></figcaption></figure></li>')
+    return re.sub(r'<li>([^<：「]{1,60})：「(.+?)」\s*(?:譯：([^<]*?)\s*)?<a href="([^"]+)">[^<]*</a></li>', card, sec)
 
 
 def _groups(sec):
@@ -367,14 +372,14 @@ def _watch(sec):
         lis = re.findall(r"<li>(.*?)</li>", m.group(1), flags=re.S)
         out = []
         for li in lis:
-            d = re.match(r"(\d{4}-\d{2}-\d{2})：(.*)", li, flags=re.S)
+            d = re.match(r"(\d[^：<]{3,20}|未定[^：<]{0,10})：(.*)", li, flags=re.S)
             out.append(f"<li><time>{d.group(1)}</time><span>{d.group(2)}</span></li>" if d else f"<li><time>持續</time><span>{li}</span></li>")
         return '<ul class="watch">' + "".join(out) + "</ul>"
     return re.sub(r"<ul>(.*?)</ul>", rows, sec, count=1, flags=re.S)
 
 
 def _appendix(sec):
-    return re.sub(r"<h3>(來源清單[^<]*)</h3>\s*<ul>(.*?)</ul>",
+    return re.sub(r"<h3>((?:來源清單|搜尋指令)[^<]*)</h3>\s*<ul>(.*?)</ul>",
                   lambda m: f'<details><summary>{m.group(1)}（{m.group(2).count("<li>")}）</summary><ul>{m.group(2)}</ul></details>',
                   sec, flags=re.S)
 
@@ -782,6 +787,9 @@ def selftest():
     html_ = enhance('<h2>3. 時間軸</h2><table><thead><tr><th>日期</th><th>事件</th><th>來源</th></tr></thead>'
                     '<tbody><tr><td>2026-10-01</td><td>e ⚠️ 未證實</td><td><a href="https://www.x.com/a">https://www.x.com/a</a></td></tr></tbody></table>'
                     '<h2>9. 擴散路徑</h2><p>A（6/1）→ B。尾巴</p>')
+    q = _quotes('<li>官方（YouTube）：「A「B」C」譯：甲 <a href="https://y.tv/1">https://y.tv/1</a></li>')
+    assert '<blockquote>A「B」C</blockquote><p class="tr">譯：甲</p>' in q, q
+    assert '<time>2026-11（未定）</time>' in _watch('<ul><li>2026-11（未定）：x</li></ul>')
     for needle in ('<span class="n">03</span>', '<ol class="tl">', '>x.com</a>', 'chip partial', '<span>6/1</span>A', '<p class="muted">尾巴'):
         assert needle in html_, needle
     print("selftest OK")
