@@ -97,6 +97,7 @@ YouTube 跨區：官方直播／PV 留言區常是第一手反應，留言**依�
 ### C. 查證（主對話）
 1. `python3 S check RUN --spot 5` → FAIL／WARN／SPOTCHECK 清單。
 2. 對每條 SPOTCHECK 用 WebFetch 開網址，確認引述（或其意思）確實在頁面上。打不開（登入牆）記「無法驗證」，不算造假。
+   WebFetch 轉文字時會拿掉 `<script>`，看不到內容或數字時，不要直接當成「需要 JS 才看得到」：先 `curl -sL -A "Mozilla/5.0" <url>` 抓原始 HTML，讀頁面內嵌的 JSON。YouTube 讀 `ytInitialPlayerResponse` 的 `videoDetails.shortDescription`（說明欄）和 `viewCount`（觀看數）；Plurk 讀 `plurk = {...}` 的 `favorite_count`、`replurkers_count`、`response_count`。兩條路都查不到，才記「無法驗證」。
 3. 自己核算 `verify.json` 時間軸與各條目的日期、期間、數字（例：「一年以上緩衝期」要真的算一次）。
 4. 有 FAIL、抽查對不上、算錯 → 列清單寫 `brief-fix1.md` 退回同一 agy pane，**只退一次**；修完重跑第 1 步。仍不合格的條目在報告標「⚠️ 未證實」並列入附錄，不刪除。
 5. 結果寫 `check.md`：check 輸出摘要、抽查結果（每條：網址／是否相符）、算錯更正。
