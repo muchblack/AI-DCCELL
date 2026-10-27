@@ -180,6 +180,18 @@ Search in the region's own language using its keywords; use site: queries per pl
 For a platform behind a login wall / anti-bot, do not try to bypass it: mark coverage, and look for
 its content via search-engine index, media reports, or reposts on open platforms.
 
+Do not stop at keyword searches. Also cover these first-hand channels (they are often missed):
+1. Official / organizer site: enumerate EVERY news/blog post (list page, sidebar, sitemap.xml), not just
+   the ones search engines surface. Record title + publish date (JSON-LD "datePublished" or the page's
+   own date). Look for outcome reports, rule changes, sold-out / schedule notices.
+2. Official accounts' own timelines after the event date (organizer, venue/partner, creator/company):
+   X, Plurk, IG, FB, YouTube community/streams. Use search-engine index for login-walled ones.
+3. First-hand reports: search the region's words for visit reports / reviews / unboxing
+   (zh-tw e.g. 心得, 打卡, 開箱, 去了, 吃了; ja e.g. 行ってきた, レポ; en e.g. "went to", review).
+4. Pages where text seems missing: WebFetch strips <script>. Read embedded JSON in the raw HTML before
+   marking anything unverifiable: YouTube ytInitialPlayerResponse.videoDetails (shortDescription,
+   viewCount); Plurk "plurk = {...}" (favorite_count, replurkers_count, response_count); JSON-LD datePublished.
+
 For each region write RUN/raw/<region>.json (UTF-8):
 {"region": "...",
  "platforms": [{"platform": "<exact name>", "coverage": "full|partial|blocked", "reason": "..."}],
