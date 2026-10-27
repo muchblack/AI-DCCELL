@@ -1,7 +1,8 @@
 # 與 Codex、Antigravity（agy）共用的 skill 清單
-# 來源一律是 claude/skills/<name>，由 scripts/sync-shared-skills.sh 掛到：
+# 來源預設是 claude/skills/<name>，由 scripts/sync-shared-skills.sh 掛到：
 #   codex → ~/.agents/skills/
 #   agy   → ~/.gemini/config/skills/
+# 例外：agy/skills/<name> 是 agy 專用版本（不必列在本清單），同步時優先掛給 agy（例：topic-pulse）
 #
 # 格式：<skill 名稱> [!codex] [!agy]
 #   !codex / !agy 表示不掛給該 CLI（通常是它有自己的版本）
