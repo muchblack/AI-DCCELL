@@ -70,4 +70,21 @@ e 'git status' '  $ old cmd\n\n  $ git status\n› 1. Yes, proceed (y)\n'
 PREFIX="bash run.sh $WT "
 t allow "$(printf '  $ bash run.sh %s\n  /logs/a.log tests/x.py\n\n' "$WT" | extract_cmd)"
 t stop  "$(printf '  $ bash run.sh %s\n  /logs/a.log; rm -rf ~\n\n' "$WT" | extract_cmd)"
+# 改檔確認框的 Destination
+d(){ if edit_allowed "$2"; then r=allow; else r=stop; fi
+     [ "$r" = "$1" ] || { echo "FAIL edit want $1 got $r: $2"; fail=1; }; }
+d allow "$WT/claude/skills/x/scripts/pulse.py"
+d allow "$WT/SKILL.md"
+d allow /tmp/proj/.herdr-dev/tasks/slug-a/report.md
+d stop  /tmp/proj/.herdr-dev/tasks/slug-a/verdict.md
+d stop  /tmp/proj/.herdr-dev/tasks/slug-a/sub/report.md
+d stop  /tmp/proj/.herdr-dev/tasks/report.md
+d stop  /tmp/proj/.herdr-dev/state.json
+d stop  "$WT/../worker-y/x.py"
+d stop  "$WT/../../tasks/a/report.md"
+d stop  "${WT}-evil/x.py"
+d stop  /tmp/proj/app/x.php
+d stop  /home/u/.bashrc
+d stop  "claude/skills/x.py"
+d stop  ""
 [ $fail = 0 ] && echo "ALL PASS"; exit $fail

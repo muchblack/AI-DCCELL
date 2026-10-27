@@ -18,6 +18,8 @@
 #   - 還原 composer 造成的資產雜訊：git [-C <host_worktree>] checkout -- public/
 #     （逐字比對，checkout 的其他用法照樣停下）
 #   - 以 && 串接、且每一段都符合上述規則的指令
+#   - codex 改檔確認框，Destination 在 <host_worktree>/ 底下，或是
+#     <project>/.herdr-dev/tasks/<slug>/report.md（路徑含 .. 一律停下）
 # 任一段含 ; & | ` < > $( 就整串停下（防止夾帶指令），容器指令也一樣
 # 一律停下（印出 NEEDS_REVIEW）：
 #   - 任何 herdr 指令、rm -rf、curl、wget、--output（git diff/log/show 可藉此寫任意檔）
@@ -67,6 +69,16 @@ single_allowed() {
     printf '%s' "$cmd" | grep -qE '^git (add|commit|diff|status|log|show|rev-parse|merge-base|ls-files)( |$)'
 }
 
+# codex 改檔確認框（Destination: <路徑>）：只放行本 worktree 內的檔案，
+# 以及 <project>/.herdr-dev/tasks/<slug>/report.md；路徑含 .. 一律停下
+edit_allowed() {
+    local path="$1" tasks
+    tasks="$(dirname "$(dirname "$WT")")/tasks/"
+    [[ "$path" == /* && "$path" != *..* ]] || return 1
+    [[ "$path" == "$WT/"* ]] && return 0
+    [[ "$path" == "$tasks"*/report.md && "${path#"$tasks"}" != */*/* ]]
+}
+
 # 以 && 拆段，每段各自檢查；cd 只允許切到本 worktree
 allowed() {
     local seg
@@ -94,7 +106,21 @@ for _ in $(seq 1 200); do
         [ "$st" = "blocked" ] || { echo "STATUS=$st"; exit 0; }
     fi
 
-    cmd=$(herdr agent read "$P" --source recent-unwrapped --lines 25 | extract_cmd)
+    screen=$(herdr agent read "$P" --source recent-unwrapped --lines 25)
+
+    if printf '%s' "$screen" | grep -q 'Would you like to make the following edits'; then
+        dest=$(printf '%s' "$screen" | grep -E '^\s*Destination: ' | tail -1 | sed -E 's/^[[:space:]]*Destination: //; s/[[:space:]]+$//')
+        if [ -n "$dest" ] && edit_allowed "$dest"; then
+            herdr pane send-keys "$P" y >/dev/null
+            echo "$(date +%T) approved edit: ${dest:0:160}" >> "$LOG"
+            sleep 2
+            continue
+        fi
+        echo "NEEDS_REVIEW: edit ${dest:-<no destination found>}"
+        exit 0
+    fi
+
+    cmd=$(printf '%s' "$screen" | extract_cmd)
 
     if [ -n "$cmd" ] && allowed "$cmd"; then
         herdr pane send-keys "$P" enter >/dev/null

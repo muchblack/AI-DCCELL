@@ -210,7 +210,12 @@ When the call returns, check `herdr agent get <worker>`:
   subcommand allowlist and nothing more (before 2026-10-12 it approved any
   `git -C <wt> …`, including `push`/`reset --hard`), (d)
   the exact composer-noise restore `git [-C <host_worktree>] checkout --
-  public/`; `&&` chains are split and every segment must pass. It refuses
+  public/`, (e) codex's file-edit dialog (`Destination: <path>`, answered
+  `y`) when the path is under `<host_worktree>/` or is exactly
+  `<project>/.herdr-dev/tasks/<slug>/report.md` — any other destination or a
+  path with `..` → `NEEDS_REVIEW: edit <path>` (added 2026-10-27: before
+  this, every owned-file edit and the report write woke main with
+  `NEEDS_REVIEW: <no command line found>`); `&&` chains are split and every segment must pass. It refuses
   any segment containing shell metacharacters (`;` `&` `|` `` ` `` `<` `>`
   `$(`), a `herdr` command, `rm -rf`, `curl`, `wget`, `--output` (lets
   `git diff/log/show` write arbitrary files), or any other git
