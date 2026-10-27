@@ -502,10 +502,10 @@ re-runs), unless the change is ≲ 30 lines; main still decides the merge.
    --name-only <base_sha>..<merge-commit>` and bucket the paths by
    extension/location using the table below. Then write into the brief
    **only the stack-specific tells for buckets present in this diff** —
-   drop every row that doesn't match, so agy gets a short, targeted
+   drop every row that doesn't match, so the reviewer gets a short, targeted
    checklist instead of a multi-stack dump it has to self-filter. If a
    touched file's extension isn't in the table, still include the three
-   language-neutral categories and ask agy to apply its own knowledge of
+   language-neutral categories and ask the reviewer to apply its own knowledge of
    that stack's equivalent patterns.
 
    | Bucket | Path match | Security tells | DB/perf tells |
