@@ -2,7 +2,7 @@
 """topic-pulse 輔助腳本。
 
   pulse.py check <run_dir> [--spot N]   檢查 raw/*.json，印 FAIL/WARN 與抽查網址；有 FAIL 則 exit 1
-  pulse.py html <report.md>             把 report.md 轉成同目錄 report.html
+  pulse.py html <report.md> [--hue N]  把 report.md 轉成同目錄 report.html；N＝配色色相 0–359（預設 210）
   pulse.py trends <run_dir> [--provider serpapi|google]  取得搜尋熱度並寫入 trends.json
   pulse.py selftest                     自我檢查
 """
@@ -147,39 +147,282 @@ def cmd_check(run_dir, spot):
 
 
 # 裸網址 → <url>（markdown 自動連結）；已在 [](...)、<...>、`...` 裡的不動
-BARE_URL = re.compile(r"(`[^`\n]*`)|(?<![(<])(https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'*+,;=%]+)")
+BARE_URL = re.compile(r"(`[^`\n]*`)|(?<![(<])(https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'*+,;=%\u3400-\u9fff]+)")
 
 
 # 清單緊接在一般段落後（如「**第一手**\n- ...」）時，Python-Markdown 會併成同一段；補空行
 LIST_AFTER_PARA = re.compile(r"(?m)^(?![-*] |\s*$)(.+)\n(?=[-*] )")
 
 
+# Python-Markdown 的巢狀清單要縮排 4 格；2–3 格（常見寫法）會被攤平成同一層
+NESTED_LIST = re.compile(r"(?m)^ {2,3}(?=[-*] )")
+
+
 def autolink(text):
-    text = LIST_AFTER_PARA.sub(r"\1\n\n", text)
+    text = NESTED_LIST.sub("    ", LIST_AFTER_PARA.sub(r"\1\n\n", text))
     return BARE_URL.sub(lambda m: m.group(1) or f"<{m.group(2)}>", text)
 
 
-def cmd_html(md_path):
+# 報告樣式：整套顏色由單一色相 --h 推出（主色、淺底、帶色偏的灰），配色跟著話題換，版面不變
+HTML_CSS = """
+:root{--h:210;--bg:hsl(var(--h) 30% 98%);--sf:#fff;--fg:hsl(var(--h) 14% 15%);--mut:hsl(var(--h) 8% 42%);
+--line:hsl(var(--h) 25% 89%);--acc:hsl(var(--h) 55% 42%);--acc-soft:hsl(var(--h) 60% 94%);
+--ok:#3f7350;--ok-soft:#e3efe6;--warn:#8a5f10;--warn-soft:#fbf0d9;--bad:#a33a3a;--bad-soft:#f7e1e1;
+--f-d:"Huninn","Noto Sans TC","PingFang TC",sans-serif;--f-b:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+--f-m:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:hsl(var(--h) 12% 9%);--sf:hsl(var(--h) 10% 13%);--fg:hsl(var(--h) 20% 93%);
+--mut:hsl(var(--h) 8% 64%);--line:hsl(var(--h) 10% 22%);--acc:hsl(var(--h) 75% 74%);--acc-soft:hsl(var(--h) 30% 20%);
+--ok:#8fc29d;--ok-soft:#1f3326;--warn:#e6b85c;--warn-soft:#3a2f17;--bad:#ec8f8f;--bad-soft:#3d2121;color-scheme:dark}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);margin:0;font:16px/1.75 var(--f-b);padding:40px max(16px,env(safe-area-inset-right)) 64px max(16px,env(safe-area-inset-left))}
+main{max-width:760px;margin:0 auto}
+h1,h2{font-family:var(--f-d);font-weight:400;text-wrap:balance;line-height:1.35}
+h1{font-size:clamp(1.7rem,4.6vw,2.4rem);margin:0 0 16px}
+h2{font-size:1.35rem;margin:48px 0 14px;padding-top:20px;border-top:1px solid var(--line)}
+h3{font-size:1rem;margin:24px 0 8px}
+a{color:var(--acc);text-underline-offset:3px;word-break:break-all}
+blockquote{margin:12px 0;padding:12px 16px;background:var(--sf);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:0 10px 10px 0}
+blockquote p{margin:0}
+table{border-collapse:collapse;display:block;overflow-x:auto;background:var(--sf);border:1px solid var(--line);border-radius:10px;font-size:.9rem}
+th,td{text-align:left;padding:9px 14px;border-top:1px solid var(--line);vertical-align:top}
+thead th{border-top:0;font-weight:500;color:var(--mut);font-size:.8rem;white-space:nowrap}
+td:first-child{white-space:nowrap;font-variant-numeric:tabular-nums}
+code{font-family:var(--f-m);font-size:.85em;background:var(--acc-soft);padding:1px 5px;border-radius:4px}
+li{margin:4px 0}
+.chip{font-size:.8rem;padding:2px 10px;border-radius:99px;white-space:nowrap}
+.full{background:var(--ok-soft);color:var(--ok)}.partial{background:var(--warn-soft);color:var(--warn)}.blocked{background:var(--bad-soft);color:var(--bad)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:20px 0 8px}
+.cards div{background:var(--sf);padding:14px 16px;display:grid;gap:4px;align-content:start}
+.cards small{color:var(--mut);font-size:.78rem}.cards b{font-family:var(--f-d);font-weight:400;font-size:1.2rem}.cards span{font-size:.82rem;color:var(--mut)}
+figure.chart{margin:12px 0;background:var(--sf);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.chart svg{width:100%;height:auto;display:block}.chart figcaption{font-size:.82rem;color:var(--mut)}
+.n{font-family:var(--f-m);font-size:.8rem;color:var(--acc);margin-right:10px}
+.lede{font-size:1.08rem}
+.callout{border-left:3px solid var(--warn);background:var(--warn-soft);padding:12px 16px;border-radius:0 8px 8px 0;margin:12px 0}
+.callout h3{margin:0 0 6px}.callout ul{margin:0;padding-left:1.2em}
+.facts{display:grid;grid-template-columns:7.5em 1fr;gap:8px 16px}.facts dt{color:var(--mut);font-size:.9rem}.facts dd{margin:0;min-width:0}
+.tl{list-style:none;margin:0;padding:0}
+.tl li,.watch li{display:grid;grid-template-columns:6.2em 1fr;gap:16px;margin:0;padding:10px 0;border-top:1px dashed var(--line)}
+.tl li:first-child,.watch li:first-child{border-top:0}
+.tl time,.watch time{font-family:var(--f-m);font-size:.85rem;color:var(--mut);font-variant-numeric:tabular-nums;padding-top:2px}
+.watch{list-style:none;margin:0;padding:0}.watch time{color:var(--acc)}
+.src{font-size:.82rem}
+li.q{list-style:none;margin-left:-1.2em}
+figure.quote{margin:12px 0;padding:14px 16px;background:var(--sf);border:1px solid var(--line);border-radius:10px}
+figure.quote blockquote{margin:0 0 8px;padding:0;border:0;background:none;font-size:1.02rem}
+figure.quote figcaption{font-size:.82rem;color:var(--mut)}
+.groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.groups div{border-top:2px solid var(--acc);padding-top:10px}.groups h3{margin:0 0 4px}.groups p{margin:0;font-size:.92rem;color:var(--mut)}
+.path{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 4px;align-items:center;font-size:.9rem}
+.path li{margin:0;background:var(--sf);border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+.path li.arrow{border:0;background:none;padding:0;color:var(--mut)}.path li span{font-family:var(--f-m);font-size:.75rem;color:var(--mut);margin-right:6px}
+details{border:1px solid var(--line);border-radius:10px;background:var(--sf);padding:12px 16px}summary{cursor:pointer;font-weight:500}details ul{font-size:.85rem}
+@media (max-width:480px){.tl li,.watch li,.facts{grid-template-columns:1fr;gap:2px}}
+.chart text{font:11px var(--f-m);fill:var(--mut)}.chart .v{fill:var(--fg)}.chart .grid{stroke:var(--line)}
+.chart .bar{fill:var(--line)}.chart .bar.on{fill:var(--acc)}.chart .ev{stroke:var(--acc);stroke-dasharray:3 3;opacity:.6}
+"""
+
+
+REGION_NAMES = {"zh-tw": "台灣", "zh-cn": "中國", "en": "美國", "ja": "日本", "ko": "韓國"}
+
+
+def load_json(path):
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def summary_cards(run, md_text):
+    """報告開頭的總結卡片：數字全取自 RUN 內的檔案，缺檔就少一張，不臆測。"""
+    from html import escape
+    cards = []
+    status = (load_json(run / "verify.json") or {}).get("status")
+    label = {"confirmed": ("屬實", "full"), "partial": ("部分屬實", "partial"), "not_found": ("查無此事", "blocked")}.get(status)
+    if label:
+        cards.append(("事件查證", label[0], f'<em class="chip {label[1]}">{escape(status)}</em>'))
+    raws = [d for f in sorted((run / "raw").glob("*.json")) if (d := load_json(f))]
+    if raws:
+        items = [i for d in raws for i in d.get("items", [])]
+        media = sum(i.get("kind") == "media" for i in items)
+        cards.append(("取樣", f"{len(items)} 則", f"媒體 {media}・社群 {len(items) - media}"))
+        cov = [pl.get("coverage") for d in raws if d.get("region") != "media" for pl in d.get("platforms", [])]
+        trends = (load_json(run / "trends.json") or {}).get("status")
+        if trends:
+            cov.append({"ok": "full", "partial": "partial", "unavailable": "blocked"}.get(trends))
+        cards.append(("平台覆蓋", f"{len(cov)} 個", "・".join(f"{k} {cov.count(k)}" for k in ("full", "partial", "blocked") if k in cov)))
+    m = re.search(r"未證實條目（(\d+)）", md_text)
+    if m:
+        cards.append(("未證實", f"{m.group(1)} 條", "見附錄"))
+    if not cards:
+        return ""
+    cells = "".join(f"<div><small>{a}</small><b>{b}</b><span>{c}</span></div>" for a, b, c in cards)
+    return f'<div class="cards">{cells}</div>'
+
+
+def trend_chart(series, events, title):
+    """series: [(YYYY-MM-DD, 0–100)]；events: 落在期間內的時間軸日期。回傳 inline SVG。"""
+    from html import escape
+    W, H, L, R, T, B = 720, 170, 34, 8, 12, 30
+    n = len(series)
+    cw, ch = (W - L - R) / n, H - T - B
+    idx = {d: i for i, (d, _) in enumerate(series)}
+    out = [f'<svg viewBox="0 0 {W} {H}" role="img" aria-label="{escape(title)}">']
+    for y in (0, 50, 100):
+        py = T + ch - y / 100 * ch
+        out.append(f'<line class="grid" x1="{L}" x2="{W - R}" y1="{py:.1f}" y2="{py:.1f}"/>'
+                   f'<text x="{L - 6}" y="{py + 4:.1f}" text-anchor="end">{y}</text>')
+    for d in events:
+        x = L + cw * (idx[d] + .5)
+        out.append(f'<line class="ev" x1="{x:.1f}" x2="{x:.1f}" y1="{T}" y2="{T + ch}"><title>{d}</title></line>')
+    for i, (d, v) in enumerate(series):
+        h = max(v / 100 * ch, 1.5)
+        x = L + cw * i
+        out.append(f'<rect class="bar{" on" if v else ""}" x="{x + cw * .1:.1f}" y="{T + ch - h:.1f}" '
+                   f'width="{cw * .8:.1f}" height="{h:.1f}" rx="1.5"><title>{d}：{v}</title></rect>')
+        if v == 100 or (v and n <= 45):
+            out.append(f'<text class="v" x="{x + cw / 2:.1f}" y="{T + ch - h - 4:.1f}" text-anchor="middle">{v}</text>')
+    for i in sorted({0, n // 3, 2 * n // 3, n - 1}):
+        out.append(f'<text x="{L + cw * (i + .5):.1f}" y="{H - 10}" text-anchor="middle">{series[i][0][5:].replace("-", "/")}</text>')
+    return "".join(out) + "</svg>"
+
+
+def trend_figures(run):
+    """各區一張熱度長條圖：畫出高峰所屬關鍵字的時間序列，虛線為 verify.json 時間軸事件。"""
+    from html import escape
+    trends = load_json(run / "trends.json") or {}
+    timeline = (load_json(run / "verify.json") or {}).get("timeline", [])
+    figs = []
+    for region, r in (trends.get("regions") or {}).items():
+        peak, tl = r.get("peak"), r.get("timeline") or []
+        if not peak or not tl:
+            continue
+        kw = peak["keyword"]
+        series = [(t["date"], int(t.get("values", {}).get(kw) or 0)) for t in tl]
+        dates = {d for d, _ in series}
+        events = sorted({e.get("date") for e in timeline} & dates)
+        name = REGION_NAMES.get(region, region)
+        cap = f"「{escape(kw)}」{name} Google 搜尋熱度（0–100 相對指數）"
+        if events:
+            cap += "。虛線：" + "、".join(d[5:].replace("-", "/") for d in events)
+        figs.append(f'<figure class="chart">{trend_chart(series, events, cap)}<figcaption>{cap}</figcaption></figure>')
+    return "".join(figs)
+
+
+def _link_label(m):
+    from urllib.parse import unquote
+    href, text = m.group(1), m.group(2)
+    return f'<a href="{href}">{unquote(text) if text == href else text}</a>'
+
+
+def _timeline(sec):
+    def row(m):
+        date, event, src = m.groups()
+        src = re.sub(r'(<a href="([^"]+)">)[^<]*</a>', lambda a: a.group(1) + urlparse(a.group(2)).netloc.removeprefix("www.") + "</a>", src)
+        return f'<li><time>{date}</time><div>{event}<div class="src">{src}</div></div></li>'
+    return re.sub(r"<table>\s*<thead>\s*<tr>\s*<th>日期</th>.*?</thead>\s*<tbody>(.*?)</tbody>\s*</table>",
+                  lambda t: '<ol class="tl">' + re.sub(r"<tr>\s*<td>(.*?)</td>\s*<td>(.*?)</td>\s*<td>(.*?)</td>\s*</tr>\s*", row, t.group(1)) + "</ol>",
+                  sec, flags=re.S)
+
+
+def _quotes(sec):
+    # 「- 來源（平台）：「原文」[連結](url)」單引文條目 → 引用卡片；一條多段引文的維持原樣
+    return re.sub(r'<li>([^<：「]{1,60})：「([^」]+)」<a href="([^"]+)">[^<]*</a></li>',
+                  r'<li class="q"><figure class="quote"><blockquote>\2</blockquote><figcaption>\1・<a href="\3">原文</a></figcaption></figure></li>', sec)
+
+
+def _groups(sec):
+    def cards(m):
+        items = re.findall(r"<li><strong>(.*?)</strong>：(.*?)</li>", m.group(1))
+        if len(items) != m.group(1).count("<li>"):
+            return m.group(0)
+        return '<div class="groups">' + "".join(f"<div><h3>{a}</h3><p>{b}</p></div>" for a, b in items) + "</div>"
+    return re.sub(r"<ul>(.*?)</ul>", cards, sec, count=1, flags=re.S)
+
+
+def _facts(sec):
+    def dl(m):
+        items = re.findall(r"<li>([^<：]{2,10})：(.*?)</li>", m.group(1))
+        if not items or len(items) != m.group(1).count("<li>"):
+            return m.group(0)
+        return '<dl class="facts">' + "".join(f"<dt>{a}</dt><dd>{b}</dd>" for a, b in items) + "</dl>"
+    return re.sub(r"<ul>(.*?)</ul>", dl, sec, count=1, flags=re.S)
+
+
+def _path(sec):
+    def chips(m):
+        text, _, tail = m.group(1).partition("。")
+        steps = []
+        for piece in text.split("→"):
+            d = re.search(r"（([^）]+)）\s*$", piece)
+            label = piece[:d.start()] if d else piece
+            steps.append(f'<li>{f"<span>{d.group(1)}</span>" if d else ""}{label.strip()}</li>')
+        out = '<ol class="path">' + '<li class="arrow" aria-hidden="true">→</li>'.join(steps) + "</ol>"
+        return out + (f'<p class="muted">{tail}</p>' if tail.strip() else "")
+    return re.sub(r"<p>([^<]*→[^<]*)</p>", chips, sec, count=1)
+
+
+def _watch(sec):
+    def rows(m):
+        lis = re.findall(r"<li>(.*?)</li>", m.group(1), flags=re.S)
+        out = []
+        for li in lis:
+            d = re.match(r"(\d{4}-\d{2}-\d{2})：(.*)", li, flags=re.S)
+            out.append(f"<li><time>{d.group(1)}</time><span>{d.group(2)}</span></li>" if d else f"<li><time>持續</time><span>{li}</span></li>")
+        return '<ul class="watch">' + "".join(out) + "</ul>"
+    return re.sub(r"<ul>(.*?)</ul>", rows, sec, count=1, flags=re.S)
+
+
+def _appendix(sec):
+    return re.sub(r"<h3>(來源清單[^<]*)</h3>\s*<ul>(.*?)</ul>",
+                  lambda m: f'<details><summary>{m.group(1)}（{m.group(2).count("<li>")}）</summary><ul>{m.group(2)}</ul></details>',
+                  sec, flags=re.S)
+
+
+SECTION_STYLES = [("一句話總結", lambda s: s.replace("<p>", '<p class="lede">', 1)), ("事件查證", _facts),
+                  ("時間軸", _timeline), ("媒體", _quotes), ("社群反應", _quotes), ("族群", _groups),
+                  ("擴散路徑", _path), ("待觀察", _watch), ("附錄", _appendix)]
+
+
+def enhance(body):
+    """把 report.md 固定格式的各節轉成對應版面元件；不符合預期格式的段落原樣保留。"""
+    body = re.sub(r'<a href="([^"]+)">([^<]*)</a>', _link_label, body)
+    body = re.sub(r"<p>⚠️\s*([^<]*?)：?</p>\s*(<ul>.*?</ul>)",
+                  r'<div class="callout"><h3>&#9888;&#65039; \1</h3>\2</div>', body, flags=re.S)
+    body = re.sub(r"⚠️ ?(未證實|無法驗證)", r'<span class="chip partial">\1</span>', body)
+    parts = re.split(r"(?=<h2>)", body)
+    for i, sec in enumerate(parts):
+        title = re.match(r"<h2>(.*?)</h2>", sec)
+        if not title:
+            continue
+        for key, fn in SECTION_STYLES:
+            if key in title.group(1):
+                sec = fn(sec)
+                break
+        parts[i] = re.sub(r"^<h2>(\d+)\. ", lambda m: f'<h2><span class="n">{int(m.group(1)):02d}</span>', sec)
+    return "".join(parts)
+
+
+def cmd_html(md_path, hue=210):
     import markdown
 
     md = Path(md_path)
-    body = markdown.markdown(autolink(md.read_text(encoding="utf-8")), extensions=["tables", "fenced_code"])
+    text = md.read_text(encoding="utf-8")
+    body = markdown.markdown(autolink(text), extensions=["tables", "fenced_code"])
+    run = md.parent
+    body = body.replace("</h1>", "</h1>" + summary_cards(run, text), 1)
+    body = re.sub(r"(<h2>[^<]*搜尋熱度[^<]*</h2>)", lambda m: m.group(1) + trend_figures(run), body, count=1)
+    body = re.sub(r"<td>(full|partial|blocked)</td>", r'<td><span class="chip \1">\1</span></td>', body)
+    body = enhance(body)
     title = re.search(r"<h1>(.*?)</h1>", body)
-    css = (
-        ":root{--bg:#fff;--fg:#1f2328;--mut:#d0d7de;--acc:#0969da}"
-        "@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--mut:#30363d;--acc:#4493f8}}"
-        "body{background:var(--bg);color:var(--fg);max-width:880px;margin:0 auto;padding:16px;"
-        "font:16px/1.7 -apple-system,'PingFang TC','Noto Sans TC',sans-serif}"
-        "a{color:var(--acc);word-break:break-all}table{border-collapse:collapse;display:block;overflow-x:auto}"
-        "th,td{border:1px solid var(--mut);padding:6px 10px}blockquote{border-left:3px solid var(--mut);"
-        "margin:0;padding-left:12px}"
-    )
+    fonts = "https://fonts.googleapis.com/css2?family=Huninn&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono&display=swap"
     out = md.with_suffix(".html")
     out.write_text(
         f'<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">'
-        f'<meta name="viewport" content="width=device-width,initial-scale=1">'
-        f"<title>{title.group(1) if title else md.stem}</title><style>{css}</style></head>"
-        f"<body>{body}</body></html>",
+        f'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
+        f"<title>{re.sub('<[^>]+>', '', title.group(1)) if title else md.stem}</title>"
+        f'<link rel="stylesheet" href="{fonts}"><style>{HTML_CSS}:root{{--h:{hue}}}</style></head>'
+        f"<body><main>{body}</main></body></html>",
         encoding="utf-8",
     )
     print(out)
@@ -534,6 +777,13 @@ def selftest():
             completed = subprocess.run([sys.executable, __file__, *args], capture_output=True, text=True)
             assert completed.returncode == 2 and "pulse.py trends" in completed.stdout
         assert cmd_trends(Path(tmp, "missing"), key="secret-marker", send=fake) != 0
+    svg = trend_chart([("2026-10-01", 0), ("2026-10-02", 100)], ["2026-10-02"], "t")
+    assert svg.count("<rect") == 2 and svg.count('class="ev"') == 1 and ">100<" in svg
+    html_ = enhance('<h2>3. 時間軸</h2><table><thead><tr><th>日期</th><th>事件</th><th>來源</th></tr></thead>'
+                    '<tbody><tr><td>2026-10-01</td><td>e ⚠️ 未證實</td><td><a href="https://www.x.com/a">https://www.x.com/a</a></td></tr></tbody></table>'
+                    '<h2>9. 擴散路徑</h2><p>A（6/1）→ B。尾巴</p>')
+    for needle in ('<span class="n">03</span>', '<ol class="tl">', '>x.com</a>', 'chip partial', '<span>6/1</span>A', '<p class="muted">尾巴'):
+        assert needle in html_, needle
     print("selftest OK")
     return 0
 
@@ -543,8 +793,8 @@ if __name__ == "__main__":
     if a[:1] == ["check"] and len(a) >= 2:
         spot = int(a[a.index("--spot") + 1]) if "--spot" in a else 5
         sys.exit(cmd_check(a[1], spot))
-    if a[:1] == ["html"] and len(a) == 2:
-        sys.exit(cmd_html(a[1]))
+    if a[:1] == ["html"] and len(a) in (2, 4) and a[2:3] in ([], ["--hue"]):
+        sys.exit(cmd_html(a[1], *(int(a[3]) % 360,) if len(a) == 4 else ()))
     if a[:1] == ["trends"]:
         if len(a) == 2 and not a[1].startswith("--"):
             sys.exit(cmd_trends(a[1]))
