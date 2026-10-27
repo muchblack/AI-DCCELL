@@ -384,7 +384,9 @@ def _appendix(sec):
                   sec, flags=re.S)
 
 
-SECTION_STYLES = [("一句話總結", lambda s: s.replace("<p>", '<p class="lede">', 1)), ("事件查證", _facts),
+# 第 1 節「結論」放大成導言；「總結」相容舊報告的「一句話總結」
+LEDE = lambda s: s.replace("<p>", '<p class="lede">', 1)
+SECTION_STYLES = [("結論", LEDE), ("總結", LEDE), ("事件查證", _facts),
                   ("時間軸", _timeline), ("媒體", _quotes), ("社群反應", _quotes), ("族群", _groups),
                   ("擴散路徑", _path), ("待觀察", _watch), ("附錄", _appendix)]
 
