@@ -1,0 +1,30 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "llama-local//Users/huai-chitzeng/srv/llama_models/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ2_M.gguf",
+  "plugin": ["@dietrichgebert/ponytail"],
+  // herdr worker 常被派去 ~/code 底下的專案，預設 ask 會卡在 TUI 對話框（approve-loop 讀不到按鈕式對話框）
+  "permission": {
+    "external_directory": {
+      "/Users/huai-chitzeng/code/**": "allow"
+    }
+  },
+  // 單一 slot 的本機 server：省掉每個 session 額外的標題生成請求
+  "agent": {
+    "title": { "disable": true }
+  },
+  "provider": {
+    "llama-local": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "llama.cpp Local",
+      "options": {
+        "baseURL": "http://localhost:8090/v1",
+        "apiKey": "dummy"
+      },
+      "models": {
+        "/Users/huai-chitzeng/srv/llama_models/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ2_M.gguf": {
+          "name": "Qwen3.6-35B-A3B IQ2_M (llama.cpp)"
+        }
+      }
+    }
+  }
+}
