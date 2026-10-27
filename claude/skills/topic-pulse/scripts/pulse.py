@@ -26,6 +26,7 @@ PLATFORM_DOMAINS = {
     "Plurk": ["plurk.com"],
     "Threads": ["threads.net", "threads.com"],
     "Facebook": ["facebook.com", "fb.com"],
+    "Instagram": ["instagram.com"],
     "LIHKG": ["lihkg.com"],
     "微博": ["weibo.com", "weibo.cn"],
     "百度貼吧": ["tieba.baidu.com"],
@@ -322,7 +323,9 @@ def cmd_trends(run_dir, provider="serpapi", key=None, send=None):
                 event = verify.get("event_date", "")
                 if not DATE_RE.fullmatch(event):
                     raise ValueError
-                result["timeframe"] = f"{date.fromisoformat(event) - timedelta(days=30)} {date.today()}"
+                # 事件日在未來（如尚未開幕的活動）時以今天為基準，避免起始日晚於結束日
+                start = min(date.fromisoformat(event), date.today()) - timedelta(days=30)
+                result["timeframe"] = f"{start} {date.today()}"
             except (TypeError, ValueError):
                 pass
             if not any(isinstance(verify.get("keywords", {}).get(r), list) and verify["keywords"][r] for r in TREND_REGIONS):
