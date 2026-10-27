@@ -12,6 +12,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MANIFEST="${ROOT}/shared-skills.txt"
 SRC="${ROOT}/claude/skills"
+AGY_SRC="${ROOT}/agy/skills"
 
 # CLI 名稱|skill 目錄
 TARGETS=(
@@ -46,7 +47,7 @@ for target in "${TARGETS[@]}"; do
     mkdir -p "${dir}"
     names="$(wanted "${cli}")"
 
-    prune "${dir}" "${ROOT}" "${names}"
+    prune "${dir}" "${SRC}" "${names}"
 
     while read -r name; do
         src="${SRC}/${name}"
@@ -62,6 +63,26 @@ for target in "${TARGETS[@]}"; do
             echo "  + ${name}"
         fi
     done <<< "${names}"
+
+    if [[ "${cli}" == "agy" && -d "${AGY_SRC}" ]]; then
+        agy_names="$(ls -1 "${AGY_SRC}" 2>/dev/null || true)"
+        prune "${dir}" "${AGY_SRC}" "${agy_names}"
+        for s in "${AGY_SRC}"/*; do
+            [[ -d "${s}" ]] || continue
+            sname="$(basename "${s}")"
+            dst="${dir}/${sname}"
+            if [[ ! -f "${s}/SKILL.md" ]]; then
+                echo "  ! [agy] ${sname}：找不到 ${s}/SKILL.md"
+            elif [[ -L "${dst}" && "$(readlink "${dst}")" == "${s}" ]]; then
+                :
+            elif [[ -e "${dst}" && ! -L "${dst}" ]]; then
+                echo "  ! [agy] ${sname}：已有實體目錄，跳過"
+            else
+                ln -sfn "${s}" "${dst}"
+                echo "  + [agy] ${sname}"
+            fi
+        done
+    fi
 
     echo "  共 $(find "${dir}" -maxdepth 1 -type l | wc -l | tr -d ' ') 個 symlink"
 done
