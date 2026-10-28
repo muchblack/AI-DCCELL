@@ -249,6 +249,13 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
      script woke main on several false alarms. The tuning round, briefed
      with this line, used the edit tool and only needed approval for `npm run
      build`.
+   - **main writes briefs with a quoted heredoc (`<<'EOF'`).** Fill dynamic
+     values (sha, worktree path, dispatch id) by `sed` substitution afterwards,
+     or `export` them before an unquoted heredoc — then `grep` the brief for
+     an empty field before dispatch. Observed 2026-10-28 (VIN-182): an
+     unquoted heredoc expanded an unset `$BASE_SHA` to nothing, so the dev
+     brief carried no base sha; codex recovered via `merge-base`, but a
+     worker that trusted the brief literally would have had nothing to verify.
    - **Dispatch id (every brief-review, dev, fix, tuning and review brief).** Before
      writing any brief, main increments `dispatch_seq` in state and puts
      `dispatch_id: <slug>-<dispatch_seq>` on the brief's first line. The
