@@ -263,7 +263,8 @@ When the call returns, check `herdr agent get <worker>`:
 - **A Linear-sourced requirement gets reported back on PASS.** If Step 0
   resolved a Linear issue id and the reviewer's final verdict is PASS, Phase 5 posts
   a status comment on that issue (outcome, merge/worker commit shas, branch,
-  round count) and moves it to Done — see Phase 5. Doc-path/inline
+  round count) and moves it to Done, then lists the project's open tickets
+  and recommends the next one (read-only) — see Phase 5. Doc-path/inline
   requirements have no issue to report to; skip silently. A flow that never
   reaches PASS has nothing to report (that's an escalation, not a
   completion).

@@ -825,7 +825,27 @@ State: `{ "step": "tuning_dispatched", "tuning_round": 1, "dispatch_seq": <k>, "
      from exactly that.
    Nothing recurring → write nothing; never pad. Tell the user in one line
    what was added where. Then move the notepad to `.herdr/history/<slug>.md`.
-7. **One ticket per session.** After reporting, recommend the Emperor start
+7. **Recommend the next ticket** (only when step 3 moved a Linear issue to
+   Done; Emperor's standing order, 2026-10-28). Using `state.linear_server`:
+   `list_issues` for the same project, open states only (not
+   completed/canceled), and fetch relations (`get_issue
+   includeRelations`) only for the candidates you need to rank, never one
+   call per issue in a large project. Present to the Emperor (繁中), short:
+   - **Ready now** — every blocker Done (the ticket just closed counts as
+     Done). Rank: issues it just unblocked first, then priority, then the
+     parent spec's order (lowest number on ties).
+   - **Still blocked** — one line each, naming the open blocker.
+   - **Debt worth folding in** — `docs/tech-debt.md` items (or this
+     ticket's 🟡 debt) whose 「建議併入」/Blocking line names a ready
+     ticket, so the next brief picks them up.
+   - **Recommendation** — one ticket and the reason in one sentence, plus
+     the command to run it in a fresh session: `/herdr-dev <id>
+     [--reviewer=<agent>]`, carrying over this run's non-default
+     `--worker`/`--reviewer`.
+   Read-only: do not change any issue's state, labels or relations here.
+   No open issue left in the project → say the project's tickets are all
+   done. Linear call fails → say so in one line and skip.
+8. **One ticket per session.** After reporting, recommend the Emperor start
    the next ticket in a fresh session (state, notepad and Linear carry the
    context; `/handoff` if anything is left mid-air) rather than chaining it
    here. Every main turn re-reads the whole conversation, so a session that
