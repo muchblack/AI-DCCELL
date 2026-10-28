@@ -422,10 +422,12 @@ When the call returns, check `herdr agent get <worker>`:
   what round 1 already tried, so it isn't retried.
 - **Check for stale context before each dispatch.** `herdr agent read
   <worker> --source recent-unwrapped --lines 30` before prompting. Empty/no
-  unrelated prior conversation → prompt directly. If stale unrelated context
-  is visible, there's no documented cross-provider clear command — use
-  `herdr agent start <name> --kind <kind> --pane <id>` on a plain shell to
-  restart the agent fresh, or ask the Emperor how to proceed.
+  unrelated prior conversation → prompt directly. A previous ticket's
+  conversation, or more than half the context used → `/new` once on that
+  pane's first dispatch of the ticket (opencode needs an extra `send-keys
+  enter` to run `/new`; see `references/flow.md` Phase 2 step 2). If `/new`
+  doesn't take effect, use `herdr agent start <name> --kind <kind> --pane
+  <id>` on a plain shell to restart the agent fresh, or ask the Emperor.
 
 State lives in `.herdr-dev/state.json` so background waits survive turns.
 

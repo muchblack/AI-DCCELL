@@ -345,9 +345,21 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
        specific missing fact.
 2. **Check for stale context**: `herdr agent read <worker> --source
    recent-unwrapped --lines 30`. Empty/no unrelated prior conversation →
-   proceed directly. If stale context is visible, no documented
-   cross-provider clear exists — restart via `herdr agent start <name>
-   --kind <kind> --pane <id>` on a plain shell, or ask the Emperor.
+   proceed directly. **A previous ticket's conversation, or the status bar
+   showing more than half the context used, → send `/new` before the
+   first dispatch of this ticket** (2026-10-28, VIN-183: both panes still
+   held VIN-180's conversation, opencode at 75% used). Do it once per
+   ticket on that pane's first dispatch; later dispatches in the same
+   ticket keep the pane's context. Provider specifics:
+   - codex: `herdr agent prompt <pane> "/new"` runs it directly; the status
+     bar should then show `Context 100% left`.
+   - opencode: `herdr agent prompt <pane> "/new"` only opens the
+     slash-command autocomplete menu; it runs only after a second
+     `herdr agent send-keys <pane> enter`. Confirm the token counter in the
+     bottom-right is gone before dispatching.
+   - Other providers, or `/new` doesn't take effect → restart via
+     `herdr agent start <name> --kind <kind> --pane <id>` on a plain
+     shell, or ask the Emperor.
 3. Dispatch without `--wait`, then wait with `scripts/wait-result.sh` in the
    background (one call, returns once — see SKILL.md › Herdr Dispatch
    Pattern). Worker gets `--approve` so allowlisted commands are approved
