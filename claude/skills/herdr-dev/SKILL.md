@@ -156,7 +156,12 @@ of the Claude 5h quota. `wait-result.sh` prints exactly one line:
 `RESULT_READY` → read the file and continue; `NEEDS_REVIEW: <cmd>` → judge the
 command (below), approve or `esc`, re-run the script; `BLOCKED` → `agent read`
 the pane; `SETTLED_NO_RESULT` → the pane stopped ~2 min without writing this
-dispatch's file: dead job, salvage + re-dispatch; `TIMEOUT` (90 min) → read
+dispatch's file: first `agent read` the pane — a provider quota/rate-limit
+message (e.g. opencode's "You've used today's free messages") means the
+prompt never ran: don't re-send to that pane, ask the user (switch
+model/provider, or wait for the reset time shown) and re-dispatch with a new
+`dispatch_id` (2026-10-29, VIN-195); otherwise dead job, salvage +
+re-dispatch; `TIMEOUT` (90 min) → read
 the pane. Tests: `bash scripts/test-wait-result.sh`.
 
 When the call returns, check `herdr agent get <worker>`:
