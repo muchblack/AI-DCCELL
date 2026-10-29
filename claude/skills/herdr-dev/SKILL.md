@@ -381,13 +381,16 @@ When the call returns, check `herdr agent get <worker>`:
   brief that assumes an in-container command will find the worktree files —
   if the mount doesn't cover it, flag it to the Emperor instead of guessing
   a fix (e.g. widening the compose mount) on their behalf.
-- **Clean up worktrees automatically once development is complete and the
-  Linear issue is Done** (Phase 5; standing order from the Emperor,
-  2026-09-24 — do not ask again). `git worktree remove` the worker/reviewer
-  paths and delete flow-created scratch dirs under `.herdr-dev/`, keeping the
-  branch itself. Check `git status` in a worktree first; uncommitted changes
-  → stop and report, never `--force` blindly. Before Done (still In Review,
-  or a Phase 4 escalation the Emperor hasn't resolved) worktrees stay.
+- **Clean up worktrees and the dev branch automatically once development is
+  complete and the Linear issue is Done** (Phase 5; standing order from the
+  Emperor, 2026-09-24, branch deletion added 2026-10-29 — do not ask again).
+  `git worktree remove` the worker/reviewer paths, delete flow-created
+  scratch dirs under `.herdr-dev/`, then `git branch -d herdr/dev-<slug>` —
+  the merge commits on main are the record, the branch is not kept. Check
+  `git status` in a worktree first; uncommitted changes → stop and report,
+  never `--force` blindly. `-d` refusing (branch not fully merged) → stop
+  and report, never `-D`. Before Done (still In Review, or a Phase 4
+  escalation the Emperor hasn't resolved) worktrees and branch stay.
 - **An "always allow this conversation for `<prefix>`" grant can cover more
   than the literal prefix shown** (observed: granting it for `git diff`
   let several later `git show`/`git diff --stat`/file-scoped `git diff`

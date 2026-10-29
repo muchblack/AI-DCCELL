@@ -791,12 +791,16 @@ State: `{ "step": "tuning_dispatched", "tuning_round": 1, "dispatch_seq": <k>, "
    uncommitted changes, stop and report instead of forcing. Otherwise
    `git worktree remove .herdr-dev/worktrees/worker-<slug>` and
    `.../reviewer-<slug>`, then `git worktree prune`. Also delete scratch
-   dirs this flow created under `.herdr-dev/` (e.g. `cleancheck`). The
-   branch `herdr/dev-<slug>` itself stays. If the Linear issue is left
-   In Review (e.g. waiting for push approval), worktrees stay until it
-   reaches Done. An escalation to the Emperor (Phase 4 round cap) is not a
-   Phase 5 completion — leave its worktrees in place until the Emperor
-   decides the outcome.
+   dirs this flow created under `.herdr-dev/` (e.g. `cleancheck`). Then
+   delete the dev branch: `git branch -d herdr/dev-<slug>` (the Emperor's
+   standing order, 2026-10-29 — the `--no-ff` merge commits on main keep
+   the history, the branch is not kept). `-d` refuses an unmerged branch:
+   if it does, stop and report — never `-D`. The branch is local-only; if
+   it was ever pushed, report that instead of deleting the remote one. If
+   the Linear issue is left In Review (e.g. waiting for push approval),
+   worktrees and branch stay until it reaches Done. An escalation to the
+   Emperor (Phase 4 round cap) is not a Phase 5 completion — leave its
+   worktrees and branch in place until the Emperor decides the outcome.
 5. State: `{ "step": "done" }`. Clean up `.herdr-dev/*.md` working files.
 6. **Distill lessons, then archive the notepad.** Without this step a pitfall
    found on one ticket is cleared with the notepad and the next ticket's
