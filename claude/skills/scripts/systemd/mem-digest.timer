@@ -1,0 +1,9 @@
+[Unit]
+Description=平日 18 點彙整 AI 使用習慣
+
+[Timer]
+OnCalendar=Mon..Fri 18:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

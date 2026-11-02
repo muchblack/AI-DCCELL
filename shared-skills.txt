@@ -11,6 +11,7 @@
 #   herdr-dev、herdr-mkt、dispatch、ask、infinite-gratitude — 主控派工用，worker 載入會自己再派工
 #   to-tickets — 發布 Linear 票由使用者自己跑
 #   instinct-status、learn、memory、peon-ping — 依賴 Claude Code hook
+#   mem 是獨立的 vault 共用記憶 skill，與上述 memory（telemetry）不同
 #   php-exec、db、clone、branch、commit、push、worklog、obs、obs-telegram、
 #   stock、stock-analyze、career-ops、job104、remote-sudo — 個人環境／流程專用，codex 有自己的一份
 
@@ -28,6 +29,7 @@ react-best-practices
 open-seo-advisor
 
 # 開發通用
+mem
 linus-review !codex
 linus-analyze
 diagnosing-bugs

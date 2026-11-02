@@ -51,6 +51,35 @@ herdr-dev 每張票結束時，會把跟工具、框架有關的坑去識別化�
 - Codex 也接上了（`codex/AGENTS.md`「Shared Pitfall Log」）：當 herdr worker 時不寫檔，把坑填在 report 的 `pitfalls` 欄位交給 main 整理；直接用 codex 開發時，開工前讀相關條目，解掉可重複發生的坑後先給你確認，再寫入並 commit（不 push）。
 - 規則細節（去識別化、格式、上限 60 行）見 `claude/skills/herdr-dev/references/flow.md` Phase 5 step 6。
 
+### 跨 AI 共用記憶
+
+記憶存於 `${OBSIDIAN_VAULT:-/mnt/d/obsidian}/myWiki/20-領域/AI協作記憶/`，vault 路徑不是目錄時退回 `/mnt/d/obsidian`。檔案分成 `使用習慣.md`（含 `## 核心`）、`技術決策.md`、`工具環境.md`、`踩坑/<stack>.md`。容量不限；每次 session 僅注入最多 3072 UTF-8 bytes，內容標為參考資料，搜尋行固定保留。vault 不可用時不阻擋啟動。
+
+`bootstrap.sh` 的 step 1g 會以 `install-mem.py` 合併 Claude、Codex、agy 的 SessionStart hook，保留既有設定，並安裝 systemd user units；重跑不會重複新增。無效 JSON 原檔不動，回報錯誤並回傳非零。安裝器不建立 vault、不啟動 timer，也不依賴 `.bashrc`。可用 `python3 claude/skills/scripts/install-mem.py --home <測試目錄>` 在隔離目錄檢查。
+
+安裝後手動執行：
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now mem-digest.timer
+loginctl enable-linger
+```
+
+Codex 第一次需信任新增 hook；現有 Claude、Codex、agy panes 要重開。agy 的全域 hook 載入仍需實機確認，`GEMINI.md` 設有未注入時開場執行一次的備援。主控合併後另做三個 CLI 的標記注入、Known pitfalls 搜尋、`systemd-analyze verify` 與排程環境 `claude -p` 登入驗證。
+
+平日 18:00 以 systemd timer 彙整三個 CLI 的使用者輸入，錯過時下次啟動補跑（`Persistent=true`；需要登出後仍排程可啟用 linger）。service 的 PATH 包含 `~/.local/bin`、`~/.npm-global/bin`、`/usr/local/bin` 與系統目錄；CLI 裝在其他位置時自行用 systemd override 設定 PATH。只讀 prompt history 和 Codex rollout 的 session metadata，不分析完整對話；排除 brief、貼上內容與彙整器自己的 prompt。使用 Sonnet 產生去識別化草稿，**永遠不直接寫 vault**。請先確認這些輸入適合送至已登入的 Claude。
+
+草稿位於 `~/.local/share/mem-review/`（目錄 700、檔案 600），同日加數字後綴，不覆蓋。成功才原子推進游標；失敗保留游標。沒有輸入或沒有項目時不產生草稿、不通知。通知只帶草稿位置和項目數。單次內容列為「觀察」，重複或明確要求長期遵守的內容才列為「候選」。
+
+```bash
+bash ~/.claude/skills/scripts/mem-recall.sh --search 關鍵字
+python3 ~/.claude/skills/scripts/mem-digest.py --dry-run
+```
+
+`--dry-run` 只列出過濾後的資料，不寫檔也不呼叫模型。測試可用 `OBSIDIAN_VAULT`、`MEM_FALLBACK_VAULT`、`MEM_DIGEST_CLAUDE_BIN`、`MEM_DIGEST_HERDR_BIN` 指定隔離來源與假執行檔。
+
+使用 `/mem <內容>` 去識別化、查重並逐筆確認後寫入；`/mem review` 逐條審核草稿，處理完移至 `reviewed/`。核心段落會合併或移至非核心段落以維持注入預算。「觀察」不進核心。herdr worker 不寫入，交 main 處理。vault 只做限定記憶路徑的提交，不包含其他已 stage 的筆記，永遠不 push。`mem` 透過 `shared-skills.txt` 共用給 Codex 與 agy，與既有 telemetry 的 `memory` 不同。
+
 ### 外部 Skill（git submodule）
 
 下列外部 skill 以 submodule 鎖定版本（放在 `vendor/`，再以 symlink 掛到 `claude/skills/`）：

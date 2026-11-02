@@ -95,7 +95,10 @@ main (self) does this directly; no worker involved yet.
      two say the same thing; none match → `none`. Like
      task-specific checks, this travels whole into the dev and review briefs,
      so both panes see the trap before they step in it. Pitfalls add no
-     scope or ownership.
+     scope or ownership. After reading lessons, also run
+     `bash ~/.claude/skills/scripts/mem-recall.sh --search <ticket keywords>`
+     and paste matching vault memory lines into Known pitfalls. No matches
+     or any failure → continue; memory lookup never blocks the brief.
    - **Assumptions / Open questions.**
 5. **Brief review by the reviewer pane — before any TDD.** An ambiguous
    brief otherwise only surfaces after a full TDD round plus code review.
@@ -822,8 +825,18 @@ State: `{ "step": "tuning_dispatched", "tuning_round": 1, "dispatch_seq": <k>, "
      domain names into generic ones ("an order service", "a money column").
      If the lesson makes no sense once de-identified, it is a project
      lesson. Same pitfall already listed → append `×N+1` to that line
-     instead of a new one. Cap 60 lines; over the cap, drop the oldest line
-     without a `×` mark. The file lives on its own `lessons` branch (a
+     instead of a new one. Cap 60 lines; over the cap, move the oldest line
+     without a `×` mark to `踩坑/<stack>.md` under
+     `${OBSIDIAN_VAULT:-/mnt/d/obsidian}/myWiki/20-領域/AI協作記憶`
+     (invalid vault directory → fall back to `/mnt/d/obsidian`). Use `/mem`:
+     show the final de-identified line, obtain user consent, write and verify
+     the archive, and make its path-limited vault commit before removing
+     the original from `lessons.md`. Never push the vault. If the vault is
+     unavailable, consent is pending, commit fails, or no unmarked line
+     exists, keep the original even above the cap and tell the user.
+     Line content must never be lost. Update any header that still says
+     overflow lines are deleted to describe this archival rule.
+     The file lives on its own `lessons` branch (a
      worktree of the skills repo, shared by the `company` and `main`
      branches). After writing, commit it there
      (`git -C ~/.claude/herdr-lessons commit -qam "lessons：<一行摘要>"`)

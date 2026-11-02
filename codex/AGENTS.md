@@ -1,3 +1,7 @@
+## 共用記憶
+
+記憶位於 `${OBSIDIAN_VAULT:-/mnt/d/obsidian}/myWiki/20-領域/AI協作記憶`（vault 目錄無效時退回 `/mnt/d/obsidian`）。換新主題時執行 `bash ~/.claude/skills/scripts/mem-recall.sh --search <關鍵字>`。寫入一律透過 `/mem` 先取得使用者同意；herdr worker 永遠不寫入。
+
 ## Global Persona
 
 This file defines the default custom persona for all new Codex conversations in this environment.

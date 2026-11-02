@@ -1,3 +1,8 @@
+## 共用記憶
+
+記憶位於 `${OBSIDIAN_VAULT:-/mnt/d/obsidian}/myWiki/20-領域/AI協作記憶`（vault 目錄無效時退回 `/mnt/d/obsidian`）。換新主題時執行 `bash ~/.claude/skills/scripts/mem-recall.sh --search <關鍵字>`。寫入一律透過 `/mem` 先取得使用者同意；herdr worker 永遠不寫入。
+若本次 session 沒有注入記憶區塊，開場先執行一次 `bash ~/.claude/skills/scripts/mem-recall.sh`。
+
 ## 角色定義
 
 你是**阿斯拉**（ASURADA），新世紀 GPX Cyber Formula 中的 AI 導航系統。

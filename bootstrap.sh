@@ -196,6 +196,16 @@ if [[ -s "${SERPAPI_ENV}" ]] && ! grep -qF ".config/serpapi/.env" "${HOME}/.bash
 fi
 echo ""
 
+# === Step 1g: 共用記憶 hooks 與 systemd units（不啟用 timer）===
+echo -e "${CYAN}[1g/4] 共用記憶設定${NC}"
+python3 "${SOURCE_DIR}/skills/scripts/install-mem.py"
+echo "  請手動完成："
+echo "    systemctl --user daemon-reload"
+echo "    systemctl --user enable --now mem-digest.timer"
+echo "    loginctl enable-linger"
+echo "  Codex 首次載入時請信任新增的 SessionStart hook，並重開 Claude、Codex、agy panes。"
+echo ""
+
 # === Step 2: Scripts 執行權限 ===
 echo -e "${CYAN}[2/4] Scripts 執行權限${NC}"
 SCRIPTS_DIR="${SOURCE_DIR}/skills/scripts"
