@@ -1,18 +1,7 @@
 ---
 name: herdr-dev
-description: >-
-  Herdr-architecture requirement-driven development flow. main (this Claude
-  Code session) confirms the requirement, dispatches development to a
-  worker agent pane (default: codex) under a mandatory red-green TDD
-  contract, then routes the result to a reviewer agent pane (default: agy);
-  on review failure it routes the findings back to the same worker to add a
-  failing regression test, fix, and re-review. Worker/reviewer are
-  overridable via --worker/--reviewer. main asks the user directly whenever
-  a requirement question arises. Triggers on: herdr dev, herdr 開發, 需求開發,
-  文件開發, 跑需求, 接需求, 照文件開發, spec dev, requirement-driven,
-  需求驅動開發, 從文件開發, 開發這份需求. Examples: "/herdr-dev docs/spec.md",
-  "/herdr-dev docs/feature-x.md phase 1", "/herdr-dev --resume",
-  "/herdr-dev VIN-44 --worker=agy".
+description: "Requirement-driven development: a worker pane builds under red-green TDD, a reviewer pane reviews, and failures loop back to the worker. Triggers on: herdr dev, herdr 開發, 需求開發, 文件開發, 跑需求, 接需求, 照文件開發, spec dev, requirement-driven, 需求驅動開發, 從文件開發, 開發這份需求."
+argument-hint: "<linear-id|doc-path|description> [--worker=<agent>] [--reviewer=<agent>] | --resume"
 metadata:
   short-description: "Herdr requirement-driven dev: main confirm → worker (default codex) → reviewer (default agy) → fix loop"
 ---

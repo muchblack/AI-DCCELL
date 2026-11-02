@@ -1,6 +1,7 @@
 ---
 name: peon-ping
-description: Control peon-ping sound notifications and the Peon Trainer — toggle sounds on/off, change settings (volume, pack rotation, categories, active pack), set the voice pack for the current session, and log exercise reps. Triggers on: 靜音, 關聲音, mute, unmute, 暫停音效, 恢復音效, 開聲音, toggle sound, 安靜, 調音量, 改音效設定, peon config, sound config, 輪播設定, rotation config, 音效分類, 改 peon 設定, 換語音, 用 GLaDOS, 用 Peon, 換角色聲音, change voice, use voice pack, 這場用, switch voice, 做了伏地挺身, 做了深蹲, pushups, squats, 記錄運動, log reps, 幾下, 做完了. Examples - "/peon-ping toggle", "/peon-ping volume 0.5", "/peon-ping use glados", "/peon-ping log 25 pushups".
+description: "Control peon-ping sounds (toggle, volume, rotation, categories, session voice pack) and log Peon Trainer exercise reps. Triggers on: 靜音, 關聲音, mute, unmute, 暫停音效, 恢復音效, 開聲音, toggle sound, 安靜, 調音量, 改音效設定, peon config, sound config, 輪播設定, rotation config, 音效分類, 改 peon 設定, 換語音, 用 GLaDOS, 用 Peon, 換角色聲音, change voice, use voice pack, 這場用, switch voice, 做了伏地挺身, 做了深蹲, pushups, squats, 記錄運動, log reps, 幾下, 做完了."
+argument-hint: "toggle | volume <0-1> | use <pack> | log <n> <exercise>"
 user_invocable: true
 ---
 

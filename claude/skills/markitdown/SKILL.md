@@ -1,15 +1,7 @@
 ---
 name: markitdown
-description: >-
-  Convert documents to Markdown using microsoft/markitdown. Supports PDF, DOCX,
-  PPTX, XLSX, HTML, EPUB, CSV, JSON, XML, ZIP archives, images (EXIF + OCR),
-  audio (metadata + transcription), YouTube URLs, and Outlook .msg files.
-  Output is structure-preserving Markdown optimized for feeding into LLMs.
-  Triggers on: 轉 markdown, 轉成 md, convert to markdown, markitdown,
-  PDF 轉文字, 文件轉 md, 解析 PDF, parse document, extract text from.
-  Examples: "/markitdown ./report.pdf",
-  "/markitdown ./slides.pptx -o slides.md",
-  "/markitdown https://www.youtube.com/watch?v=...".
+description: "Convert files to Markdown with microsoft/markitdown: PDF, DOCX, PPTX, XLSX, HTML, EPUB, CSV, JSON, XML, ZIP, images (OCR), audio, YouTube URLs, Outlook .msg. Triggers on: 轉 markdown, 轉成 md, convert to markdown, markitdown, PDF 轉文字, 文件轉 md, 解析 PDF, parse document, extract text from."
+argument-hint: "<file|url> [-o <output.md>]"
 compatibility: Requires Python 3.10+ and markitdown installed in ~/.markitdown-env (or override via MARKITDOWN_VENV).
 metadata:
   short-description: Convert PDF/Office/HTML/media to Markdown for LLMs

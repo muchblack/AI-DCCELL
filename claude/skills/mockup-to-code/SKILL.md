@@ -1,14 +1,7 @@
 ---
 name: mockup-to-code
-description: >-
-  Convert design mockups + assets into working HTML/CSS/JS pages with
-  automated visual verification. Use when user has mockup images and
-  wants to build a webpage from them. Triggers on:
-  切版, mockup to code, 切頁面, 從 mockup 做, 做頁面, 把設計稿做出來,
-  mockup 轉程式碼, design to code, build page from mockup, 網頁切版.
-  Examples: "/mockup-to-code ./Material/mockup.jpg ./Material/assets/",
-  "/mockup-to-code --mockup ./design.png --assets ./素材/",
-  "/mockup-to-code" (interactive mode).
+description: "Turn design mockups + assets into working HTML/CSS/JS pages with automated visual verification. Triggers on: 切版, mockup to code, 切頁面, 從 mockup 做, 做頁面, 把設計稿做出來, mockup 轉程式碼, design to code, build page from mockup, 網頁切版."
+argument-hint: "[--mockup <path>] [--assets <path>] [--output <path>] [--tech html|react]"
 metadata:
   short-description: Mockup → HTML/CSS/JS with visual verification loop
 ---

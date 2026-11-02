@@ -1,12 +1,6 @@
 ---
 name: job104
-description: >-
-  104 人力銀行求職助手：抓 JD、快速看懂職缺並跟履歷對照、寫自我推薦信
-  （初稿 → herdr 雙審 → 說人話潤稿）。資料都放在 ~/documents/self/。
-  Triggers on: 104 職缺, 看一下這個職缺, 這份工作內容是, 那這份呢,
-  104.com.tw/job/, 自我推薦信, 推薦信, 求職信.
-  Examples: "/job104 look https://www.104.com.tw/job/8x35q",
-  "/job104 cover <url> <url> <url>", "/job104 list".
+description: "104 人力銀行求職助手：抓 JD、對照履歷、寫自我推薦信（初稿 → herdr 雙審 → 說人話潤稿）。 Triggers on: 104 職缺, 看一下這個職缺, 這份工作內容是, 那這份呢, 104.com.tw/job/, 自我推薦信, 推薦信, 求職信."
 argument-hint: "look|cover|list [url ...]"
 metadata:
   short-description: 104 職缺速查 + 履歷對照 + 推薦信產線

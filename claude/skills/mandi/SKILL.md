@@ -1,11 +1,6 @@
 ---
 name: mandi
-description: >-
-  展覽活動靜態網站產生器。根據 longrock/hello-static/tokyo-statis 三個專案歸納的共通架構，
-  快速搭建純靜態展覽網站（HTML + CSS + vanilla JS）。支援首頁、商品頁、FAQ、票券、亮點等頁面類型。
-  Triggers on: mandi, 展覽網站, 靜態展覽, exhibition site, static exhibition, 搭展覽站,
-  建展覽頁, 新展覽, new exhibition, scaffold exhibition.
-  Examples: "/mandi 新展覽 海賊王", "/mandi goods 商品頁", "/mandi full 完整站台".
+description: "展覽活動靜態網站產生器：搭建純靜態展覽網站（HTML + CSS + vanilla JS），支援首頁、商品頁、FAQ、票券、亮點等頁面。 Triggers on: mandi, 展覽網站, 靜態展覽, exhibition site, static exhibition, 搭展覽站, 建展覽頁, 新展覽, new exhibition, scaffold exhibition."
 argument-hint: "[full|page-type] [exhibition-name] [--breakpoint N]"
 metadata:
   short-description: Exhibition static site scaffold

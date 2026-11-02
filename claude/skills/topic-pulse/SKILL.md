@@ -1,12 +1,7 @@
 ---
 name: topic-pulse
-description: >-
-  跨區域輿情分析：查證一個話題後，收集新聞媒體、中文（台港／中國）、英、日、韓社群的意見反應並摘要，
-  附完整來源、原文引述、平台覆蓋狀況、擴散路徑、謠言與詐騙。搜尋派給 herdr 的 agy pane，
-  網址與數字由主對話與腳本查證後才寫報告。
-  Triggers on: 輿情, 輿論, 社群反應, 各地反應, 話題風向, 網路風向, 韓文社群反應, 日本玩家怎麼看, topic pulse, sentiment report.
-  Examples: "/topic-pulse 蔚藍檔案日版移管 NEXON", "/topic-pulse 影之刃零 --regions=zh,en --quick",
-  "/topic-pulse 空之軌跡 the 2nd 鐵盒延誤 --html", "/topic-pulse --update blue-archive-nexon".
+description: "跨區域輿情分析：查證話題後，摘要新聞媒體與中英日韓社群的反應，附來源、原文引述、擴散路徑、謠言與詐騙。 Triggers on: 輿情, 輿論, 社群反應, 各地反應, 話題風向, 網路風向, 韓文社群反應, 日本玩家怎麼看, topic pulse, sentiment report."
+argument-hint: "<話題> [--regions=zh,en,ja,ko] [--quick] [--html] | --update <slug>"
 metadata:
   short-description: 查證話題並整理媒體與中英日韓社群的反應
 ---

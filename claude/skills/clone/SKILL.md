@@ -1,11 +1,6 @@
 ---
 name: clone
-description: >-
-  Git clone 使用 ~/.ssh/config 中的 SSH host，互動式指定參數。
-  可一次給齊或逐步問答。Triggers on: clone repo, git clone, 拉 repo,
-  拉專案, 下載 repo, clone 下來, 把 repo 拉下來.
-  Examples: "/clone hemidemi:group/project.git ~/code/php",
-  "/clone", "/clone hemidemi:tintint/spec-collection".
+description: "用 ~/.ssh/config 的 SSH host 執行 git clone，可一次給齊參數或逐步問答。 Triggers on: clone repo, git clone, 拉 repo, 拉專案, 下載 repo, clone 下來, 把 repo 拉下來."
 model: claude-sonnet-5
 argument-hint: "[ssh-host:repo-path] [target-path]"
 ---

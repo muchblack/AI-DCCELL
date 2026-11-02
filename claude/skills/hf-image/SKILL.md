@@ -1,12 +1,7 @@
 ---
 name: hf-image
-description: >-
-  Generate images using Hugging Face open-source models (FLUX.1, SDXL).
-  Use when user wants to generate images from text prompts. Triggers on:
-  生圖, 畫圖, generate image, hf image, 用 HF 生圖, text to image, 文生圖.
-  Examples: "/hf-image a cat on the moon",
-  "/hf-image --ratio 16:9 cyberpunk cityscape at sunset",
-  "/hf-image --model stabilityai/stable-diffusion-xl-base-1.0 --mode i2i --input-image ./ref.png transform this".
+description: "Generate images with Hugging Face open-source models (FLUX.1, SDXL), text-to-image or image-to-image. Triggers on: 生圖, 畫圖, generate image, hf image, 用 HF 生圖, text to image, 文生圖."
+argument-hint: "[--ratio <r>] [--model <id>] [--mode t2i|i2i] [--input-image <path>] <prompt>"
 metadata:
   short-description: HF text-to-image + image-to-image
 ---

@@ -1,10 +1,6 @@
 ---
 name: db
-description: >-
-  查詢 Podman MariaDB 的資料庫 schema（表、欄位、索引）。
-  互動式或直接指定。用於規劃與開發時確認 DB 結構。
-  Examples: "/db", "/db cms_admin_backend_local",
-  "/db cms_admin_backend_local collections".
+description: "查詢 Podman MariaDB 的 schema（表、欄位、索引），用於規劃與開發時確認 DB 結構。"
 argument-hint: "[database] [table] [--sql 'raw query']"
 ---
 

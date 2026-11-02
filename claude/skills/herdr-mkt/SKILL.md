@@ -1,24 +1,7 @@
 ---
 name: herdr-mkt
-description: >-
-  Herdr-architecture AI marketing team flow (DRAFT). main (this Claude Code
-  session) acts as marketing director: gates on a campaign brief, dispatches
-  research → strategy → copy + visual spec → review to dedicated herdr panes
-  (default researcher=agy, copywriter=codex, visual=codex, reviewer=agy),
-  hands off via files under .herdr-mkt/campaigns/<slug>/, and routes FIX
-  verdicts back to the original author (max 2 rounds). Every copy file is
-  polished by speak-human-tw (auto-apply + summary) before review; Jev gives
-  advisory signals at brief, strategy and copy checkpoints. Content production
-  only — never publishes. Brand modes (init / quick / weekly) run one
-  long-term brand from the cwd: brand-voice.md, content calendar, drafts/.
-  Triggers on: herdr mkt, 行銷團隊, AI 行銷, 跑行銷,
-  行銷活動, 做檔活動, campaign, marketing team, 行銷企劃, 產文案,
-  社群貼文企劃, 發 Threads, 寫一篇 Threads, IG 貼文, 靈感轉貼文, 圖配文,
-  每週排程, 本週選題. Examples: "/herdr-mkt briefs/autumn-sale.md",
-  "/herdr-mkt briefs/x.md --lite", "/herdr-mkt --resume",
-  "/herdr-mkt briefs/x.md --researcher=w5:p3 --reviewer=w5:p5",
-  "/herdr-mkt init", "/herdr-mkt quick \"週末看展很喜歡那面牆\" --image=wall.jpg",
-  "/herdr-mkt weekly".
+description: "AI marketing team (DRAFT): research → strategy → copy + visual → review across herdr panes. Produces content only, never publishes. Brand modes init/quick/weekly run one long-term brand from the cwd. Triggers on: herdr mkt, 行銷團隊, AI 行銷, 跑行銷, 行銷活動, 做檔活動, campaign, marketing team, 行銷企劃, 產文案, 社群貼文企劃, 發 Threads, 寫一篇 Threads, IG 貼文, 靈感轉貼文, 圖配文, 每週排程, 本週選題."
+argument-hint: "<brief|linear-id> [--lite] | --resume | init | quick \"<idea>\" [--image=<path>] | weekly"
 metadata:
   short-description: "Herdr marketing team: brief → research → strategy → copy/visual → review loop"
   status: draft

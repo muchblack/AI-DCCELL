@@ -1,6 +1,6 @@
 ---
 name: obs
-description: Obsidian 知識庫操作。建立筆記、讀取、搜尋、寫入、Git 同步、分類整理、AI 編譯、知識圖譜、連結發現、健康檢查。支援 --vault 指定其他儲存庫。Use when user wants to interact with their Obsidian vault, read, sort, categorize, compile, link, graph or health-check notes. Triggers on: 筆記, 知識庫, obsidian, vault, 寫筆記, 找筆記, 搜尋筆記, 整理筆記, 分類筆記, 編譯筆記, 知識圖譜, 連結發現, 健康檢查, note, wiki, 收件匣, inbox, compile, link, graph, health.
+description: "Obsidian 知識庫操作：建立、讀取、搜尋、寫入、Git 同步、分類整理、AI 編譯、知識圖譜、連結發現、健康檢查，支援 --vault 指定其他儲存庫。 Triggers on: 筆記, 知識庫, obsidian, vault, 寫筆記, 找筆記, 搜尋筆記, 整理筆記, 分類筆記, 編譯筆記, 知識圖譜, 連結發現, 健康檢查, note, wiki, 收件匣, inbox, compile, link, graph, health."
 metadata:
   short-description: Obsidian vault 操作
 ---
