@@ -19,19 +19,20 @@ try:
     parser.add_argument('--cwd')
     args = parser.parse_args()
     cwd = args.cwd or os.getcwd()
-    if not args.cwd and not sys.stdin.isatty():
+    if not args.cwd:
         try:
-            data = bytearray()
-            while len(data) < 65536 and select.select([0], [], [], 0.05)[0]:
-                chunk = os.read(0, 65536 - len(data))
-                if not chunk:
-                    break
-                data.extend(chunk)
-            context = json.loads(data)
-            paths = context.get('workspacePaths')
-            selected = paths[0] if isinstance(paths, list) and paths else context.get('cwd')
-            if isinstance(selected, str) and selected:
-                cwd = selected
+            if not sys.stdin.isatty():
+                data = bytearray()
+                while len(data) < 65536 and select.select([0], [], [], 0.5 if not data else 0.05)[0]:
+                    chunk = os.read(0, 65536 - len(data))
+                    if not chunk:
+                        break
+                    data.extend(chunk)
+                context = json.loads(data)
+                paths = context.get('workspacePaths')
+                selected = paths[0] if isinstance(paths, list) and paths else context.get('cwd')
+                if isinstance(selected, str) and selected:
+                    cwd = selected
         except (ValueError, OSError, TypeError, AttributeError):
             pass
     project = pathlib.Path(cwd)

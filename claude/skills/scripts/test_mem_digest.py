@@ -84,6 +84,22 @@ class DigestTests(unittest.TestCase):
             self.assertFalse((self.state / 'cursor.json').exists())
             self.assertFalse(self.drafts())
 
+    def test_dispatch_and_slash_filters(self):
+        keep = ['/mem 以後都這樣', 'Read 使用說明再討論', '請檢查 .herdr-dev/tasks/ 的用途']
+        drop = ['Read /tmp/project/.herdr-dev/tasks/task/brief.md and execute it.',
+                '  Read /tmp/project/.herdr-dev/tasks/task/fix-brief.md and execute it.  ',
+                '/clear', '/new', '  /compact  ']
+        for source, text_key, time_key, timestamp in [
+                ('.claude/history.jsonl', 'display', 'timestamp', END-1000),
+                ('.codex/history.jsonl', 'text', 'ts', (END-1000)//1000),
+                ('.gemini/antigravity-cli/history.jsonl', 'display', 'timestamp', END-1000)]:
+            with self.subTest(source=source):
+                self.history(source, [{text_key: text, time_key: timestamp} for text in keep + drop])
+                p = self.run_cli('--dry-run')
+                self.assertEqual(p.returncode, 0, p.stderr)
+                self.assertEqual([entry['text'] for entry in json.loads(p.stdout)], keep)
+                (self.home / source).unlink()
+
     def test_cursor(self):
         self.seed()
         self.history('.codex/history.jsonl', [{'text':'同秒', 'ts':END//1000, 'session_id':'unknown'}])
@@ -118,6 +134,30 @@ class DigestTests(unittest.TestCase):
         self.assertEqual(json.loads((self.state / 'cursor.json').read_text()), END+1000)
         self.assertFalse(self.drafts())
         self.assertFalse((self.home / 'notification').exists())
+
+    def test_fenced_output(self):
+        self.seed()
+        obj = json.dumps({'items': [self.item()]})
+        for number, fence in enumerate(['```json', '```']):
+            with self.subTest(fence=fence):
+                self.env['FAKE_OUTPUT'] = f'  {fence}\n{obj}\n```\n '
+                if (self.state / 'cursor.json').exists():
+                    (self.state / 'cursor.json').unlink()
+                p = self.run_cli()
+                self.assertEqual(p.returncode, 0, p.stderr)
+                self.assertEqual(len(self.drafts()), number + 1)
+                self.assertEqual(json.loads((self.state / 'cursor.json').read_text()), END)
+        cursor = (self.state / 'cursor.json').read_bytes()
+        self.history('.claude/history.jsonl', [{'display':'後續訊息', 'timestamp':END}])
+        for output in [f'說明\n```json\n{obj}\n```', f'```json\n{obj}\n```\n附註',
+                       f'```python\n{obj}\n```', f'```json\n{obj}\n```\n```json\n{obj}\n```',
+                       '```json\nnot JSON\n```', f'```json\n{obj}']:
+            with self.subTest(output=output):
+                self.env['FAKE_OUTPUT'] = output
+                p = self.run_cli(end=END+1000)
+                self.assertNotEqual(p.returncode, 0)
+                self.assertEqual((self.state / 'cursor.json').read_bytes(), cursor)
+                self.assertEqual(len(self.drafts()), 2)
 
     def test_classification(self):
         self.seed()

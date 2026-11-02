@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+import stat
 import subprocess
 import tempfile
 import unittest
@@ -77,8 +78,36 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(subprocess.run(['bash', '-n', str(REPO / 'bootstrap.sh')], capture_output=True).returncode, 0)
         bootstrap = (REPO / 'bootstrap.sh').read_text()
         self.assertIn('install-mem.py', bootstrap)
+        self.assertRegex(bootstrap, r'if ! python3 "\$\{SOURCE_DIR\}/skills/scripts/install-mem\.py"; then\n\s+echo .*警告.*\nfi')
         for step in ['systemctl --user daemon-reload', 'systemctl --user enable --now mem-digest.timer', 'loginctl enable-linger']:
             self.assertIn(step, bootstrap)
+
+    def test_preserve_modes_and_symlinks(self):
+        regular = self.home / '.codex/hooks.json'
+        regular.parent.mkdir()
+        regular.write_text('{}')
+        regular.chmod(0o644)
+        target = self.home / 'shared-agy.json'
+        target.write_text('{"custom": 42}')
+        target.chmod(0o640)
+        link = self.home / '.gemini/config/hooks.json'
+        link.parent.mkdir(parents=True)
+        link.symlink_to('../../shared-agy.json')
+        original_link = os.readlink(link)
+        p = self.run_install()
+        self.assertEqual(p.returncode, 0, p.stderr)
+        with self.subTest(check='regular-mode'):
+            self.assertEqual(stat.S_IMODE(regular.stat().st_mode), 0o644)
+        with self.subTest(check='symlink'):
+            self.assertTrue(link.is_symlink())
+            self.assertEqual(os.readlink(link), original_link)
+            self.assertIn('SessionStart', json.loads(target.read_text())['mem'])
+            self.assertEqual(json.loads(target.read_text())['custom'], 42)
+        with self.subTest(check='target-mode'):
+            self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o640)
+        before = [regular.read_bytes(), target.read_bytes()]
+        self.assertEqual(self.run_install().returncode, 0)
+        self.assertEqual(before, [regular.read_bytes(), target.read_bytes()])
 
     def test_path_limited_commit(self):
         skill = (REPO / 'claude/skills/mem/SKILL.md').read_text()

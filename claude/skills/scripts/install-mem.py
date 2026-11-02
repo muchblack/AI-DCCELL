@@ -4,19 +4,23 @@ import argparse
 import json
 import os
 from pathlib import Path
+import stat
 import sys
 import tempfile
 
 
 def atomic_write(path, content):
+    path = path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists() and path.read_bytes() == content:
         return
+    mode = stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o600
     fd, name = tempfile.mkstemp(dir=path.parent)
     try:
         with os.fdopen(fd, 'wb') as stream:
             stream.write(content)
             stream.flush()
+            os.fchmod(stream.fileno(), mode)
             os.fsync(stream.fileno())
         os.replace(name, path)
     finally:

@@ -75,12 +75,32 @@ with tempfile.TemporaryDirectory() as tmp:
         start = time.monotonic()
         assert run().returncode == 0
         assert time.monotonic() - start < 3.7
+    elif case == 'stdin-delay':
+        other = base / 'other'
+        other.mkdir()
+        with subprocess.Popen(['bash', str(script)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              text=True, env=env, cwd=other) as process:
+            time.sleep(0.2)
+            out, err = process.communicate(json.dumps({'workspacePaths':[str(project)]}), timeout=2)
+            assert process.returncode == 0 and not err and 'PHP 經驗' in out, (out, err)
+    elif case == 'stdin-closed':
+        p = subprocess.run(['bash', '-c', 'bash "$1" <&-', 'recall', str(script)],
+                           capture_output=True, text=True, env=env, cwd=project, timeout=2)
+        assert p.returncode == 0 and not p.stderr and 'PHP 經驗' in p.stdout, p
+    elif case == 'stdin-idle':
+        with subprocess.Popen(['bash', str(script)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              text=True, env=env, cwd=project) as process:
+            start = time.monotonic()
+            process.wait(timeout=1)
+            elapsed = time.monotonic() - start
+            out, err = process.communicate(timeout=1)
+            assert elapsed < 1 and process.returncode == 0 and not err and 'PHP 經驗' in out, (elapsed, out, err)
     else:
         raise AssertionError(case)
 print('PASS recall ' + case)
 PY
 if [[ $# == 0 ]]; then
-    for slice in budget errors formats containment stdin; do
+    for slice in budget errors formats containment stdin stdin-delay stdin-closed stdin-idle; do
         bash "$0" "$slice"
     done
 fi

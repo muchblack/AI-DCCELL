@@ -198,7 +198,9 @@ echo ""
 
 # === Step 1g: 共用記憶 hooks 與 systemd units（不啟用 timer）===
 echo -e "${CYAN}[1g/4] 共用記憶設定${NC}"
-python3 "${SOURCE_DIR}/skills/scripts/install-mem.py"
+if ! python3 "${SOURCE_DIR}/skills/scripts/install-mem.py"; then
+    echo -e "  ${YELLOW}警告：共用記憶設定未完成，請修正上方錯誤後重跑安裝器；繼續其餘部署步驟。${NC}"
+fi
 echo "  請手動完成："
 echo "    systemctl --user daemon-reload"
 echo "    systemctl --user enable --now mem-digest.timer"

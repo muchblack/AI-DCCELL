@@ -56,6 +56,8 @@ def collect(home, cursor, end):
             text = text.strip()
             if text.startswith(('dispatch_id:', '[mem-digest]')):
                 continue
+            if (text.startswith('Read ') and '.herdr-dev/tasks/' in text) or re.fullmatch(r'/\S+', text):
+                continue
             text = re.sub(r'\[Pasted (?:text|content)[^\]]*\]', '', text, flags=re.I).strip()
             if not text:
                 continue
@@ -95,7 +97,9 @@ def summarize(entries):
               + fence + 'json\n' + data + '\n' + fence)
     result = subprocess.run([os.environ.get('MEM_DIGEST_CLAUDE_BIN', 'claude'), '-p', '--model', 'sonnet'],
                             input=prompt, capture_output=True, text=True, timeout=180, check=True)
-    obj = json.loads(result.stdout)
+    output = result.stdout.strip()
+    fenced = re.fullmatch(r'```(?:json)?[ \t]*\r?\n(.*?)\r?\n```', output, re.S)
+    obj = json.loads(fenced.group(1) if fenced else output)
     items = obj.get('items') if isinstance(obj, dict) else obj
     if not isinstance(items, list):
         raise ValueError('彙整結果不是陣列')
