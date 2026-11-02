@@ -360,6 +360,12 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
      slash-command autocomplete menu; it runs only after a second
      `herdr agent send-keys <pane> enter`. Confirm the token counter in the
      bottom-right is gone before dispatching.
+   - agy: `herdr agent prompt <pane> "/new"` first shows the slash-command
+     menu and clears the screen a moment later; a prompt sent in that window
+     is silently dropped. Never chain `/new` and the dispatch in one command.
+     Send `/new`, wait until `agent read` shows the banner with an empty `>`
+     and no menu, then dispatch, then confirm with `agent read` that the
+     prompt landed before starting `wait-result.sh` (2026-11-02, VIN-85).
    - Other providers, or `/new` doesn't take effect → restart via
      `herdr agent start <name> --kind <kind> --pane <id>` on a plain
      shell, or ask the Emperor.
