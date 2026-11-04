@@ -22,7 +22,14 @@ t stop  'git checkout -- .'
 t stop  'git -C /tmp/other checkout -- public/'
 t stop  'cd /tmp/other && git checkout -- public/'
 t stop  'git checkout -- public/ && git push'
-t stop  'git checkout -- public/ && herdr agent list'
+t stop  'git checkout -- public/ && herdr tab list'
+# Herdr desktop 後端（hc）與 adapter 也一律停下
+t stop  'hc send t3 done'
+t stop  'git status && hc ls'
+t stop  'podman exec -w /x cashier-php hc keys t4 enter'
+t stop  '~/.claude/skills/herdr-dev/scripts/herdr-ctl.sh prompt t5 hi'
+t stop  'git status && herdr-ctl.sh list'
+t allow "cd $WT && git status"   # 路徑裡的 .herdr-dev 不能被誤判成 herdr 指令
 # 歷史實際放行過的指令
 t allow 'git add app/Models/User.php app/Models/Event.php'
 t allow "git diff --check && git add app/Http/Controllers/ItemController.php routes/api.php && git commit -m '新增場次可售商品 API'"
@@ -87,4 +94,46 @@ d stop  /tmp/proj/app/x.php
 d stop  /home/u/.bashrc
 d stop  "claude/skills/x.py"
 d stop  ""
+
+# ---- 端對端：整支 approve-loop.sh 經 herdr-ctl.sh，在兩個後端各跑一次
+# 假 herdr／hc：狀態讀 $T/state，畫面讀 $T/screen；送任何按鍵後狀態變 idle。
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+mkdir -p "$TMP/bin" "$TMP/proj/.herdr-dev/worktrees/worker-x"
+EWT="$TMP/proj/.herdr-dev/worktrees/worker-x"
+cat > "$TMP/bin/herdr" <<'EOF'
+#!/usr/bin/env bash
+echo "herdr $*" >> "$T/calls"
+case "$1 $2" in
+  "agent get")  echo "{\"result\":{\"agent\":{\"agent_status\":\"$(cat "$T/state")\"}}}" ;;
+  "agent read") cat "$T/screen" ;;
+  "pane send-keys") echo idle > "$T/state" ;;
+esac
+exit 0
+EOF
+cat > "$TMP/bin/hc" <<'EOF'
+#!/usr/bin/env bash
+echo "hc $*" >> "$T/calls"
+case "$1" in
+  get)  echo "{\"status\":{\"app\":\"codex\",\"state\":\"$(cat "$T/state")\"}}" ;;
+  read) cat "$T/screen"; printf '\n\n' ;;
+  wait) echo '{"reason":"status","status":"idle"}' ;;
+  keys) echo idle > "$T/state" ;;
+esac
+exit 0
+EOF
+chmod +x "$TMP/bin/herdr" "$TMP/bin/hc"
+loop() { # <want> <want_key|-> <screen>
+  : > "$TMP/calls"; echo blocked > "$TMP/state"; printf '%b' "$3" > "$TMP/screen"
+  got=$(T="$TMP" PATH="$TMP/bin:$PATH" bash "$DIR/approve-loop.sh" p1 "$EWT" "" | tail -1)
+  [ "$got" = "$1" ] || { echo "FAIL loop $HERDR_BACKEND want [$1] got [$got]"; fail=1; }
+  if [ "$2" = - ]; then grep -qE '(send-keys|^hc keys)' "$TMP/calls" && { echo "FAIL loop $HERDR_BACKEND: sent a key on [$1]"; fail=1; }
+  else grep -qE "(send-keys|^hc keys) p1 $2\$" "$TMP/calls" || { echo "FAIL loop $HERDR_BACKEND: key $2 not sent"; fail=1; }; fi
+}
+for HERDR_BACKEND in tui hc; do
+  export HERDR_BACKEND
+  loop STATUS=idle enter '  Reason: x\n\n  $ git status --short\n\n› 1. Yes, proceed (y)\n'
+  loop STATUS=idle y     "  Would you like to make the following edits?\n  Destination: $EWT/app/x.php\n› 1. Yes (y)\n"
+  loop 'NEEDS_REVIEW: hc send t3 done' - '  $ hc send t3 done\n\n› 1. Yes, proceed (y)\n'
+  loop 'NEEDS_REVIEW: <no command line found>' - 'Something went wrong\n'
+done
 [ $fail = 0 ] && echo "ALL PASS"; exit $fail

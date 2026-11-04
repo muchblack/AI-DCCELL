@@ -4,7 +4,8 @@
 # 用法：
 #   approve-loop.sh <pane> <host_worktree> [<container_prefix>]
 #
-#   pane              worker／reviewer 的 herdr pane id，例如 w2:p2
+#   pane              worker／reviewer 的 id（herdr-ctl.sh list 的第一欄）：TUI 例如 w2:p2，
+#                     Herdr desktop（hc）例如 t4，遠端 machine/t4
 #   host_worktree     該 pane 的 worktree 絕對路徑（host 端）
 #   container_prefix  容器指令的固定前綴（逐字比對，不是 regex），例如
 #                     "podman exec -w /var/www/html/proj/.herdr-dev/worktrees/worker-vin-86 cashier-php "
@@ -22,14 +23,14 @@
 #     <project>/.herdr-dev/tasks/<slug>/report.md（路徑含 .. 一律停下）
 # 任一段含 ; & | ` < > $( 就整串停下（防止夾帶指令），容器指令也一樣
 # 一律停下（印出 NEEDS_REVIEW）：
-#   - 任何 herdr 指令、rm -rf、curl、wget、--output（git diff/log/show 可藉此寫任意檔）
+#   - 任何 herdr／hc／herdr-ctl.sh 指令、rm -rf、curl、wget、--output（git diff/log/show 可藉此寫任意檔）
 #   - git push／reset／checkout／switch／worktree／branch／rebase／clean／stash
 #   - 不在白名單內的其他指令
 #
 # 結束時只印一行：STATUS=<idle|done|…>、NEEDS_REVIEW: <指令> 或 LOOP_LIMIT。
 # 每次放行記錄在 <project>/.herdr-dev/approved-<worktree 名稱>.log。
 #
-# 以 run_in_background 執行；搭配不帶 --wait 的 `herdr agent prompt` 使用，
+# 以 run_in_background 執行；搭配 `herdr-ctl.sh prompt`（不等待）使用，
 # 由本腳本負責等待。只在 codex 的批准對話框格式上驗證過（指令列以 "  $ " 開頭）；
 # 其他 provider 的對話框格式不同時，會停在 NEEDS_REVIEW，不會誤放行。
 
@@ -38,13 +39,12 @@ P="${1:?pane}"
 WT="${2:?host worktree path}"; WT="${WT%/}"
 PREFIX="${3:-}"
 LOG="$(dirname "$(dirname "$WT")")/approved-$(basename "$WT").log"
+CTL="$(cd "$(dirname "$0")" && pwd)/herdr-ctl.sh"   # 後端 adapter：TUI herdr 或 hc
 
-status() {
-    herdr agent get "$P" | python3 -c "import json,sys;print(json.load(sys.stdin)['result']['agent']['agent_status'])"
-}
+status() { "$CTL" status "$P"; }
 
 dangerous() {
-    printf '%s' "$1" | grep -qE 'rm -rf|(^|[;&| ])herdr |curl |wget |--output|git( -[cC] [^ ]+)* (push|reset|checkout|switch|worktree|branch|rebase|clean|stash)'
+    printf '%s' "$1" | grep -qE 'rm -rf|(^|[;&| /])(herdr|herdr-ctl\.sh|hc) |curl |wget |--output|git( -[cC] [^ ]+)* (push|reset|checkout|switch|worktree|branch|rebase|clean|stash)'
 }
 
 # composer install 會改到 public/ 的 Filament 資產空白，brief 要求 worker 還原
@@ -101,17 +101,17 @@ extract_cmd() {
 for _ in $(seq 1 200); do
     st=$(status)
     if [ "$st" != "blocked" ]; then
-        herdr agent wait "$P" --timeout 1800000 >/dev/null 2>&1
+        "$CTL" wait "$P" 1800 >/dev/null 2>&1
         st=$(status)
         [ "$st" = "blocked" ] || { echo "STATUS=$st"; exit 0; }
     fi
 
-    screen=$(herdr agent read "$P" --source recent-unwrapped --lines 25)
+    screen=$("$CTL" read "$P" 25)
 
     if printf '%s' "$screen" | grep -q 'Would you like to make the following edits'; then
         dest=$(printf '%s' "$screen" | grep -E '^\s*Destination: ' | tail -1 | sed -E 's/^[[:space:]]*Destination: //; s/[[:space:]]+$//')
         if [ -n "$dest" ] && edit_allowed "$dest"; then
-            herdr pane send-keys "$P" y >/dev/null
+            "$CTL" keys "$P" y
             echo "$(date +%T) approved edit: ${dest:0:160}" >> "$LOG"
             sleep 2
             continue
@@ -123,7 +123,7 @@ for _ in $(seq 1 200); do
     cmd=$(printf '%s' "$screen" | extract_cmd)
 
     if [ -n "$cmd" ] && allowed "$cmd"; then
-        herdr pane send-keys "$P" enter >/dev/null
+        "$CTL" keys "$P" enter
         echo "$(date +%T) approved: ${cmd:0:160}" >> "$LOG"
         sleep 2
     else

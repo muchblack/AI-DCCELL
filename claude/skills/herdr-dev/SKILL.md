@@ -55,19 +55,20 @@ panes — one CLI cannot both write and review the same change.
 
 Never substitute an inline chat description for a missing requirement.
 
-## Roles (resolved at runtime from `herdr agent list`)
+## Roles (resolved at runtime from `$CTL list`)
 
 | Role | Agent (default) | How to resolve |
 |------|-------|----------------|
 | Orchestrator | `main` — this Claude Code session | self |
-| Code Writer | **worker** — `codex` unless `--worker=<agent>` given | `herdr agent list` → pane whose agent matches the worker agent name |
-| Code Reviewer | **reviewer** — `agy` unless `--reviewer=<agent>` given | `herdr agent list` → pane whose agent matches the reviewer agent name |
+| Code Writer | **worker** — `codex` unless `--worker=<agent>` given | `$CTL list` → id whose agent matches the worker agent name |
+| Code Reviewer | **reviewer** — `agy` unless `--reviewer=<agent>` given | `$CTL list` → id whose agent matches the reviewer agent name |
 
 Resolve the worker/reviewer agent names first (from `--worker`/`--reviewer`,
 defaulting to `codex`/`agy`); if they name the same agent, stop and ask the
 user to pick two different agents — one CLI cannot both write and review
-the same change. Then run `herdr agent list` and record the matching pane
-ids (e.g. `w1:p2`) in state, along with the agent names used. If a required
+the same change. Then run `$CTL list` (see Backend Adapter) and record the
+matching ids (e.g. `w1:p2` on TUI, `t4` on Herdr desktop) in state, along
+with the agent names used and `$CTL backend`. If a required
 pane is missing, tell the user which agent to start in a pane and END TURN —
 do not spawn panes yourself unless asked.
 
@@ -100,16 +101,67 @@ commit as facts to **verify**, not choices to make — if a pane's read of
 report back, not something to silently fix by creating or switching to a
 different worktree.
 
+## Backend Adapter (`scripts/herdr-ctl.sh`)
+
+The same flow runs on two Herdr backends; **every pane call in this skill
+goes through the adapter**, never straight to the `herdr` / `hc` CLIs:
+
+```bash
+CTL=~/.claude/skills/herdr-dev/scripts/herdr-ctl.sh
+```
+
+Backend (`$CTL backend` prints it): `HERDR_BACKEND=hc|tui` if set →
+`hc` when `HC_TERMINAL_ID` is set (main runs inside a Herdr desktop pane)
+→ `tui` when the TUI `herdr` answers → otherwise it errors out (exit 3):
+tell the user, do not guess.
+
+| Verb | Output / behaviour |
+|------|--------------------|
+| `$CTL list` | one line per agent: `<id>\t<agent>\t<status>\t<cwd>`; agent names normalized (`antigravity`→`agy`, `claude-code`→`claude`) |
+| `$CTL status <id>` | exactly one of `idle｜working｜blocked｜done｜unknown` (hc `error` → `blocked`) |
+| `$CTL prompt <id> "<text>"` | paste + submit, no wait, no stdout; refused (non-zero) while the pane is blocked |
+| `$CTL wait <id> <seconds>` | until not working; still working at timeout → exit 124. **Seconds on both backends** |
+| `$CTL read <id> <lines>` | last N screen lines |
+| `$CTL keys <id> <key>…` | `enter`, `esc`, `y`, `down`, `ctrl+c`… |
+| `$CTL start <agent> <cwd> [--pane <id>] [-- <agent args>]` | start an agent, print its id (hc: new terminal; tui: needs `--pane`, an existing pane at a shell prompt) |
+
+Ids: TUI pane ids look like `w2:p2`; hc ids look like `t4` (remote:
+`machine/t4`). Record whatever `$CTL list` prints — scripts accept both.
+
+hc backend notes (verified 2026-11-04):
+- `hc read` has no `recent-unwrapped`; the adapter trims trailing blank
+  lines and returns the last N lines. While a terminal is `working`/
+  `blocked`, hc returns only the visible screen (no history).
+- `hc send` from inside a desktop pane wraps the prompt as
+  `<hc from="<main id>">…</hc>` (observed 2026-11-04; the docs say it may
+  also carry a `reach="hc send …"` hint). Briefs already forbid every
+  `herdr`/`hc`/`herdr-ctl.sh` command, and approve-loop never approves one,
+  so a worker replying that way is a brief violation: `esc` it.
+- `$CTL start` on hc runs `hc run --bg --outlive-parent --no-notify --cwd
+  <cwd>` (codex gets `--no-daemon`, required by hc; the agent is resolved
+  to an absolute path first because herdr-core's PATH may lack
+  `~/.local/bin`). Extra agent flags go after `--`, e.g. `$CTL start codex
+  <wt> -- -s workspace-write`. A codex started in a new folder first shows
+  its "Trust this folder?" dialog (status `unknown`): `$CTL read` it, then
+  `$CTL keys <id> enter`, and wait for `idle` before the first prompt. There is no hc
+  equivalent of herdr's worktree workspaces: main creates the git worktree
+  itself (`git worktree add …`, Phase 2 step 0 / Phase 3 step 5 — same as on
+  TUI), then either tells the existing pane to `cd` into it (the brief
+  already does) or starts a fresh agent there with `$CTL start <agent>
+  <worktree>`.
+- Tests: `bash scripts/test-herdr-ctl.sh` (both backends via stubs).
+
 ## Herdr Dispatch Pattern
 
-**`herdr` is the ground truth for its own syntax — before scripting any call,
-run the bare command group (`herdr agent`, `herdr pane`, ...) to confirm
-current flags. This section was corrected once already after the documented
+**The installed `herdr` / `hc` binaries are the ground truth for their own
+syntax — before changing `scripts/herdr-ctl.sh`, run `herdr --help`,
+`hc --help` and `hc <cmd> --help` to confirm current flags. This section was corrected once already after the documented
 web-docs syntax (`send_text`, `send_input`, separate `prompt`+`wait --until
 done`) turned out not to match the installed binary (real CLI uses
 `send-text`/`send-keys` with hyphens, and `agent prompt --wait` does the
-submit+wait atomically). If a future `herdr` upgrade changes flags again,
-re-verify the same way instead of trusting this file blindly.**
+submit+wait atomically). If a future `herdr` / `hc` upgrade changes flags again,
+re-verify the same way and fix the adapter (and its test) — nothing else
+in this skill names backend flags.**
 
 Long briefs go through files, not CLI args (no shell-quoting hell):
 
@@ -120,32 +172,32 @@ Long briefs go through files, not CLI args (no shell-quoting hell):
 # 2. Optional: peek at the pane first — if it's empty/idle with no visible
 #    prior conversation, there's nothing to clear. There is no documented
 #    cross-provider "start fresh" command; if the pane shows leftover
-#    unrelated context, prefer `herdr agent start <name> --kind <kind>
-#    --pane <id>` on a plain shell (exits+restarts the agent) over guessing
-#    a provider-specific slash command.
-herdr agent read <worker> --source recent-unwrapped --lines 30
+#    unrelated context, prefer `$CTL start <agent> <cwd> [--pane <id>]`
+#    (TUI: restarts the agent on a plain-shell pane; hc: a new terminal —
+#    record its new id) over guessing a provider-specific slash command.
+$CTL read <worker> 30
 
 # 3. Submit WITHOUT --wait, then wait with scripts/wait-result.sh in the
 #    background. It returns ONLY when the result file's first line is this
 #    dispatch's id and the pane has settled — early idle/done flickers are
 #    swallowed in the background instead of waking main.
-herdr agent prompt <reviewer> "Read .herdr-dev/tasks/<slug>/review-brief.md and execute it. Write verdict.md when done." >/dev/null
+$CTL prompt <reviewer> "Read .herdr-dev/tasks/<slug>/review-brief.md and execute it. Write verdict.md when done."
 ~/.claude/skills/herdr-dev/scripts/wait-result.sh <reviewer> .herdr-dev/tasks/<slug>/verdict.md <dispatch_id>
 # worker: add --approve so allowlisted commands are auto-approved meanwhile
 ~/.claude/skills/herdr-dev/scripts/wait-result.sh <worker> .herdr-dev/tasks/<slug>/report.md <dispatch_id> \
   --approve <host_worktree> "podman exec -w <container_worktree_path> <container> "
 ```
 
-**Always wait with `wait-result.sh`, never with a bare `agent prompt --wait` /
-`agent wait` / `approve-loop.sh`** (2026-10-15, VIN-127～129). Each of those
+**Always wait with `wait-result.sh`, never with a bare `$CTL wait` /
+a backend's own prompt-and-wait / `approve-loop.sh`** (2026-10-15, VIN-127～129). Each of those
 returns on the first idle/done/blocked flicker; agy and codex flicker often,
 and every early return costs main a full-context turn just to learn "still
 working" — that was ~15–20 wasted turns over three tickets and a large share
 of the Claude 5h quota. `wait-result.sh` prints exactly one line:
 `RESULT_READY` → read the file and continue; `NEEDS_REVIEW: <cmd>` → judge the
-command (below), approve or `esc`, re-run the script; `BLOCKED` → `agent read`
+command (below), approve or `esc`, re-run the script; `BLOCKED` → `$CTL read`
 the pane; `SETTLED_NO_RESULT` → the pane stopped ~2 min without writing this
-dispatch's file: first `agent read` the pane — a provider quota/rate-limit
+dispatch's file: first `$CTL read` the pane — a provider quota/rate-limit
 message (e.g. opencode's "You've used today's free messages") means the
 prompt never ran: don't re-send to that pane, ask the user (switch
 model/provider, or wait for the reset time shown) and re-dispatch with a new
@@ -153,14 +205,14 @@ model/provider, or wait for the reset time shown) and re-dispatch with a new
 re-dispatch; `TIMEOUT` (90 min) → read
 the pane. Tests: `bash scripts/test-wait-result.sh`.
 
-When the call returns, check `herdr agent get <worker>`:
+When the call returns, check `$CTL status <worker>`:
 - `idle`/`done` → read `.herdr-dev/tasks/<slug>/report.md`, verify via git, continue.
   **Note: some agent CLIs (observed with the Antigravity/agy provider) report
   `done`/`idle` while sitting at a file-write approval dialog, not just
-  command-approval ones — always `agent read` and look at the actual screen
+  command-approval ones — always `$CTL read` and look at the actual screen
   before trusting the status label alone.**
-  **Stronger form (observed three times on agy reviews, 2026-09-24): `agent
-  prompt --wait` / `agent wait` can return `done` while agy is still working,
+  **Stronger form (observed three times on agy reviews, 2026-09-24): a
+  prompt-and-wait / `$CTL wait` can return `done` while agy is still working,
   and the stale `.herdr-dev/verdict.md` from the PREVIOUS ticket (same file
   name, already ending in `VERDICT: PASS`) is still on disk. Before trusting a
   verdict, both must hold: (1) its first line is the `dispatch_id` main put
@@ -169,12 +221,12 @@ When the call returns, check `herdr agent get <worker>`:
   pane is idle (not `Editing files…`). `scripts/wait-result.sh` enforces
   both before returning. Same rule for the worker's `report.md`. Timestamps
   and header text are not evidence.**
-- `blocked` → `herdr agent read <worker> --source recent-unwrapped --lines 40`;
-  if it is a permission prompt, answer via `herdr agent send-keys <worker>
+- `blocked` → `$CTL read <worker> 40`;
+  if it is a permission prompt, answer via `$CTL keys <worker>
   <key>` (e.g. `enter`, `esc`, `y`); if it is a requirement question, ask
   the Emperor. **Prefer `scripts/approve-loop.sh` for this** (see below) instead
   of approving by hand. **This is normally a multi-round loop, not a one-shot**:
-  send the key, then `herdr agent wait <worker> --timeout <ms>` again (can
+  send the key, then `$CTL wait <worker> <seconds>` again (can
   be a short foreground wait, not necessarily backgrounded) — expect several
   blocked→approve→blocked cycles in a row (observed: one per new command
   prefix, e.g. `git diff` and `git show` needed separate approvals; some
@@ -188,12 +240,12 @@ When the call returns, check `herdr agent get <worker>`:
   approving and letting it fail.
   **`scripts/approve-loop.sh` — allowlisted auto-approve (added 2026-10-07,
   VIN-85/86).** Instead of hand-approving every `podman exec` and `git
-  commit`, dispatch with a plain `herdr agent prompt` (no `--wait`) and run
+  commit`, dispatch with `$CTL prompt` (it never waits) and run
   `wait-result.sh … --approve <host_worktree> "<container_prefix>"` in the
   background — it calls approve-loop.sh in a loop until the report for this
   dispatch exists (approve-loop alone exits on the first idle flicker):
   ```bash
-  herdr agent prompt <worker> "Read …/brief.md and execute it …" >/dev/null
+  $CTL prompt <worker> "Read …/brief.md and execute it …"
   ~/.claude/skills/herdr-dev/scripts/wait-result.sh <worker> .herdr-dev/tasks/<slug>/report.md <dispatch_id> \
     --approve <host_worktree> "podman exec -w <container_worktree_path> <container> "
   ```
@@ -211,13 +263,13 @@ When the call returns, check `herdr agent get <worker>`:
   this, every owned-file edit and the report write woke main with
   `NEEDS_REVIEW: <no command line found>`); `&&` chains are split and every segment must pass. It refuses
   any segment containing shell metacharacters (`;` `&` `|` `` ` `` `<` `>`
-  `$(`), a `herdr` command, `rm -rf`, `curl`, `wget`, `--output` (lets
+  `$(`), a `herdr` / `hc` / `herdr-ctl.sh` command, `rm -rf`, `curl`, `wget`, `--output` (lets
   `git diff/log/show` write arbitrary files), or any other git
   `push|reset|checkout|switch|worktree|branch|rebase|clean|stash`.
   Regression tests: `bash scripts/test-approve-loop.sh` — run it after any
   change to the allowlist.
   Anything else → exits with `NEEDS_REVIEW: <command>` for main to judge by
-  hand (approve with `herdr pane send-keys <pane> enter` or `esc` + corrective
+  hand (approve with `$CTL keys <pane> enter` or `esc` + corrective
   prompt), then re-run the script. Exits with `STATUS=idle|done` when the
   pane settles — then do the normal report/verdict checks. Approvals are
   logged to `.herdr-dev/approved-<worktree>.log`. Verified on codex's dialog
@@ -230,12 +282,12 @@ When the call returns, check `herdr agent get <worker>`:
   only the `$ ` line, so a prefix ending in a space never matched (false
   `NEEDS_REVIEW`) and a wrapped tail escaped the allowlist. It now joins
   continuation lines up to the blank/option line before checking.
-- timed out / `agent_prompt_stalled` → read the pane; genuine progress →
-  `herdr agent wait <worker> --timeout <ms>` again; stalled → treat as dead
+- timed out / `agent_prompt_stalled` (TUI) → read the pane; genuine progress →
+  `$CTL wait <worker> <seconds>` again; stalled → treat as dead
   job: salvage on-disk work via git, re-dispatch the same brief.
   **`agent_prompt_stalled` specifically also fires if you prompt while the
   pane is sitting at an approval dialog** (a new prompt doesn't register as
-  a lifecycle change) — check `agent get`/`agent read` first if a prompt
+  a lifecycle change) — check `$CTL status`/`$CTL read` first if a prompt
   stalls immediately after a previous dispatch.
 
 ## Core Principles
@@ -328,7 +380,7 @@ When the call returns, check `herdr agent get <worker>`:
   requested by the brief, not in this project's role config, just residual
   session context/instinct from its old job; `ask` failed since this flow
   doesn't provide it, and the worker recovered on its own after ~1 extra
-  round). An empty `agent read` screen does **not** prove a clean
+  round). An empty `$CTL read` screen does **not** prove a clean
   conversation context — it only proves nothing is currently rendered.
   There is no reliable cross-provider "clear" command; if this matters for
   a given dispatch, consider adding one explicit override line to the brief
@@ -337,11 +389,11 @@ When the call returns, check `herdr agent get <worker>`:
   directly") rather than assuming a fresh pane is a fresh context.
 - **Every brief forbids herdr and delegation — not optional.** Dev, fix and
   review briefs all open with: the pane does the work itself, runs no
-  `herdr` command, spawns/opens/prompts no other agent, pane or workspace,
+  `herdr`, `hc` or `herdr-ctl.sh` command, spawns/opens/prompts no other agent, pane or workspace,
   and uses no `ask`. Observed 2026-10-07: a codex pane with a just-cleared
-  (`/new`) context read a brief mentioning herdr worktrees and tried
-  `herdr worktree open` to hand the task to a new agent. Workers/reviewers
-  never get a herdr command approved — `esc` it and send a corrective
+  (`/new`) context read a brief mentioning worktrees and tried to
+  open a new worktree workspace via herdr to hand the task to a new agent.
+  Workers/reviewers never get a herdr/hc command approved — `esc` it and send a corrective
   prompt (see `references/flow.md` Phase 2 step 1).
 - **Every dev, fix and tuning brief requires the built-in edit tool for file
   writes** — no shell heredoc / `python3 -` / `sed -i` writes, and no file
@@ -390,7 +442,7 @@ When the call returns, check `herdr agent get <worker>`:
   let several later `git show`/`git diff --stat`/file-scoped `git diff`
   calls through with no further prompts in the same round) — don't
   pre-count how many approvals a dispatch will need; just check
-  `agent get`/`agent read` after each wait and react to whatever state is
+  `$CTL status`/`$CTL read` after each wait and react to whatever state is
   actually there.
 - **Scratch files (`report.md`, `verdict.md`) may survive across rounds or
   specs if cleanup is denied by the permission mode** — that's fine, each
@@ -417,14 +469,14 @@ When the call returns, check `herdr agent get <worker>`:
   goal, raw symptom, what was tried, labeled hypothesis, and one explicit
   ask (`references/flow.md` Phase 2 step 1). A fix round 2 brief lists
   what round 1 already tried, so it isn't retried.
-- **Check for stale context before each dispatch.** `herdr agent read
-  <worker> --source recent-unwrapped --lines 30` before prompting. Empty/no
+- **Check for stale context before each dispatch.** `$CTL read
+  <worker> 30` before prompting. Empty/no
   unrelated prior conversation → prompt directly. A previous ticket's
   conversation, or more than half the context used → `/new` once on that
-  pane's first dispatch of the ticket (opencode needs an extra `send-keys
-  enter` to run `/new`; see `references/flow.md` Phase 2 step 2). If `/new`
-  doesn't take effect, use `herdr agent start <name> --kind <kind> --pane
-  <id>` on a plain shell to restart the agent fresh, or ask the Emperor.
+  pane's first dispatch of the ticket (opencode needs an extra `$CTL keys
+  <pane> enter` to run `/new`; see `references/flow.md` Phase 2 step 2). If `/new`
+  doesn't take effect, use `$CTL start <agent> <cwd> [--pane <id>]` to
+  start the agent fresh (record the new id on hc), or ask the Emperor.
 
 State lives in `.herdr-dev/state.json` so background waits survive turns.
 

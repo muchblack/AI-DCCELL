@@ -8,7 +8,8 @@
 # 用法：
 #   wait-result.sh <pane> <result_file> <dispatch_id> [--approve <host_worktree> [<container_prefix>]]
 #
-#   pane          worker／reviewer 的 herdr pane id，例如 wJ:p5
+#   pane          worker／reviewer 的 id（herdr-ctl.sh list 的第一欄）：TUI 例如 wJ:p5，
+#                 Herdr desktop（hc）例如 t4，遠端 machine/t4
 #   result_file   report.md／verdict.md／brief-verdict.md 的路徑
 #   dispatch_id   本次 brief 第一行的 id，例如 vin-129-4
 #   --approve     worker 用：每輪改跑 approve-loop.sh（自動批准白名單指令）
@@ -39,7 +40,8 @@ NAP="${WAIT_RESULT_NAP:-20}"
 START=$(date +%s)
 idle_checks=0
 
-status() { herdr agent get "$P" 2>/dev/null | grep -o '"agent_status":"[a-z_]*"' | head -1 | cut -d'"' -f4; }
+CTL="$HERE/herdr-ctl.sh"   # 後端 adapter：TUI herdr 或 hc，自動判斷
+status() { "$CTL" status "$P"; }
 ready() { [ "$(head -1 "$FILE" 2>/dev/null)" = "dispatch_id: $ID" ]; }
 
 while :; do
@@ -49,7 +51,7 @@ while :; do
       if ready; then echo RESULT_READY; exit 0; fi
       idle_checks=$((idle_checks + 1))
       [ "$idle_checks" -ge "$IDLE_LIMIT" ] && { echo SETTLED_NO_RESULT; exit 0; }
-      sleep "$NAP"   # agent wait 對已停下的 pane 會立刻返回，這裡必須睡，否則空轉
+      sleep "$NAP"   # wait 對已停下的 pane 會立刻返回，這裡必須睡，否則空轉
       ;;
     blocked)
       idle_checks=0
@@ -64,6 +66,6 @@ while :; do
     out="$("$HERE/approve-loop.sh" "$P" "$APPROVE_WT" "$APPROVE_PREFIX" 2>&1 | tail -1)"
     case "$out" in NEEDS_REVIEW*) echo "$out"; exit 0 ;; esac
   elif [ "$s" != idle ] && [ "$s" != done ]; then
-    herdr agent wait "$P" --timeout 60000 >/dev/null 2>&1 || sleep "$NAP"
+    "$CTL" wait "$P" 60 >/dev/null 2>&1 || sleep "$NAP"
   fi
 done

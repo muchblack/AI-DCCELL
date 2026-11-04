@@ -38,8 +38,10 @@ Neither → AskUserQuestion; if none exists, PAUSE, point to `/grill-with-docs`
    `codex` / `agy`. If they name the same agent, stop and ask the user to
    pick two different agents — one CLI cannot both write and review the
    same change — END TURN.
-3. `herdr agent list` → record the pane id whose agent matches the worker
-   agent name, and the pane id whose agent matches the reviewer agent name.
+3. `$CTL list` (`CTL=~/.claude/skills/herdr-dev/scripts/herdr-ctl.sh`, see
+   SKILL.md › Backend Adapter) → record the id whose agent matches the
+   worker agent name, and the id whose agent matches the reviewer agent
+   name, plus `$CTL backend` (`tui` or `hc`).
    Missing pane for either role → tell the user which agent CLI to start in
    a Herdr pane, END TURN.
 4. Detect version control: `git rev-parse --is-inside-work-tree` in the
@@ -229,13 +231,14 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    Requirement Brief + this mandatory TDD contract:
    - **No herdr, no delegation (mandatory first line of every dev, fix and
      review brief).** State verbatim near the top: "You are the worker (or
-     reviewer) — do the work yourself. Do NOT run any `herdr` command
-     (`herdr agent|pane|worktree|workspace ...`), do NOT spawn, open or
-     prompt other agents/panes/workspaces, and do NOT use `ask`." Observed
+     reviewer) — do the work yourself. Do NOT run any `herdr`, `hc` or
+     `herdr-ctl.sh` command (not even to report back — write the result
+     file instead), do NOT spawn, open or prompt other
+     agents/panes/terminals/workspaces, and do NOT use `ask`." Observed
      2026-10-07 (VIN-85): a freshly `/new`-cleared codex pane read a brief
-     that mentioned herdr worktrees, ran `herdr agent list`, then tried
-     `herdr worktree open ... --label claude-vin-85` to hand the job to a
-     new agent — so a fresh context does not prevent this; only the brief
+     that mentioned worktrees, listed herdr's agents, then tried to
+     open a new worktree workspace via herdr (`--label claude-vin-85`) to hand
+     the job to a new agent — so a fresh context does not prevent this; only the brief
      does. If a pane still tries it, `esc` the approval and send a short
      corrective prompt restating this rule; never approve a herdr command
      from a worker or reviewer pane.
@@ -346,35 +349,35 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
        separate from the symptom;
      - **ask** — one explicit question: a decision with options, or the
        specific missing fact.
-2. **Check for stale context**: `herdr agent read <worker> --source
-   recent-unwrapped --lines 30`. Empty/no unrelated prior conversation →
+2. **Check for stale context**: `$CTL read <worker> 30`. Empty/no unrelated prior conversation →
    proceed directly. **A previous ticket's conversation, or the status bar
    showing more than half the context used, → send `/new` before the
    first dispatch of this ticket** (2026-10-28, VIN-183: both panes still
    held VIN-180's conversation, opencode at 75% used). Do it once per
    ticket on that pane's first dispatch; later dispatches in the same
    ticket keep the pane's context. Provider specifics:
-   - codex: `herdr agent prompt <pane> "/new"` runs it directly; the status
+   - codex: `$CTL prompt <pane> "/new"` runs it directly; the status
      bar should then show `Context 100% left`.
-   - opencode: `herdr agent prompt <pane> "/new"` only opens the
+   - opencode: `$CTL prompt <pane> "/new"` only opens the
      slash-command autocomplete menu; it runs only after a second
-     `herdr agent send-keys <pane> enter`. Confirm the token counter in the
+     `$CTL keys <pane> enter`. Confirm the token counter in the
      bottom-right is gone before dispatching.
-   - agy: `herdr agent prompt <pane> "/new"` first shows the slash-command
+   - agy: `$CTL prompt <pane> "/new"` first shows the slash-command
      menu and clears the screen a moment later; a prompt sent in that window
      is silently dropped. Never chain `/new` and the dispatch in one command.
-     Send `/new`, wait until `agent read` shows the banner with an empty `>`
-     and no menu, then dispatch, then confirm with `agent read` that the
+     Send `/new`, wait until `$CTL read` shows the banner with an empty `>`
+     and no menu, then dispatch, then confirm with `$CTL read` that the
      prompt landed before starting `wait-result.sh` (2026-11-02, VIN-85).
    - Other providers, or `/new` doesn't take effect → restart via
-     `herdr agent start <name> --kind <kind> --pane <id>` on a plain
-     shell, or ask the Emperor.
+     `$CTL start <agent> <worktree> [--pane <id>]` (TUI: needs a pane at a
+     plain shell; hc: opens a new terminal — record its new id in state),
+     or ask the Emperor.
 3. Dispatch without `--wait`, then wait with `scripts/wait-result.sh` in the
    background (one call, returns once — see SKILL.md › Herdr Dispatch
    Pattern). Worker gets `--approve` so allowlisted commands are approved
    while it waits:
    ```bash
-   herdr agent prompt <worker> "Read .herdr-dev/tasks/<slug>/brief.md and execute it. Write your final report to .herdr-dev/tasks/<slug>/report.md when done." >/dev/null
+   $CTL prompt <worker> "Read .herdr-dev/tasks/<slug>/brief.md and execute it. Write your final report to .herdr-dev/tasks/<slug>/report.md when done."
    ~/.claude/skills/herdr-dev/scripts/wait-result.sh <worker> .herdr-dev/tasks/<slug>/report.md <dispatch_id> \
      --approve <worker_worktree> "podman exec -w <container_worktree_path> <container> "
    ```
@@ -389,7 +392,7 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    the same script without `--approve`, pointed at `brief-verdict.md` /
    `verdict.md`. On `NEEDS_REVIEW`, judge the command by hand, approve or
    `esc`, and re-run the script. Never fall back to a bare `--wait` /
-   `agent wait` / `approve-loop.sh` wait: each early idle flicker becomes a
+   `$CTL wait` / `approve-loop.sh` wait: each early idle flicker becomes a
    wasted full-context main turn.
 4. Reply one short line (`<worker agent> 開發中…`) and **END TURN**. The
    background call re-enters this session exactly once, with one of
@@ -401,12 +404,11 @@ State: `{ "step": "dev_dispatched", "round": 0, "base_sha": "<sha>", "owns": [..
 
 ## Phase 3: Verify → Merge → Self-Review → Dispatch Review
 
-On the wait firing, `herdr agent get <worker>`:
+On the wait firing, `$CTL status <worker>`:
 
-- `blocked` → `herdr agent read <worker> --source recent-unwrapped --lines
-  40`. Permission prompt on a legitimate command → `herdr agent send-keys
-  <worker> enter` (or the right key), then `herdr agent wait <worker>
-  --timeout <ms>` again — expect several such cycles in a row, not just
+- `blocked` → `$CTL read <worker> 40`. Permission prompt on a legitimate
+  command → `$CTL keys <worker> enter` (or the right key), then `$CTL wait
+  <worker> <seconds>` again — expect several such cycles in a row, not just
   one. Permission prompt on a command that will fail for environment
   reasons (wrong host, missing wrapper) → `esc` to cancel, send a
   corrective prompt instead of approving. Requirement question →
@@ -414,7 +416,7 @@ On the wait firing, `herdr agent get <worker>`:
 - `working` (timeout) → read the pane. Progress → re-wait. Stalled → dead
   job: salvage on-disk work via git, re-dispatch the same brief (Phase 2
   steps 2–4).
-- `idle`/`done` → continue, but first `agent read` to confirm it's actually
+- `idle`/`done` → continue, but first `$CTL read` to confirm it's actually
   finished and not just sitting at an unrendered approval dialog (some
   providers report idle/done even at a file-write confirmation prompt).
 
@@ -426,7 +428,7 @@ re-runs), unless the change is ≲ 30 lines; main still decides the merge.
 1. **Verify against git, not the report**:
    - `report.md` first line must equal this dispatch's `dispatch_id`
      (Phase 2 step 1). Mismatch or missing → the worker has not written
-     this round's report yet: `agent read` the pane; still working → re-wait;
+     this round's report yet: `$CTL read` the pane; still working → re-wait;
      settled without a report → dead job (below).
    - `git log main..herdr/dev-<slug> --oneline` — **must be non-empty**. A
      worker can produce a fully correct diff, a convincing report, and
@@ -894,7 +896,7 @@ State: `{ "step": "tuning_dispatched", "tuning_round": 1, "dispatch_seq": <k>, "
 
 1. Read `.herdr-dev/state.json`. Absent → "No active /herdr-dev flow found."
 2. Branch on `step`:
-   - `dev_dispatched` / `fix_dispatched` → `herdr agent get <worker>`:
+   - `dev_dispatched` / `fix_dispatched` → `$CTL status <worker>`:
      `done` → Phase 3; `working` → background wait again, END TURN;
      `blocked` → Phase 3 preamble.
    - `review_dispatched` → same check on `<reviewer>`; `done` → Phase 4.
@@ -910,7 +912,10 @@ State: `{ "step": "tuning_dispatched", "tuning_round": 1, "dispatch_seq": <k>, "
    - `requirement_confirmed` → re-dispatch Phase 2.
    - `done` → nothing pending; report last outcome.
 3. Pane ids in state may be stale after a Herdr restart — re-run
-   `herdr agent list` and re-resolve if `agent get` errors.
+   `$CTL list` and re-resolve if `$CTL status` prints `unknown` for a
+   recorded id. Also re-check `$CTL backend` against state: a flow started
+   on one backend cannot be resumed on the other (ids differ) — re-resolve
+   ids from `$CTL list`.
 4. **If `git_repo`**: `worker_worktree`/`reviewer_worktree` paths in state
    should still be valid — worktrees survive process/session restarts.
    Confirm with `git worktree list`; if a recorded path is missing from
