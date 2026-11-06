@@ -106,7 +106,9 @@ print("busy" if d.get("reason")=="timeout" or d.get("status")=="working" else "o
             # hc 的 --lines 是「畫面上方再往回看幾行」，畫面本身另外整頁印出；
             # 去掉底部空白行後取最後 N 行，對齊 TUI recent 的語意
             # 畫面忙碌時 hc 會在最後補一行「[hc] incomplete: …」，不是畫面內容，濾掉
-            hc read "$id" --lines "$n" | awk '/^\[hc\] incomplete/{next} {a[++k]=$0} NF{last=k} END{for(i=1;i<=last;i++) print a[i]}' | tail -n "$n"
+            # 連續空白行壓成一行：hc 整頁印出，內容在上、輸入框在底，中間可能隔近百行空白，
+            # 不壓的話 tail 只拿到空白＋輸入框（2026-11-06 實機 codex 120 行畫面踩到）
+            hc read "$id" --lines "$n" | awk '/^\[hc\] incomplete/{next} !NF&&blank{next} {blank=!NF; a[++k]=$0} NF{last=k} END{for(i=1;i<=last;i++) print a[i]}' | tail -n "$n"
         fi ;;
 
     tui:keys) herdr pane send-keys "${1:?id}" "${@:2}" >/dev/null ;;

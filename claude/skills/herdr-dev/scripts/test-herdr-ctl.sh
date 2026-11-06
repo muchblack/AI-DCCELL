@@ -31,7 +31,7 @@ s=$(cat "$T/state" 2>/dev/null || echo idle)
 case "$1" in
   ls) echo '{"terminals":[{"address":"t4","agent":"codex","status":"idle","cwd":"/p"},{"address":"t5","agent":"antigravity","status":"working","cwd":"/q"},{"address":"t6","agent":null,"status":null,"cwd":"/r"}]}' ;;
   get) echo "{\"address\":\"$2\",\"status\":{\"app\":\"codex\",\"state\":\"$s\"},\"state\":\"live\"}" ;;
-  read) printf 'h1\nh2\nscreen1\nscreen2\n\n\n[hc] incomplete: older output may be missing\n' ;;
+  read) printf 'h1\nh2\nscreen1\nscreen2\n\n\n\n\nfooter\n\n\n[hc] incomplete: older output may be missing\n' ;;
   wait) if [ "$s" = working ]; then echo '{"reason":"timeout","status":"working"}'; else echo '{"reason":"status","status":"idle"}'; fi ;;
   run) echo '{"address":"t9","agent":"codex","state":"live"}' ;;
   send) [ "$s" = blocked ] && { echo '{"error":{"kind":"blocked"}}' >&2; exit 9; } ;;
@@ -89,7 +89,7 @@ for B in tui hc; do
     eq "tui read" "$(printf 'line1\nline2')" "$(ctl read $ID 25)"
     called "tui read call" "herdr agent read $ID --source recent-unwrapped --lines 25"
   else
-    eq "hc read (trailing blanks dropped, last N)" "$(printf 'h2\nscreen1\nscreen2')" "$(ctl read $ID 3)"
+    eq "hc read (blank runs squeezed, trailing dropped, last N)" "$(printf 'screen2\n\nfooter')" "$(ctl read $ID 3)"
     called "hc read call" "hc read $ID --lines 3"
   fi
 
