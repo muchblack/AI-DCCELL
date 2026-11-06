@@ -125,13 +125,13 @@ i=d["result"]["process_info"]; print("yes" if i["shell_pid"]==i["foreground_proc
             [ "$at_shell" = yes ] || die "pane $pane 不在 shell prompt（前景還有程式在跑），先結束它再 start"
             herdr pane run "$pane" "cd $(printf '%q' "$cwd")" >/dev/null || exit $?
             [ ${#args[@]} -gt 0 ] && args=(-- "${args[@]}")   # 沒參數就不帶 --，跟改版前的呼叫一模一樣
-            herdr agent start "$agent" --kind "$agent" --pane "$pane" "${args[@]}" >/dev/null || exit $?
+            herdr agent start "$agent" --kind "$agent" --pane "$pane" ${args[@]+"${args[@]}"} >/dev/null || exit $?
             echo "$pane"
         else
             # herdr-core 的 PATH 不一定有 ~/.local/bin（2026-11-04 實測 spawn_failed），
             # 先在呼叫端解析成絕對路徑
             prog=("$(command -v "$agent" || echo "$agent")")
-            [ "$agent" = codex ] && prog+=(--no-daemon); prog+=("${args[@]}")
+            [ "$agent" = codex ] && prog+=(--no-daemon); prog+=(${args[@]+"${args[@]}"})
             # --outlive-parent：worker／reviewer 要活得比 main 久，跟 TUI pane 一樣
             # --no-notify：子終端機的狀態變化不要打字進 main，main 只靠 wait-result.sh 叫醒
             hc run --bg --outlive-parent --no-notify --cwd "$cwd" --json "${prog[@]}" \
