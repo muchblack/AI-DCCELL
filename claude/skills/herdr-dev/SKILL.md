@@ -143,7 +143,13 @@ hc backend notes (verified 2026-11-04):
   `~/.local/bin`). Extra agent flags go after `--`, e.g. `$CTL start codex
   <wt> -- -s workspace-write`. A codex started in a new folder first shows
   its "Trust this folder?" dialog (status `unknown`): `$CTL read` it, then
-  `$CTL keys <id> enter`, and wait for `idle` before the first prompt. There is no hc
+  `$CTL keys <id> enter`, and wait for `idle` before the first prompt. If a
+  codex hook is new or changed, a second dialog follows ("Hooks need review",
+  also status `unknown`, so `wait-result.sh` won't wake on it): never trust
+  hooks on the Emperor's behalf — pick "Continue without trusting"
+  (`$CTL keys <id> down down enter`; `$CTL read` first to confirm it is
+  option 3) and tell the Emperor which hook needs review (verified on hc
+  2026-11-06). There is no hc
   equivalent of herdr's worktree workspaces: main creates the git worktree
   itself (`git worktree add …`, Phase 2 step 0 / Phase 3 step 5 — same as on
   TUI), then either tells the existing pane to `cd` into it (the brief
