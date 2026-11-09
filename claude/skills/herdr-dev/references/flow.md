@@ -355,14 +355,23 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    first dispatch of this ticket** (2026-10-28, VIN-183: both panes still
    held VIN-180's conversation, opencode at 75% used). Do it once per
    ticket on that pane's first dispatch; later dispatches in the same
-   ticket keep the pane's context. Provider specifics:
+   ticket keep the pane's context.
+   **hc backend: never send `/new` with `$CTL prompt`** — `hc send` wraps
+   the text as `<hc from="…">/new</hc>`, so no CLI sees a slash command (agy
+   even ran it as a task). Type it key by key instead: `$CTL keys <pane> /
+   n e w`, `$CTL read` to see the menu, then `$CTL keys <pane> enter`
+   (2026-11-09, VIN-216). The `$CTL prompt` forms below are TUI-only.
+   Provider specifics:
    - codex: `$CTL prompt <pane> "/new"` runs it directly; the status
-     bar should then show `Context 100% left`.
+     bar should then show `Context 100% left`. Newer codex then asks
+     "Use current Git worktree / Create new Git worktree" — pick 1
+     (`enter`); the brief still sends the pane into the worker worktree.
    - opencode: `$CTL prompt <pane> "/new"` only opens the
      slash-command autocomplete menu; it runs only after a second
      `$CTL keys <pane> enter`. Confirm the token counter in the
      bottom-right is gone before dispatching.
-   - agy: `$CTL prompt <pane> "/new"` first shows the slash-command
+   - agy: typed `/new` shows a menu whose first item is `/clear (new)`;
+     `enter` runs it. On TUI, `$CTL prompt <pane> "/new"` first shows the slash-command
      menu and clears the screen a moment later; a prompt sent in that window
      is silently dropped. Never chain `/new` and the dispatch in one command.
      Send `/new`, wait until `$CTL read` shows the banner with an empty `>`
