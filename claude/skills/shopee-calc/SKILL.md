@@ -94,7 +94,7 @@ UTF-8，可有 BOM，第一列標頭必填。使用 [templates/orders.csv](templ
 | --- | --- |
 | `order_id` | 唯一訂單 ID |
 | `track`, `round`, `sku` | 軌道、接單輪次、SKU；接單日須位於該輪 Day 1–14 |
-| `is_stranger` | 是否陌生人；只有 true 計入績效與品質判讀，親友單仍影響現金及在途 |
+| `is_stranger` | 是否陌生人；只有 true 計入績效與品質判讀，親友單仍影響現金、在途及實際虧損紅線 |
 | `accepted_on` | 接單日 |
 | `status` | `accepted`／`purchased`／`shipped`／`kept`／`returned`／`cancelled` |
 | `completed_on` | 買家完成日，未完成留白；鑑賞期以此起算七天 |
@@ -103,7 +103,7 @@ UTF-8，可有 BOM，第一列標頭必填。使用 [templates/orders.csv](templ
 | `price`, `shipping` | 實際商品售價、金流計費運費；每單固定成本沿用 SKU 設定 |
 | `cost_id` | 貨物成本 ID；退貨再售必須沿用。同 ID 代表同一份成本，不可用於不同批貨 |
 | `estimated_cost` | 未採購時預估台幣成本 |
-| `actual_cost` | 採購實際台幣成本；已採購必填，未採購可留白 |
+| `actual_cost` | 採購實際台幣成本；已採購或狀態為 kept／returned 必填（即使 purchased=false），缺值回報輸入錯誤；其他未採購單可留白，以 estimated_cost 計未付義務及在途 |
 | `return_loss` | 實際退貨損失，無則 0；不含已另列的出清損失 |
 | `defect` | 已確認瑕疵；B 抵台驗貨的瑕疵可立即標 true |
 | `purchased` | 是否已採購，用於在途狀態與供應商採購嘗試分母 |
@@ -127,9 +127,9 @@ UTF-8，可有 BOM，第一列標頭必填。使用 [templates/orders.csv](templ
 | `uses_reserve` | 是否動用準備金；只容許退款／退貨運費與瑕疵損失（refund／loss）的支出 |
 | `cost_id`, `order_id` | 關聯貨物、訂單 ID；無關聯可留白；採購付款應有 cost_id 才能抵掉未付義務 |
 
-刷卡當日就列 `out`，繳卡費時不要再列一次。每筆銀行回款須另列 `in`，不能只填訂單入帳日。可用現金＝預算＋流水收入−流水支出。曝險＝全部已付支出＋未付成本義務，已付在途成本不再加一次。曝險與實際虧損分開管控。
+刷卡當日就列 `out`，繳卡費時不要再列一次。每筆銀行回款須另列 `in`，不能只填訂單入帳日。可用現金＝預算＋流水收入−全部流水支出（含準備金支出）。paid_spend 僅計非準備金的已付支出，曝險＝paid_spend＋未付成本義務，與「預算−準備金規定額度」比較；uses_reserve=true 的支出由 reserve_balance 管控，不重複占用非準備金預算。已付在途成本不再加一次，曝險與實際虧損分開管控。
 
-實際虧損＝陌生人訂單的 return_loss／realized_loss＋sample／ad／loss 流水支出＋庫存無法回收額。同一筆損失只能放一處；流水 refund 表示資金移動，不能再把全部退款售價當成損失。每日廣告額用於績效，現金流水 ad 用於現金與已實現虧損，兩份應一致。
+實際虧損＝所有訂單（含親友單）的 return_loss／realized_loss＋sample／ad／loss 流水支出＋庫存無法回收額，並套用全案及單品虧損紅線。同一筆損失只能放一處；流水 refund 表示資金移動，不能再把全部退款售價當成損失。每日廣告額用於績效，現金流水 ad 用於現金與已實現虧損，兩份應一致。
 
 準備金＝規定額度−標記 uses_reserve 的支出＋reserve_topup。撥款不會自動補準備金。若從現有可用現金內部撥補準備金，reserve_topup 流入搭配同額 other 流出，避免虛增現金；外部注資則只記流入。
 
@@ -148,7 +148,7 @@ UTF-8，可有 BOM，第一列標頭必填。使用 [templates/orders.csv](templ
 
 A 從 Day 14 評估六列，停損與品質隨時適用；單品損失 2,000、全案損失 6,000 為紅線。完成陌生人單不足 15 筆記 PENDING，不能驗證成功；第 5、6 列仍可列出轉換／樣本不足原因。兩輪未達標的數字完全依使用者維護的 tuning_rounds，不因等待自動增加。
 
-B Day 42 僅停損，Day 56 才評估擴大／再測；未成熟時阻擋績效決策。全案撤離與 SKU 品質停損同時列出。準備金不足、曝險超額、B 在途滿額都會暫停新承諾；B 準備金低於一半停止接單，Day 56 仍不足一半則退場。跨軌採 EXIT > STOP_ACCEPTING > PAUSED > NORMAL，非 NORMAL 不給擴大／再測。暫停前已接單才能履約，新單不能藉「既有訂單」例外繞過暫停。
+B Day 42 僅停損，Day 56 才評估擴大／再測；未成熟時阻擋績效決策。全案撤離與 SKU 品質停損同時列出。準備金不足、曝險超額、B 在途滿額都會暫停該軌新承諾；B 準備金低於一半停止接單，Day 56 仍不足一半則退場。global_state 跨軌採 EXIT > STOP_ACCEPTING > PAUSED > NORMAL，但擴大／再測依各軌自身狀態過濾：該軌非 NORMAL 才禁止，不連帶阻擋預算與準備金獨立的另一軌。該軌暫停前已接單才能履約，新單不能藉「既有訂單」例外繞過暫停。
 
 費率每項含 `value`, `effective_from`, `checked_on`。`meta.rates_version` 是費率內容 SHA-256，`meta.rates` 保留所用數值與日期；查核距判讀日超過 30 天時，每項各給一則警告。隨附數字依 2026-11-11 任務規格建檔，**不是即時官方查核**；成交費只有 `default` 的 6% 示意，使用前應換成自己的類目費率。方案 2 以 boundary 分為低額百分比／高額固定額，不是 NT$60 上限。
 

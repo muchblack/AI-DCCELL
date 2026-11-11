@@ -397,3 +397,91 @@ class CLIContract(unittest.TestCase):
     def test_integral_click_values(self):
         data = self.good(orders=[], cashflow=[], days=[daily(clicks='300.0')])
         self.assertEqual(data['verdict']['actions'][0]['rule'], 'A14-5')
+
+    def test_f1_terminal_orders_require_actual_cost(self):
+        for track in ('A', 'B'):
+            for status in ('kept', 'returned'):
+                with self.subTest(track=track, status=status):
+                    result, data, *_ = self.run_cli(
+                        p=params(track), orders=[order(track=track, status=status,
+                                                     purchased='false', actual_cost='')],
+                        cashflow=[], days=[], as_of='2026-10-20')
+                    self.assertEqual(result.returncode, 2, data)
+                    self.assertEqual(result.stderr, '')
+                    self.assertTrue(any(e['column'] == 'actual_cost' and e['row'] == 1
+                                        for e in data['errors']), data)
+                    for key in ('unit_economics', 'ledger_state', 'verdict'):
+                        self.assertIsNone(data[key])
+
+    def test_f2_non_stranger_losses_trigger_red_lines(self):
+        for column in ('return_loss', 'realized_loss'):
+            for loss in (2000, 7000):
+                with self.subTest(column=column, loss=loss):
+                    rows = [order(i) for i in range(15)]
+                    rows.append(order(15, is_stranger='false', status='returned',
+                                      refund_settled_on='2026-09-29', defect='true',
+                                      **{column: loss}))
+                    data = self.good(orders=rows, cashflow=[], days=[])
+                    state = data['ledger_state']['A']
+                    self.assertEqual(state['actual_loss'], loss)
+                    self.assertEqual(state['realized_loss'], loss)
+                    self.assertEqual(data['verdict']['global_state'], 'EXIT' if loss == 7000 else 'NORMAL')
+                    rules = [a['rule'] for a in data['verdict']['actions']]
+                    self.assertIn('A14-1', rules)
+                    self.assertEqual('A-LOSS-EXIT' in rules, loss == 7000)
+                    self.assertNotIn('A14-2', rules)
+                    self.assertEqual(state['metrics']['accepted'], 15)
+                    self.assertEqual(state['metrics']['return_rate'], 0)
+                    self.assertEqual(state['metrics']['defect_rate'], 0)
+                    self.assertEqual(state['metrics']['avg_contribution_after_ads'], 100)
+
+    def test_f3_growth_uses_own_track_state(self):
+        cases = [('A', 20, 15, 0, 'B56-4'), ('A', 8, 15, 0, 'B56-5'),
+                 ('B', 20, 15, 0, 'A14-3'), ('B', 20, 14, 300, 'A14-5'),
+                 ('B', 20, 14, 299, 'A14-6')]
+        growth_rules = {'A14-3', 'A14-5', 'A14-6', 'B56-4', 'B56-5'}
+        for paused, b_count, a_count, clicks, expected in cases:
+            for reverse in (False, True):
+                with self.subTest(paused=paused, expected=expected, reverse=reverse):
+                    p = params()
+                    p['tracks']['B'] = params('B')['tracks']['B']
+                    p['skus'][0]['sku'] = 'a'
+                    b = copy.deepcopy(params('B')['skus'][0])
+                    b['sku'] = 'b'
+                    p['skus'].append(b)
+                    if reverse:
+                        p['tracks'] = dict(reversed(list(p['tracks'].items())))
+                    rows = [order(i, sku='a') for i in range(a_count)]
+                    rows += [order(100 + i, track='B', sku='b') for i in range(b_count)]
+                    data = self.good(p=p, orders=rows, days=[daily(sku='a', clicks=clicks)],
+                                     cashflow=[cash(track=paused, sku=paused.lower(), category='refund',
+                                                    estimated_twd=500, uses_reserve='true')])
+                    self.assertEqual(data['verdict']['global_state'], 'PAUSED')
+                    matched_growth = [a['rule'] for a in data['verdict']['actions'] if a['rule'] in growth_rules]
+                    self.assertEqual(matched_growth, [expected])
+
+    def test_f4_reserve_spend_excluded_from_exposure(self):
+        for track in ('A', 'B'):
+            for uses_reserve in (True, False):
+                for topup in (0, 520):
+                    with self.subTest(track=track, uses_reserve=uses_reserve, topup=topup):
+                        p = params(track)
+                        config = p['tracks'][track]
+                        limit = config['budget'] - config['reserve_requirement']
+                        flows = [cash(track=track, category='other', estimated_twd=limit - 100, actual_twd=limit),
+                                 cash(track=track, category='refund', estimated_twd=500, actual_twd=520,
+                                      uses_reserve='true' if uses_reserve else 'false')]
+                        if topup:
+                            flows.append(cash(track=track, category='reserve_topup', direction='in', estimated_twd=topup))
+                        data = self.good(p=p, orders=[], cashflow=flows, days=[], as_of='2026-10-28')
+                        state = data['ledger_state'][track]
+                        paid = limit + (0 if uses_reserve else 520)
+                        self.assertEqual(state['paid_spend'], paid)
+                        self.assertEqual(state['exposure'], paid)
+                        self.assertEqual(state['unpaid_obligations'], 0)
+                        self.assertEqual(state['available_cash'], config['reserve_requirement'] - 520 + topup)
+                        balance = config['reserve_requirement'] - (520 if uses_reserve else 0) + topup
+                        self.assertEqual(state['reserve_balance'], balance)
+                        rules = [a['rule'] for a in data['verdict']['actions']]
+                        self.assertEqual('EXPOSURE-PAUSE' in rules, not uses_reserve)
+                        self.assertEqual(data['verdict']['global_state'], 'NORMAL' if uses_reserve and topup else 'PAUSED')

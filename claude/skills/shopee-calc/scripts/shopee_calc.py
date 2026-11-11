@@ -215,8 +215,8 @@ class Inputs:
                     self.error(path, i, 'status', '未知訂單狀態')
                 if o['status'] == 'cancelled' and o['cancel_reason'] not in ('buyer', 'supplier', 'other'):
                     self.error(path, i, 'cancel_reason', '取消單須提供 buyer、supplier 或 other')
-                if o['purchased'] == 'true' and o['actual_cost'] == '':
-                    self.error(path, i, 'actual_cost', '已採購須提供實際成本')
+                if (o['purchased'] == 'true' or o['status'] in ('kept', 'returned')) and o['actual_cost'] == '':
+                    self.error(path, i, 'actual_cost', '已採購、保留單或退貨單須提供實際成本')
                 accepted = parsed.get('accepted_on')
                 for k, d in parsed.items():
                     if d and accepted and d < accepted:
@@ -337,7 +337,7 @@ def amount(row):
 
 
 def realized_loss(rows, flows):
-    return sum(dec(o['realized_loss']) + dec(o['return_loss']) for o in rows if o['is_stranger'] == 'true') + sum(amount(f) for f in flows if f['direction'] == 'out' and f['category'] in ('sample', 'ad', 'loss'))
+    return sum(dec(o['realized_loss']) + dec(o['return_loss']) for o in rows) + sum(amount(f) for f in flows if f['direction'] == 'out' and f['category'] in ('sample', 'ad', 'loss'))
 
 
 def inventory_loss(inventory):
@@ -359,6 +359,7 @@ def ledger(p, orders, flows, as_of):
         balance += sum(amount(f) for f in tf if f['category'] == 'reserve_topup')
         states[track] = dict(metrics=metrics(rows, as_of), reserve_balance=money(balance), reserve_gap=money(max(0, requirement - balance)))
         outflows = sum(amount(f) for f in tf if f['direction'] == 'out')
+        paid_spend = sum(amount(f) for f in tf if f['direction'] == 'out' and f['uses_reserve'] == 'false')
         inflows = sum(amount(f) for f in tf if f['direction'] == 'in')
         costs = {}
         for o in orders:
@@ -377,8 +378,8 @@ def ledger(p, orders, flows, as_of):
         unrecoverable = inventory_loss(inventory)
         states[track].update(realized_loss=money(realized), unrecoverable_inventory=money(unrecoverable), actual_loss=money(realized + unrecoverable))
         states[track].update(available_cash=money(dec(config['budget']) + inflows - outflows),
-                             paid_spend=money(outflows), unpaid_obligations=money(unpaid),
-                             exposure=money(outflows + unpaid), exposure_limit=money(dec(config['budget']) - requirement))
+                             paid_spend=money(paid_spend), unpaid_obligations=money(unpaid),
+                             exposure=money(paid_spend + unpaid), exposure_limit=money(dec(config['budget']) - requirement))
         if track == 'B':
             latest = {}
             for o in sorted((o for o in orders if o['track'] == track), key=lambda o: (o['accepted_on'], o['order_id'])):
@@ -397,13 +398,15 @@ def ledger(p, orders, flows, as_of):
 
 def verdict(p, rates, orders, flows, days, states, as_of):
     actions = []
-    state = 'NORMAL'
+    global_state = 'NORMAL'
     pending = False
 
     def action(scope, rule, instruction, evidence):
         actions.append(dict(scope=scope, rule=rule, instruction=instruction, evidence=evidence))
 
     for track, config in p['tracks'].items():
+        state = 'NORMAL'
+        action_start = len(actions)
         rows = [o for o in orders if o['track'] == track and o['round'] == config['current_round']]
         m = states[track]['metrics']
         ad = sum(dec(d['ad_spend']) for d in days if d['track'] == track and d['round'] == config['current_round'])
@@ -464,10 +467,13 @@ def verdict(p, rates, orders, flows, days, states, as_of):
                 action('project', 'B56-4', '繼續擴大，已撥款利潤滾入下一輪', dict(track=track, **m))
             else:
                 action('project', 'B56-5', '準備金足額，僅調整單一變數再測四週', dict(track=track, **m))
-    if state != 'NORMAL':
-        actions = [a for a in actions if a['rule'] not in ('A14-3', 'A14-5', 'A14-6', 'B56-4', 'B56-5')]
+        if state != 'NORMAL':
+            actions[action_start:] = [a for a in actions[action_start:] if a['rule'] not in ('A14-3', 'A14-5', 'A14-6', 'B56-4', 'B56-5')]
+        severity = ('NORMAL', 'PAUSED', 'STOP_ACCEPTING', 'EXIT')
+        if severity.index(state) > severity.index(global_state):
+            global_state = state
     actions.sort(key=lambda a: (a['scope'] != 'project', a['scope'], a['rule']))
-    return dict(global_state=state, actions=actions, maturity='PENDING' if pending else 'MATURED')
+    return dict(global_state=global_state, actions=actions, maturity='PENDING' if pending else 'MATURED')
 
 
 class Parser(argparse.ArgumentParser):
