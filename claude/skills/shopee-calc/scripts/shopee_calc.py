@@ -15,6 +15,26 @@ HEADERS = {
     'daily': 'date track round sku change impressions clicks ctr ad_spend orders received_amount in_transit notes'.split(),
 }
 
+A_PROJECT_LOSS_LIMIT = 6000
+A_SKU_LOSS_LIMIT = 2000
+A_MAX_TUNING_ROUNDS = 2
+A_MIN_VALIDATION_ORDERS = 15
+A_MIN_CONVERSION_CLICKS = 300
+QUALITY_STOP_RATE = 0.05
+A_LISTING_PROFIT_FLOOR = 50
+B_LISTING_CONTRIBUTION_FLOOR = 60
+B_MIN_EXPAND_ORDERS = 20
+B_MIN_EXPAND_AVG_CONTRIBUTION = 30
+B_MIN_SUPPLIER_FULFILLMENT_RATE = 0.9
+B_MAX_CANCEL_RATE = 0.05
+A_DECISION_DAY = 14
+# Day 42 only applies always-on stop rules; it needs no separate verdict branch.
+B_INTERIM_DAY = 42
+B_SETTLEMENT_DAY = 56
+B_MIN_EFFECTIVE_ORDERS = 8
+RESERVE_STOP_FRACTION = Decimal('0.5')
+B_CPA_SHARE = Decimal('0.5')
+
 
 class Inputs:
     def __init__(self):
@@ -279,10 +299,10 @@ def economics(p, rates):
         result[s['sku']] = dict(kept_order_profit=money(kept), expected_profit=money(expected),
                                 program_fee=money(program), payment_fee=money(payment),
                                 order_cost=money(cost), item_costs=item_costs,
-                                cpa_cap=money(expected * (Decimal('0.5') if s['track'] == 'B' else 1)),
+                                cpa_cap=money(expected * (B_CPA_SHARE if s['track'] == 'B' else 1)),
                                 break_even_cpc=money(expected * dec(s['conversion_rate'])) if s['track'] == 'A' else None,
                                 flags=[])
-        if expected < (50 if s['track'] == 'A' else 60):
+        if expected < (A_LISTING_PROFIT_FLOOR if s['track'] == 'A' else B_LISTING_CONTRIBUTION_FLOOR):
             result[s['sku']]['flags'].append('不碰' if s['track'] == 'A' else '不准上架')
         if s['track'] == 'A' and expected * dec(s['conversion_rate']) < dec(rates['min_product_ad_bid']['value']):
             result[s['sku']]['flags'].append('不可依賴付費廣告')
@@ -418,7 +438,7 @@ def verdict(p, rates, orders, flows, days, states, as_of):
             if state == 'NORMAL':
                 state = 'PAUSED'
             action('project', 'RESERVE-PAUSE', '暫停新的廣告與需採購的新承諾；只履行暫停前已接訂單，補足準備金後再評估', dict(track=track, balance=states[track]['reserve_balance'], gap=states[track]['reserve_gap']))
-        low_reserve = track == 'B' and dec(states[track]['reserve_balance']) < dec(config['reserve_requirement']) / 2
+        low_reserve = track == 'B' and dec(states[track]['reserve_balance']) < dec(config['reserve_requirement']) * RESERVE_STOP_FRACTION
         if low_reserve:
             state = 'STOP_ACCEPTING' if state != 'EXIT' else state
             action('project', 'RESERVE-STOP', '停止接單，商品反灰，補足準備金', dict(track=track, balance=states[track]['reserve_balance']))
@@ -428,42 +448,42 @@ def verdict(p, rates, orders, flows, days, states, as_of):
         if track == 'B' and states[track]['in_transit']['remaining'] <= 0:
             state = 'PAUSED' if state == 'NORMAL' else state
             action('project', 'B-IN-TRANSIT', '在途額度已滿，商品反灰，暫停新增接單', states[track]['in_transit'])
-        if track == 'A' and states[track]['actual_loss'] >= 6000:
+        if track == 'A' and states[track]['actual_loss'] >= A_PROJECT_LOSS_LIMIT:
             state = 'EXIT'
             action('project', 'A-LOSS-EXIT', '全案停止採購、補貨與廣告，剩餘庫存出清', dict(track=track, actual_loss=states[track]['actual_loss']))
-        if track == 'B' and day >= 56 and (m['accepted'] - m['cancelled'] < 8 or low_reserve):
+        if track == 'B' and day >= B_SETTLEMENT_DAY and (m['accepted'] - m['cancelled'] < B_MIN_EFFECTIVE_ORDERS or low_reserve):
             state = 'EXIT'
             action('project', 'B56-1', '處理在途訂單後全案撤離', dict(track=track, effective_orders=m['accepted'] - m['cancelled']))
         for s in [s for s in p['skus'] if s['track'] == track]:
             sku_rows = [o for o in rows if o['sku'] == s['sku']]
             sm = metrics(sku_rows, as_of)
-            pending |= track == 'A' and sm['matured'] < 15
+            pending |= track == 'A' and sm['matured'] < A_MIN_VALIDATION_ORDERS
             loss = realized_loss([o for o in orders if o['sku'] == s['sku']], [f for f in flows if f['sku'] == s['sku']]) + inventory_loss([i for i in p['inventory'] if i['sku'] == s['sku']])
-            if track == 'A' and (loss >= 2000 or s['tuning_rounds'] >= 2):
+            if track == 'A' and (loss >= A_SKU_LOSS_LIMIT or s['tuning_rounds'] >= A_MAX_TUNING_ROUNDS):
                 action(s['sku'], 'A14-1', '停止進貨，剩餘庫存出清', dict(loss=money(loss), tuning_rounds=s['tuning_rounds']))
-            elif (sm['return_rate'] or 0) >= 0.05 or (sm['defect_rate'] or 0) >= 0.05:
+            elif (sm['return_rate'] or 0) >= QUALITY_STOP_RATE or (sm['defect_rate'] or 0) >= QUALITY_STOP_RATE:
                 action(s['sku'], 'B56-2' if track == 'B' else 'A14-2', '停止進貨，追究供應商責任或撤換貨源', sm)
-            elif track == 'A' and day >= 14:
+            elif track == 'A' and day >= A_DECISION_DAY:
                 completed = [o for o in sku_rows if o['is_stranger'] == 'true' and o['status'] == 'kept' and mature(o, as_of)]
                 ad = sum(dec(d['ad_spend']) for d in days if d['sku'] == s['sku'] and d['round'] == config['current_round'])
                 profit = actual_profit(p, rates, completed, as_of)
-                avg = (profit - ad) / len(completed) if completed else None
-                evidence = dict(**sm, avg_profit_after_ads=money(avg) if avg is not None else None)
-                if len(completed) >= 15 and avg > 0:
+                sku_avg = (profit - ad) / len(completed) if completed else None
+                evidence = dict(**sm, avg_profit_after_ads=money(sku_avg) if sku_avg is not None else None)
+                if len(completed) >= A_MIN_VALIDATION_ORDERS and sku_avg > 0:
                     action(s['sku'], 'A14-3', '驗證成功，僅用已撥款淨營收補貨', evidence)
-                elif len(completed) >= 15:
+                elif len(completed) >= A_MIN_VALIDATION_ORDERS:
                     action(s['sku'], 'A14-4', '停止廣告改自然流，或調整客單價與組合', evidence)
                 else:
                     clicks = sum(int(dec(d['clicks'])) for d in days if d['sku'] == s['sku'] and d['round'] == config['current_round'])
                     evidence['clicks'] = clicks
-                    if clicks >= 300:
+                    if clicks >= A_MIN_CONVERSION_CLICKS:
                         action(s['sku'], 'A14-5', '價格、首圖、組合三選一調整，重測七天；等待成熟不增加調優輪數', evidence)
                     else:
                         action(s['sku'], 'A14-6', '樣本不足，延長七天或優化標題；廣告累計仍受上限約束', evidence)
         track_pending = m['matured'] < m['accepted'] or m['matured'] == 0
         pending |= track_pending
-        if track == 'B' and day >= 56 and not track_pending and not any(a['rule'] == 'B56-2' and a['scope'] in [s['sku'] for s in p['skus'] if s['track'] == track] for a in actions):
-            if m['completed'] >= 20 and avg >= 30 and (m['supplier_fulfillment_rate'] or 0) >= 0.9 and m['cancel_rate'] < 0.05:
+        if track == 'B' and day >= B_SETTLEMENT_DAY and not track_pending and not any(a['rule'] == 'B56-2' and a['scope'] in [s['sku'] for s in p['skus'] if s['track'] == track] for a in actions):
+            if m['completed'] >= B_MIN_EXPAND_ORDERS and avg >= B_MIN_EXPAND_AVG_CONTRIBUTION and (m['supplier_fulfillment_rate'] or 0) >= B_MIN_SUPPLIER_FULFILLMENT_RATE and m['cancel_rate'] < B_MAX_CANCEL_RATE:
                 action('project', 'B56-4', '繼續擴大，已撥款利潤滾入下一輪', dict(track=track, **m))
             else:
                 action('project', 'B56-5', '準備金足額，僅調整單一變數再測四週', dict(track=track, **m))
