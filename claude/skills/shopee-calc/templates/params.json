@@ -1,0 +1,19 @@
+{
+  "plan": 1,
+  "category": "default",
+  "return_rate": 0.1,
+  "per_return_loss": 60,
+  "fx": 0.22,
+  "wholesale_discount": 0.6,
+  "auto_ad": false,
+  "tracks": {
+    "A": {"budget": 20000, "reserve_requirement": 3000, "current_round": "1", "rounds": {"1": "2026-09-17"}},
+    "B": {"budget": 15000, "reserve_requirement": 2000, "in_transit_cap": 8000, "current_round": "1", "rounds": {"1": "2026-09-17"}}
+  },
+  "skus": [
+    {"sku": "現貨範例", "track": "A", "price": 200, "shipping": 0, "landed_cost": 71, "conversion_rate": 0.03, "promotion": 0, "gift": 0, "packaging": 0, "preorder_fee": 0, "tuning_rounds": 0},
+    {"sku": "預購範例", "track": "B", "price": 350, "shipping": 60, "promotion": 0, "gift": 0, "packaging": 10, "preorder_fee": 0, "tuning_rounds": 0,
+      "items": [{"retail_jpy": 1000, "domestic_shipping_jpy": 50, "international_shipping": 20, "import_tax": 10, "units": 1}]}
+  ],
+  "inventory": []
+}

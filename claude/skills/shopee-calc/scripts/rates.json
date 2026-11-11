@@ -1,0 +1,10 @@
+{
+  "category_default": {"value": 0.06, "effective_from": "2026-01-01", "checked_on": "2026-11-11"},
+  "payment": {"value": 0.025, "effective_from": "2026-01-01", "checked_on": "2026-11-11"},
+  "plan1": {"value": 0.06, "effective_from": "2026-09-01", "checked_on": "2026-11-11"},
+  "plan2_low": {"value": 0.06, "effective_from": "2026-09-01", "checked_on": "2026-11-11"},
+  "plan2_fixed": {"value": 60, "effective_from": "2026-09-01", "checked_on": "2026-11-11"},
+  "plan2_boundary": {"value": 100, "effective_from": "2026-09-01", "checked_on": "2026-11-11"},
+  "min_product_ad_bid": {"value": 2.4, "effective_from": "2025-06-02", "checked_on": "2026-11-11"},
+  "overseas_card": {"value": 0.015, "effective_from": "2026-01-01", "checked_on": "2026-11-11"}
+}

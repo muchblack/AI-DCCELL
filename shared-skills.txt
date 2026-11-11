@@ -47,6 +47,9 @@ markitdown
 speak-human-tw
 hf-image
 
+# 電商營運
+shopee-calc
+
 # 命理
 bazi
 ziwei-doushu
