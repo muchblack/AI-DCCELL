@@ -102,7 +102,7 @@ python3 ~/.claude/skills/scripts/mem-digest.py --dry-run
 
 上游套組裡的 `banner-design`、`slides` 沒有掛出來：兩者的 reference 跟 `design` 內建的版本逐字相同，`slides` 的生成腳本也在 `design-system`，掛了只會重複觸發。
 
-`react-best-practices` 的 `rules/`、`AGENTS.md` 是 symlink 指向上游；`SKILL.md` 是上游複製後把 `name` 從 `vercel-react-best-practices` 改回 `react-best-practices`（CLAUDE.md 與 agent 都用這個名字引用），`update-vendor.sh react-best-practices` 會自動重新產生。
+`react-best-practices` 的 `rules/`、`AGENTS.md` 是 symlink 指向上游；`SKILL.md` 是上游複製後把 `name` 從 `vercel-react-best-practices` 改回 `react-best-practices`（CLAUDE.md 與 agent 都用這個名字引用），`update-vendor.sh react-best-practices` 會自動重新產生。重新產生時會把 `claude/skills/react-best-practices/local-patch.md`（本地加的 Web Platform Reference 段落）接在最後，要改本地段落請改這個檔。
 
 `bootstrap.sh` 會自動初始化這些 submodule。已部署的機器 pull 之後補跑：
 

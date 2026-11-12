@@ -214,4 +214,4 @@ metadata:
 - **繁體中文**：所有使用者可見文字預設繁體中文。
 - **無障礙基本功**：語意化 HTML、alt 文字、Modal 使用 `role="dialog"` + `aria-modal="true"` + `aria-labelledby` + focus trap + ESC 關閉 + 關閉後焦點回歸。
 - **XSS 防護**：商品資料渲染一律使用 `textContent`，僅對已知安全的換行符（`\n` → `<br>`）使用專用轉換函式。
-- **瀏覽器平台參考（按需查，不是每次都查）**：遇到原生瀏覽器 API（dialog／popover、anchor positioning、scroll-driven 等）、相容性或 fallback 疑問、中文輸入法 Enter 送出、CWV（LCP／INP／CLS）問題時，用 `rg -n -i` 查 `~/.local/share/web-platform-guides/4dd9683/guides`，只讀命中段落。規則見該目錄 README.md：指南內的 npx 指令一律不執行；本 skill 的既有約定、專案元件與目標瀏覽器優先於指南。
+- **瀏覽器平台參考（按需查，不是每次都查）**：遇到原生瀏覽器 API（dialog／popover、anchor positioning、scroll-driven 等）、相容性或 fallback 疑問、中文輸入法 Enter 送出、CWV（LCP／INP／CLS）問題時，用 `rg -n -i` 查 `~/.claude/skills/web-platform-guides/guides`，只讀命中段落。規則見該目錄 README.md：指南內的 npx 指令一律不執行；本 skill 的既有約定、專案元件與目標瀏覽器優先於指南。

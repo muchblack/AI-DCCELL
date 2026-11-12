@@ -23,7 +23,7 @@ VENDORS=(
     "ui-ux-pro-max|vendor/ui-ux-pro-max-skill|.claude/skills/ui-ux-pro-max|for s in brand design design-system ui-styling; do test -f ../\$s/SKILL.md || { echo \"缺少 \$s/SKILL.md\"; exit 1; }; done"
     "find-skills|vendor/vercel-skills|skills/find-skills|"
     # 上游 name 是 vercel-react-best-practices，複製一份改回 react-best-practices，免得 /react-best-practices 引用失效
-    "react-best-practices|vendor/vercel-agent-skills|skills/react-best-practices|sed 's/^name: vercel-react-best-practices\$/name: react-best-practices/' SKILL.md > \"\${ROOT}/claude/skills/react-best-practices/SKILL.md\" && grep -q '^name: react-best-practices\$' \"\${ROOT}/claude/skills/react-best-practices/SKILL.md\""
+    "react-best-practices|vendor/vercel-agent-skills|skills/react-best-practices|sed 's/^name: vercel-react-best-practices\$/name: react-best-practices/' SKILL.md > \"\${ROOT}/claude/skills/react-best-practices/SKILL.md\" && cat \"\${ROOT}/claude/skills/react-best-practices/local-patch.md\" >> \"\${ROOT}/claude/skills/react-best-practices/SKILL.md\" && grep -q '^name: react-best-practices\$' \"\${ROOT}/claude/skills/react-best-practices/SKILL.md\""
 )
 
 list() {
