@@ -1,6 +1,8 @@
 import json
 import os
 from pathlib import Path
+import plistlib
+import shlex
 import stat
 import subprocess
 import tempfile
@@ -15,12 +17,43 @@ class InstallerTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.home = Path(self.tmp.name) / "home ' 測試"
+        self.home = Path(self.tmp.name).resolve() / "home ' 測試"
         self.home.mkdir()
         self.env = dict(os.environ, HOME=str(self.home), PYTHONDONTWRITEBYTECODE='1')
+        self.env.pop('OBSIDIAN_VAULT', None)
 
-    def run_install(self):
-        return subprocess.run(['python3', str(SCRIPTS / 'install-mem.py'), '--home', str(self.home)], env=self.env, capture_output=True, text=True)
+    def run_install(self, *extra):
+        extra = extra or ('--scheduler', 'systemd')
+        return subprocess.run(['python3', str(SCRIPTS / 'install-mem.py'), '--home', str(self.home), *extra], env=self.env, capture_output=True, text=True)
+
+    def test_vault_baked_into_hook_and_replaces_old_one(self):
+        path = self.home / '.claude/settings.json'
+        path.parent.mkdir(parents=True)
+        old = "bash '/x/mem-recall.sh' --format claude"
+        path.write_text(json.dumps({'hooks': {'SessionStart': [
+            {'hooks': [{'command': old}]},
+            {'hooks': [{'command': 'other'}, {'command': old}]},
+        ]}}))
+        p = self.run_install('--scheduler', 'systemd', '--vault', "/v ' x")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        groups = json.loads(path.read_text())['hooks']['SessionStart']
+        self.assertEqual(groups[0], {'hooks': [{'command': 'other'}]})
+        self.assertEqual(len(groups), 2)
+        self.assertEqual(shlex.split(groups[1]['hooks'][0]['command'])[0], "MEM_FALLBACK_VAULT=/v ' x")
+
+    def test_launchd(self):
+        p = self.run_install('--scheduler', 'launchd')
+        self.assertEqual(p.returncode, 0, p.stderr)
+        path = self.home / 'Library/LaunchAgents/local.mem-digest.plist'
+        before = path.read_bytes()
+        plist = plistlib.loads(before)
+        self.assertEqual(plist['ProgramArguments'][1], str(self.home / '.claude/skills/scripts/mem-digest.py'))
+        self.assertTrue(Path(plist['ProgramArguments'][0]).is_absolute())
+        self.assertEqual([s['Weekday'] for s in plist['StartCalendarInterval']], [1, 2, 3, 4, 5])
+        self.assertIn(str(self.home / '.local/bin'), plist['EnvironmentVariables']['PATH'])
+        self.assertFalse((self.home / '.config/systemd').exists())
+        self.assertEqual(self.run_install('--scheduler', 'launchd').returncode, 0)
+        self.assertEqual(before, path.read_bytes())
 
     def test_merge(self):
         paths = ['.claude/settings.json', '.codex/hooks.json', '.gemini/config/hooks.json']
@@ -49,7 +82,6 @@ class InstallerTests(unittest.TestCase):
                 self.assertEqual(obj['custom'], originals[i]['custom'])
                 self.assertEqual(obj['mem']['Stop'], originals[i]['mem']['Stop'])
                 hook = obj['mem']['SessionStart'][0]
-            import shlex
             expected = "bash '" + str(self.home / '.claude/skills/scripts/mem-recall.sh').replace("'", "'\"'\"'") + "' --format " + ['claude', 'codex', 'agy'][i]
             self.assertEqual(hook, {'type': 'command', 'command': expected, 'timeout': 5})
             self.assertEqual(shlex.split(hook['command'])[1], str(self.home / '.claude/skills/scripts/mem-recall.sh'))
@@ -78,6 +110,7 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(subprocess.run(['bash', '-n', str(REPO / 'bootstrap.sh')], capture_output=True).returncode, 0)
         bootstrap = (REPO / 'bootstrap.sh').read_text()
         self.assertIn('install-mem.py', bootstrap)
+        self.assertIn('launchctl bootstrap', bootstrap)
         self.assertRegex(bootstrap, r'if ! python3 "\$\{SOURCE_DIR\}/skills/scripts/install-mem\.py"; then\n\s+echo .*警告.*\nfi')
         for step in ['systemctl --user daemon-reload', 'systemctl --user enable --now mem-digest.timer', 'loginctl enable-linger']:
             self.assertIn(step, bootstrap)

@@ -57,13 +57,21 @@ herdr-dev 每張票結束時，會把跟工具、框架有關的坑去識別化�
 
 `bootstrap.sh` 的 step 1g 會以 `install-mem.py` 合併 Claude、Codex、agy 的 SessionStart hook，保留既有設定，並安裝 systemd user units；重跑不會重複新增。無效 JSON 原檔不動，回報錯誤並回傳非零。安裝器不建立 vault、不啟動 timer，也不依賴 `.bashrc`。可用 `python3 claude/skills/scripts/install-mem.py --home <測試目錄>` 在隔離目錄檢查。
 
+安裝器依平台選排程：Linux 裝 systemd units，macOS 裝 `~/Library/LaunchAgents/local.mem-digest.plist`，可用 `--scheduler` 覆寫。macOS 的 plist 寫入安裝當下的 Python 絕對路徑，Python 換版後要重跑安裝器。安裝時的 `OBSIDIAN_VAULT`（或 `--vault`）會以 `MEM_FALLBACK_VAULT` 寫進 hook 指令，供 GUI 啟動等讀不到 shell 設定的情境使用；換 vault 後重跑即可，舊 hook 會被取代。
+
 安裝後手動執行：
 
 ```bash
+# Linux
 systemctl --user daemon-reload
 systemctl --user enable --now mem-digest.timer
 loginctl enable-linger
+
+# macOS
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.mem-digest.plist
 ```
+
+macOS 錯過排程時，睡眠醒來會補跑，關機期間的不補。
 
 Codex 第一次需信任新增 hook；現有 Claude、Codex、agy panes 要重開。agy 的全域 hook 載入仍需實機確認，`GEMINI.md` 設有未注入時開場執行一次的備援。主控合併後另做三個 CLI 的標記注入、Known pitfalls 搜尋、`systemd-analyze verify` 與排程環境 `claude -p` 登入驗證。
 

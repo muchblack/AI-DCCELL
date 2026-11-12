@@ -202,9 +202,13 @@ if ! python3 "${SOURCE_DIR}/skills/scripts/install-mem.py"; then
     echo -e "  ${YELLOW}警告：共用記憶設定未完成，請修正上方錯誤後重跑安裝器；繼續其餘部署步驟。${NC}"
 fi
 echo "  請手動完成："
-echo "    systemctl --user daemon-reload"
-echo "    systemctl --user enable --now mem-digest.timer"
-echo "    loginctl enable-linger"
+if [[ "$(uname)" == "Darwin" ]]; then
+    echo "    launchctl bootstrap gui/\$(id -u) ~/Library/LaunchAgents/local.mem-digest.plist"
+else
+    echo "    systemctl --user daemon-reload"
+    echo "    systemctl --user enable --now mem-digest.timer"
+    echo "    loginctl enable-linger"
+fi
 echo "  Codex 首次載入時請信任新增的 SessionStart hook，並重開 Claude、Codex、agy panes。"
 echo ""
 

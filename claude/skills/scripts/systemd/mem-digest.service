@@ -4,5 +4,5 @@ Description=產生 AI 使用習慣待審草稿
 [Service]
 Type=oneshot
 Environment="PATH=%h/.local/bin:%h/.npm-global/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/usr/bin/python3 "%h/.claude/skills/scripts/mem-digest.py"
+ExecStart=/usr/bin/env python3 "%h/.claude/skills/scripts/mem-digest.py"
 UMask=0077
