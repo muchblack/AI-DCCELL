@@ -47,6 +47,8 @@ PLATFORM_DOMAINS = {
     "はてなブックマーク": ["b.hatena.ne.jp"],
     "Yahoo!ニュース": ["news.yahoo.co.jp"],
     "Yahoo!リアルタイム検索": ["search.yahoo.co.jp"],
+    "Togetter": ["togetter.com"],
+    "Posfie": ["posfie.com"],
     "ニコニコ": ["nicovideo.jp"],
     "Ruliweb": ["ruliweb.com"],
     "DC Inside": ["dcinside.com"],
