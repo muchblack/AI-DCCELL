@@ -99,6 +99,12 @@ for B in tui hc; do
   else called "hc keys" "hc keys $ID esc y"; fi
 
   reset
+  out=$(ctl new $ID); rc=$?
+  eq "$B new rc" 0 "$rc"; eq "$B new quiet" "" "$out"
+  if [ $B = tui ]; then called "tui new" "herdr agent prompt $ID /clear"
+  else called "hc new (typed, not hc send)" "hc keys $ID / c l e a r enter"; fi
+
+  reset
   if [ $B = tui ]; then
     ctl start codex /wt >/dev/null 2>&1; eq "tui start without --pane → exit 2" 2 "$?"
     eq "tui start prints pane" w2:p4 "$(ctl start codex /wt --pane w2:p4)"

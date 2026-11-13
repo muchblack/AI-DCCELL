@@ -121,6 +121,7 @@ tell the user, do not guess.
 | `$CTL wait <id> <seconds>` | until not working; still working at timeout → exit 124. **Seconds on both backends** |
 | `$CTL read <id> <lines>` | last N screen lines |
 | `$CTL keys <id> <key>…` | `enter`, `esc`, `y`, `down`, `ctrl+c`… |
+| `$CTL new <id>` | run `/clear` (clear context, new chat); hc types it key by key because `hc send` wraps text as `<hc from=…>` and the slash command never runs. Provider follow-ups: `references/flow.md` Phase 2 step 2 |
 | `$CTL start <agent> <cwd> [--pane <id>] [-- <agent args>]` | start an agent, print its id (hc: new terminal; tui: needs `--pane`, an existing pane at a shell prompt) |
 
 Ids: TUI pane ids look like `w2:p2`; hc ids look like `t4` (remote:
@@ -464,11 +465,17 @@ When the call returns, check `$CTL status <worker>`:
 - **Check for stale context before each dispatch.** `$CTL read
   <worker> 30` before prompting. Empty/no
   unrelated prior conversation → prompt directly. A previous ticket's
-  conversation, or more than half the context used → `/new` once on that
-  pane's first dispatch of the ticket (opencode needs an extra `$CTL keys
-  <pane> enter` to run `/new`; see `references/flow.md` Phase 2 step 2). If `/new`
-  doesn't take effect, use `$CTL start <agent> <cwd> [--pane <id>]` to
-  start the agent fresh (record the new id on hc), or ask the Emperor.
+  conversation, or more than half the context used → fresh context once on
+  that pane's first dispatch of the ticket: **`$CTL new <pane>`, never
+  `$CTL prompt <pane> "/clear"`** — `hc send` wraps slash commands as
+  `<hc from=…>` text so they never run; `$CTL new` types `/clear` key by key
+  on hc (2026-11-10, VIN-219/VIN-220). Prefer it over `$CTL stop` +
+  `$CTL start`: on hc, `start` creates a hidden child terminal of main's
+  terminal (no pane in the project's workspace; the Emperor needs `hc attach`).
+  Provider follow-ups (agy's screen-clear window, opencode unverified) are in
+  `references/flow.md` Phase 2 step 2. If the context still isn't cleared,
+  start a fresh agent (hc: `$CTL stop` + `$CTL start`, record the new id), or
+  ask the Emperor.
 
 State lives in `.herdr-dev/state.json` so background waits survive turns.
 

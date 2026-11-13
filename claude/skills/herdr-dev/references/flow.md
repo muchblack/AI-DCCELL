@@ -356,31 +356,48 @@ State: `{ "step": "requirement_confirmed", "worker_agent": "codex", "worker": "w
    held VIN-180's conversation, opencode at 75% used). Do it once per
    ticket on that pane's first dispatch; later dispatches in the same
    ticket keep the pane's context.
-   **hc backend: never send `/new` with `$CTL prompt`** — `hc send` wraps
-   the text as `<hc from="…">/new</hc>`, so no CLI sees a slash command (agy
-   even ran it as a task). Type it key by key instead: `$CTL keys <pane> /
-   n e w`, `$CTL read` to see the menu, then `$CTL keys <pane> enter`
-   (2026-11-09, VIN-216). The `$CTL prompt` forms below are TUI-only.
-   Provider specifics:
-   - codex: `$CTL prompt <pane> "/new"` runs it directly; the status
-     bar should then show `Context 100% left`. Newer codex then asks
-     "Use current Git worktree / Create new Git worktree" — pick 1
-     (`enter`); the brief still sends the pane into the worker worktree.
-   - opencode: `$CTL prompt <pane> "/new"` only opens the
-     slash-command autocomplete menu; it runs only after a second
-     `$CTL keys <pane> enter`. Confirm the token counter in the
-     bottom-right is gone before dispatching.
-   - agy: typed `/new` shows a menu whose first item is `/clear (new)`;
-     `enter` runs it. On TUI, `$CTL prompt <pane> "/new"` first shows the slash-command
-     menu and clears the screen a moment later; a prompt sent in that window
-     is silently dropped. Never chain `/new` and the dispatch in one command.
-     Send `/new`, wait until `$CTL read` shows the banner with an empty `>`
-     and no menu, then dispatch, then confirm with `$CTL read` that the
+   **Check the pane's cwd too, not just its context.** `$CTL list` prints
+   each agent's cwd. A worker whose cwd is a removed worktree (a previous
+   ticket's `worker-<slug>`; hc `hc get <id>` shows `(deleted)`) or any path
+   outside this ticket's `<worker_worktree>` → do not `$CTL new` it:
+   `$CTL stop <id>`, then `$CTL start <agent> <worker_worktree> -- <same
+   flags the old pane had, from hc get>` and record the new id. codex's
+   `-s workspace-write` sandbox is bound to its startup cwd, so a pane left
+   in a deleted directory cannot write the new worktree (2026-11-10,
+   design-system: both codex panes still sat in VIN-220's removed worktree).
+   **Always `$CTL new`, never `$CTL prompt <pane> "/clear"`.** On hc, `hc send`
+   wraps the text as `<hc from="<main id>">/clear</hc>`, so the agent reads
+   it as an ordinary message and the context is NOT cleared (2026-11-10,
+   VIN-219: with `/new`, codex stayed at 82%, agy role-played "系統狀態已重設"
+   while keeping the old conversation). `$CTL new` types `/clear` key by key
+   on hc (`hc keys <id> / c l e a r enter`) and sends a normal prompt on TUI.
+   `/clear` replaced `/new` on 2026-11-10 (VIN-220): agy's `/new` only fuzzy-
+   matched `/clear (new)`, and codex's `/clear` ("clear the terminal and
+   start a new chat") skips the worktree picker its `/new` showed on hc.
+   Verified on hc for both: the slash menu shows exactly one `/clear` entry,
+   and a probe asking for the previous dispatch_id got "no prior context".
+   Prefer this over `$CTL stop` + `$CTL start`: on hc, `start` creates a
+   hidden child terminal of main's own terminal, so the project's workspace
+   loses its visible pane and the Emperor needs `hc attach <id>` to watch it.
+   Then check the provider's follow-up:
+   - codex: back to the banner with an empty `›` prompt — dispatch.
+   - agy: the screen clears a few seconds after enter, and a prompt sent in
+     that window is silently dropped. Never chain `$CTL new` and the dispatch
+     in one command. Wait until `$CTL read` shows the banner with an empty
+     `>` and no menu, then dispatch, then confirm with `$CTL read` that the
      prompt landed before starting `wait-result.sh` (2026-11-02, VIN-85).
-   - Other providers, or `/new` doesn't take effect → restart via
-     `$CTL start <agent> <worktree> [--pane <id>]` (TUI: needs a pane at a
-     plain shell; hc: opens a new terminal — record its new id in state),
-     or ask the Emperor.
+   - opencode: not verified with `/clear` (with `/new` it only opened the
+     slash menu and needed a second `$CTL keys <pane> enter`). `$CTL read`
+     after `$CTL new`; a menu still open → `$CTL keys <pane> enter`; confirm
+     the token counter in the bottom-right is gone before dispatching.
+   - Other providers, or `/clear` still doesn't clear the context → start a
+     fresh agent. hc: `$CTL stop <old id>` (so `$CTL list` never shows two
+     candidates for one role), `NEW=$($CTL start <agent> <project root>)`
+     (flags the old pane had go after `--`; check with `hc get`), answer a
+     codex "Trust this folder?" dialog with `$CTL keys $NEW enter`, `$CTL
+     wait $NEW 60`, record `$NEW` as `worker`/`reviewer` in state. TUI:
+     `$CTL start <agent> <worktree> --pane <id>` on a pane at a plain shell.
+     Or ask the Emperor.
 3. Dispatch without `--wait`, then wait with `scripts/wait-result.sh` in the
    background (one call, returns once — see SKILL.md › Herdr Dispatch
    Pattern). Worker gets `--approve` so allowlisted commands are approved
@@ -810,7 +827,12 @@ State: `{ "step": "tuning_dispatched", "tuning_round": 1, "dispatch_seq": <k>, "
    final PASS). Run `git status --short` in each first; if a worktree has
    uncommitted changes, stop and report instead of forcing. Otherwise
    `git worktree remove .herdr-dev/worktrees/worker-<slug>` and
-   `.../reviewer-<slug>`, then `git worktree prune`. Also delete scratch
+   `.../reviewer-<slug>`, then `git worktree prune`. Then stop every
+   pane whose cwd was inside a removed worktree (`$CTL list`, match the
+   cwd column): hc → `$CTL stop <id>` and drop its id from state, so the
+   next ticket never inherits a pane in a deleted directory; TUI (`stop`
+   unsupported) → tell the user which pane to restart. Never stop a pane
+   whose cwd is the project root or another project. Also delete scratch
    dirs this flow created under `.herdr-dev/` (e.g. `cleancheck`). Then
    delete the dev branch: `git branch -d herdr/dev-<slug>` (the Emperor's
    standing order, 2026-10-29 — the `--no-ff` merge commits on main keep

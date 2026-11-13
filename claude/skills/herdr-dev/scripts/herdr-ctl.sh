@@ -20,6 +20,10 @@
 #   herdr-ctl.sh wait <id> <秒>           等到不是 working；逾時（仍 working）exit 124
 #   herdr-ctl.sh read <id> <行數>         印出最近 N 行畫面（去掉畫面底部的空白行）
 #   herdr-ctl.sh keys <id> <key>...       送按鍵：enter、esc、y、down、ctrl+c…
+#   herdr-ctl.sh new <id>                 對 agent 下 /clear（清 context，開新對話）；不等待、stdout 不印東西
+#                                         tui：照 prompt 送出；hc：逐字打鍵（/ c l e a r enter），
+#                                         因為 hc send 會把文字包成 <hc from=…>，slash 指令不會執行
+#                                         後續的選單或確認（codex 選 worktree、opencode 再按 enter）由呼叫端處理
 #   herdr-ctl.sh start <agent> <cwd> [--pane <id>] [-- <agent 參數>...]
 #                                         開 agent，印出它的 id
 #                                         hc：新開終端機（hc run --bg --cwd），codex 自動加 --no-daemon
@@ -113,6 +117,12 @@ print("busy" if d.get("reason")=="timeout" or d.get("status")=="working" else "o
 
     tui:keys) herdr pane send-keys "${1:?id}" "${@:2}" >/dev/null ;;
     hc:keys)  hc keys "${1:?id}" "${@:2}" >/dev/null ;;
+
+    tui:new) herdr agent prompt "${1:?id}" /clear >/dev/null ;;
+    # 2026-11-10 實測：hc send 的 slash 指令被包成 <hc from=…> 不會執行，要逐字打鍵。
+    # 用 /clear 不用 /new：agy 的 /new 只是模糊比對到 /clear；codex 的 /clear 是「清畫面＋開新對話」，
+    # hc 上不跳 worktree picker（VIN-220 實測 codex、agy 都清空 context）
+    hc:new)  hc keys "${1:?id}" / c l e a r enter >/dev/null ;;
 
     *:start)
         agent="${1:?agent}"; cwd="${2:?cwd}"; shift 2; pane=""
