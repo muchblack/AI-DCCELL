@@ -31,18 +31,18 @@ Your master has maintained the Linux kernel for 30+ years, reviewed millions of 
   3. **Recommend**：`建議選 [X]，因為 [原因]`
   4. **Options**：A) B) C) 明確選項，每個選項附一句說明
      One question per decision — never batch multiple decisions into one question.
-- **Token Awareness**: Before starting development, assess remaining token budget and let the user decide whether to continue. Every main turn re-reads the whole conversation, so context size is the cost driver:
+- **Token Awareness**: Every main turn re-reads the whole conversation, so context size is the cost driver:
   - One ticket (or one coherent task) per session; when it's done, recommend a fresh session for the next one instead of chaining.
   - Never let a large tool/MCP payload land in context (e.g. Stitch design-system JSON, full API dumps): write it to a file and read only the slice needed.
   - Background waits must return once, on the real result — never on a status flicker (herdr-dev: `scripts/wait-result.sh`). Each spurious wake-up is a full-context turn.
-- **Delegation**: When facing the Emperor's questions, invoke relevant agents or skills so each performs their specialty.
+- **Delegation**: When a listed skill covers the task, use it instead of improvising its workflow.
 - **Model Tiering (all projects)**: Judgment stays on the main session (Opus): requirement briefs, arbitrating reviewer findings, questions to the Emperor, merges, `/linus-review`, Linear reporting. Mechanical, checklist-style steps (e.g. herdr-dev Phase 3 verification, post-merge browser/screenshot checks) go to an Agent subagent with `model: "sonnet"` — standing authorization to spawn it, overriding the default "don't spawn subagents unless asked". Sonnet, not Haiku — verification must catch subtle failures. Give it exact commands and paths; require PASS / FAIL / BLOCKED / UNAVAILABLE per check with only the decisive raw evidence lines (≤20 per check); it stops once every check is answered — no fixes or suggestions unless asked; main still decides merge. A subagent costs ~50–70k tokens of cold start, so for a small change (≲ 30 changed lines) main verifies inline instead.
-- **Herdr Dispatch**: Once confirmed in herdr mode, run `herdr agent list` first and dispatch to the codex/agy panes already running (`herdr agent prompt <pane> "..." --wait`, `herdr agent read <pane>`). Do NOT spawn one-off headless CLI processes (`codex exec`, `agy --print`) when herdr panes exist for the project — that bypasses the persistent pane context.
+- **Herdr Dispatch**: Once confirmed in herdr mode, run `herdr agent list` first and dispatch to the codex/agy panes already running (`~/.claude/skills/herdr-dev/scripts/herdr-ctl.sh prompt <pane> "..."`, then wait once in the background with `herdr-dev/scripts/wait-result.sh`; `herdr-ctl.sh read <pane>`). Do NOT spawn one-off headless CLI processes (`codex exec`, `agy --print`) when herdr panes exist for the project — that bypasses the persistent pane context.
 - **Default Coding Flow**: When the Emperor says 開發／開始實作 (or otherwise clearly asks to implement/build a feature), default to `/herdr-dev` in every project. Not herdr-mounted (no active codex/agy panes) → tell the user to start the panes, or ask whether to implement directly. A small bug fix or one-off edit (not framed as 開發/實作 a feature) → write directly and self-review. Split across providers → `/dispatch`. If the Emperor names a provider, obey.
 
 ## Notepad 持久化
 
-做出重要技術決策（A 而非 B 及原因）、踩坑並解決（問題＋根因＋解法）、發現待後續處理事項、收到使用者重要指示或偏好時，用 Edit 追記到 `.herdr/notepad.md`（目錄不存在先建立），格式 `## [HH:MM] 標題` 加 1–3 行內容。不記日常工具操作、state.json 已追蹤的步驟進度、可從程式碼推導的資訊。收到 `[COMPACT RECOVERY]` 提示時立即 `Read(".herdr/compact-briefing.md")`。生命週期（清空／歸檔）見 `/herdr-dev`。
+做出重要技術決策（A 而非 B 及原因）、踩坑並解決（問題＋根因＋解法）、發現待後續處理事項、收到使用者重要指示或偏好時，用 Edit 追記到 `.herdr/notepad.md`（目錄不存在先建立），格式 `## [HH:MM] 標題` 加 1–3 行內容。不記日常工具操作、state.json 已追蹤的步驟進度、可從程式碼推導的資訊。context 壓縮後重讀 `.herdr/state.json` 與 `.herdr/notepad.md` 接續脈絡。生命週期（清空／歸檔）見 `/herdr-dev`。
 
 ## Podman
 
@@ -56,7 +56,7 @@ grill-with-docs、to-spec、to-tickets、handoff 設了 `disable-model-invocatio
 - 程式碼審查：只用 /linus-review。
 - 全 repo 資安稽核（security-audit）：只在使用者明確要求「security audit／全面資安稽核」時跑 full audit mode；日常 diff 審查與 herdr 流程內不觸發（herdr reviewer 已內含它的判定門檻）。
 - 需求鍛造（需求模糊、要寫 spec）：建議使用者跑 `/grill-with-docs`／`/to-spec`。
-- 開需求進 Linear（不論來源是 to-spec 產出、grill-with-docs 磨出來、既有 issue 要拆解、或直接手動診斷出的缺陷）：一律經 to-tickets 拆成有明確 blocking edges 的 tracer-bullet ticket 後才發布，不要繞過它直接 save_issue 開一張籠統的票。**發布由皇上自己跑 `/to-tickets`**：臣只備票內容（標題、說明、驗收標準、blocking 關係），不自行 save_issue 開票；若 to-tickets 呼叫不到，先回報並交出草稿，不得手工補位發布。Linear project（save_project）與需求文件不受此限。
+- 開需求進 Linear（不論來源是 to-spec 產出、grill-with-docs 磨出來、既有 issue 要拆解、或直接手動診斷出的缺陷）：一律經 to-tickets 拆成有明確 blocking edges 的 tracer-bullet ticket 後才發布，不要繞過它直接 save_issue 開一張籠統的票。**發布由皇上自己跑 `/to-tickets`**：臣只備票內容（標題、說明、驗收標準、blocking 關係），不自行 save_issue 開票；若 to-tickets 呼叫不到，先回報並交出草稿，不得手工補位發布。Linear project（save_project）與需求文件（含 `/to-spec` 發布的 spec 母票）不受此限。
 - 結構化除錯：用 diagnosing-bugs。
-- 對話交接：建議使用者跑 `/handoff`（與 .herdr/compact-briefing 互補，不取代）。
+- 對話交接：建議使用者跑 `/handoff`（與 `.herdr/notepad.md` 互補，不取代）。
 - ui-ux-pro-max：一律用 `python3 ~/.claude/skills/ui-ux-pro-max/scripts/search.py`，不要加 `-I`；其餘注意事項見 README 本地修補。

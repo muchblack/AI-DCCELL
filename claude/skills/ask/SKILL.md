@@ -17,7 +17,11 @@ herdr agent list 2>/dev/null
 - Returns an entry whose `cwd` matches this project's root and whose `agent`
   matches the requested target name (e.g. `codex`, `agy`, `opencode`) →
   use "Herdr Transport" below.
-- No live herdr match → delegation isn't available in this project. Say so;
+- No legacy match → check herdr-app (`pgrep -af herdr-core`, `herdr-core ls`)
+  before concluding herdr isn't running; for either runtime, prefer
+  `~/.claude/skills/herdr-dev/scripts/herdr-ctl.sh` + `wait-result.sh`
+  (see `herdr-dev` → Herdr Dispatch Pattern).
+- No live match on either runtime → delegation isn't available in this project. Say so;
   don't guess a transport or silently fall back to doing the work solo
   without flagging the gap.
 

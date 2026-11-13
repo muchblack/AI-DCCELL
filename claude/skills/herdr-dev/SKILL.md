@@ -42,10 +42,8 @@ panes — one CLI cannot both write and review the same change.
 ## Step 0 — Requirement Gate (always runs first)
 
 1. Linear issue id/identifier given (e.g. `TWC-42`) → `get_issue`, verify it
-   reads, proceed. This is the primary case — `/to-spec` publishes specs
-   directly as Linear issues now.
-2. Doc path given → verify it exists and is readable, proceed. (Still
-   supported for pre-existing local specs.)
+   reads, proceed.
+2. Doc path given → verify it exists and is readable, proceed.
 3. Neither → ask the user (AskUserQuestion, 四段式) whether one exists:
    - **Has a Linear issue** → ask for the id, `get_issue`, proceed.
    - **Has a local document** → ask for the path, read it, proceed.
@@ -161,13 +159,9 @@ hc backend notes (verified 2026-11-04):
 
 **The installed `herdr` / `hc` binaries are the ground truth for their own
 syntax — before changing `scripts/herdr-ctl.sh`, run `herdr --help`,
-`hc --help` and `hc <cmd> --help` to confirm current flags. This section was corrected once already after the documented
-web-docs syntax (`send_text`, `send_input`, separate `prompt`+`wait --until
-done`) turned out not to match the installed binary (real CLI uses
-`send-text`/`send-keys` with hyphens, and `agent prompt --wait` does the
-submit+wait atomically). If a future `herdr` / `hc` upgrade changes flags again,
-re-verify the same way and fix the adapter (and its test) — nothing else
-in this skill names backend flags.**
+`hc --help` and `hc <cmd> --help` to confirm current flags; the web docs
+have diverged from the binary before. Flag changes are fixed in the adapter
+(and its test) only — nothing else in this skill names backend flags.**
 
 Long briefs go through files, not CLI args (no shell-quoting hell):
 
@@ -195,11 +189,10 @@ $CTL prompt <reviewer> "Read .herdr-dev/tasks/<slug>/review-brief.md and execute
 ```
 
 **Always wait with `wait-result.sh`, never with a bare `$CTL wait` /
-a backend's own prompt-and-wait / `approve-loop.sh`** (2026-10-15, VIN-127～129). Each of those
+a backend's own prompt-and-wait / `approve-loop.sh`**. Each of those
 returns on the first idle/done/blocked flicker; agy and codex flicker often,
 and every early return costs main a full-context turn just to learn "still
-working" — that was ~15–20 wasted turns over three tickets and a large share
-of the Claude 5h quota. `wait-result.sh` prints exactly one line:
+working". `wait-result.sh` prints exactly one line:
 `RESULT_READY` → read the file and continue; `NEEDS_REVIEW: <cmd>` → judge the
 command (below), approve or `esc`, re-run the script; `BLOCKED` → `$CTL read`
 the pane; `SETTLED_NO_RESULT` → the pane stopped ~2 min without writing this
@@ -232,8 +225,7 @@ When the call returns, check `$CTL status <worker>`:
   <key>` (e.g. `enter`, `esc`, `y`); if it is a requirement question, ask
   the Emperor. **Prefer `scripts/approve-loop.sh` for this** (see below) instead
   of approving by hand. **This is normally a multi-round loop, not a one-shot**:
-  send the key, then `$CTL wait <worker> <seconds>` again (can
-  be a short foreground wait, not necessarily backgrounded) — expect several
+  send the key, then re-run `wait-result.sh` — expect several
   blocked→approve→blocked cycles in a row (observed: one per new command
   prefix, e.g. `git diff` and `git show` needed separate approvals; some
   CLIs offer a "always allow in this conversation for this prefix" option,
@@ -289,7 +281,7 @@ When the call returns, check `$CTL status <worker>`:
   `NEEDS_REVIEW`) and a wrapped tail escaped the allowlist. It now joins
   continuation lines up to the blank/option line before checking.
 - timed out / `agent_prompt_stalled` (TUI) → read the pane; genuine progress →
-  `$CTL wait <worker> <seconds>` again; stalled → treat as dead
+  re-run `wait-result.sh`; stalled → treat as dead
   job: salvage on-disk work via git, re-dispatch the same brief.
   **`agent_prompt_stalled` specifically also fires if you prompt while the
   pane is sitting at an approval dialog** (a new prompt doesn't register as
@@ -345,8 +337,7 @@ When the call returns, check `$CTL status <worker>`:
   as an advisory pre-signal: it can make main tighten the brief or point
   the reviewer at a spot, but it never gates, never skips the reviewer
   round, and is never cited as a reason. No key or call failure → skip
-  silently. (Reviewer round replaced the Jev-only pre-flight 2026-10-12;
-  Jev returned as a pre-signal on the direct API 2026-10-14.)
+  silently.
 - **Trust git, not narration.** A report file is a claim. Before acting:
   `git log <branch> --oneline --stat`, spot-check key claimed changes, and
   run the reported test commands independently. **Specifically check
@@ -380,13 +371,8 @@ When the call returns, check `$CTL status <worker>`:
 - **Merge only a clean worktree.** `git -C <worker_worktree> status
   --porcelain` must be empty before merge — uncommitted deliverables get
   committed by the worker, strays get deleted with the Emperor's OK.
-- **A long-lived pane may carry baked-in habits from a prior role that no
-  brief text fully overrides** (observed: a codex pane previously run under
-  a different orchestration setup tried to submit a plan review via `ask codex` mid-task — not
-  requested by the brief, not in this project's role config, just residual
-  session context/instinct from its old job; `ask` failed since this flow
-  doesn't provide it, and the worker recovered on its own after ~1 extra
-  round). An empty `$CTL read` screen does **not** prove a clean
+- **A long-lived pane may carry habits from a prior role that no brief
+  text fully overrides** (e.g. trying to request a review via `ask`). An empty `$CTL read` screen does **not** prove a clean
   conversation context — it only proves nothing is currently rendered.
   There is no reliable cross-provider "clear" command; if this matters for
   a given dispatch, consider adding one explicit override line to the brief
@@ -435,7 +421,7 @@ When the call returns, check `$CTL status <worker>`:
   a fix (e.g. widening the compose mount) on their behalf.
 - **Clean up worktrees and the dev branch automatically once development is
   complete and the Linear issue is Done** (Phase 5; standing order from the
-  Emperor, 2026-09-24, branch deletion added 2026-10-29 — do not ask again).
+  Emperor — do not ask).
   `git worktree remove` the worker/reviewer paths, delete flow-created
   scratch dirs under `.herdr-dev/`, then `git branch -d herdr/dev-<slug>` —
   the merge commits on main are the record, the branch is not kept. Check
