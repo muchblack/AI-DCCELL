@@ -148,6 +148,12 @@
   ```
 - **Herdr 沙盒環境變數**：在 herdr agent session 中若遇 `$HOME` 沙盒限制，需帶入主機 `$HOME` 前綴以避免 Podman 連線失敗。
 - **Node.js**：直接於主機端執行（無需進入容器）。
+- **PHP 單行指令禁止內嵌 `=>`**：不要用 `php artisan tinker --execute=`、`php -r` 在命令列塞 PHP。引號一失手，`=>`／`->` 就變成 shell 的 `>` 重導向，在專案根目錄留下 `null,`、`true,`、`[]`、`event_title` 這類空檔。一律用加引號的 heredoc 餵 stdin（`-i` 必帶）：
+  ```bash
+  HOME=/Users/huai-chitzeng podman exec -i -w /var/www/html/{project_path} php-fpm php artisan tinker <<'PHP'
+  App\Models\Members::where('id', 1)->update(['email' => null]);
+  PHP
+  ```
 
 ## 外部 Skill 優先序（mattpocock/skills）
 
